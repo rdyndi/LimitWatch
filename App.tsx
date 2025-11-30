@@ -21,10 +21,22 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
-  Square
+  Square,
+  Mail,
+  Lock,
+  User as UserIcon
 } from 'lucide-react';
+import { User } from 'firebase/auth';
 import { AppState, CreditCard, Transaction, Installment, Saving, TransactionType, ViewMode } from './types';
-import { subscribeToAppState, saveAppState } from './services/firebase';
+import { 
+  subscribeToAppState, 
+  saveAppState, 
+  subscribeToAuth, 
+  loginWithGoogle, 
+  loginWithEmail, 
+  registerWithEmail, 
+  logout 
+} from './services/firebase';
 
 // --- Utility Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -219,15 +231,12 @@ const TransactionForm = ({
       let installment: Installment | undefined = undefined;
 
       if (!isEditMode && type === TransactionType.EXPENSE && isInstallment && installmentMonths) {
-          // Logic: Jika tanggal transaksi melebihi tanggal jatuh tempo, 
-          // maka start cicilan harus dihitung mulai bulan depan.
           let instStartDate = date;
           const card = cards.find(c => c.id === cardId);
           
           if (card && card.dueDay) {
               const tDate = new Date(date);
               const tDay = tDate.getDate();
-              // Jika transaksi setelah jatuh tempo, geser start cicilan ke bulan depan
               if (tDay > card.dueDay) {
                   tDate.setMonth(tDate.getMonth() + 1);
                   instStartDate = tDate.toISOString().split('T')[0];
@@ -243,7 +252,7 @@ const TransactionForm = ({
               totalMonths: totalMonths,
               monthlyAmount: Number(amount) / totalMonths,
               monthsPaid: 0,
-              startDate: instStartDate // Use adjusted date
+              startDate: instStartDate
           };
       }
 
@@ -282,7 +291,6 @@ const TransactionForm = ({
             <input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full border rounded-lg p-2" placeholder={type === TransactionType.EXPENSE ? "Beli Makan, Tiket..." : "Bayar tagihan..."} />
           </div>
 
-          {/* Form Khusus Pembayaran */}
           {type === TransactionType.PAYMENT && (
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -345,7 +353,6 @@ const TransactionForm = ({
             <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full border rounded-lg p-2 font-bold" readOnly={type === TransactionType.PAYMENT && useSavings} />
           </div>
 
-          {/* Opsi Cicilan - Hanya muncul jika transaksi baru & tipe pengeluaran */}
           {!isEditMode && type === TransactionType.EXPENSE && (
               <div className="border-t pt-4 mt-2">
                   <div className="flex items-center gap-2 mb-3">
@@ -503,9 +510,142 @@ const InstallmentForm = ({ cards, onSave, onCancel }: { cards: CreditCard[], onS
     )
 }
 
+const AuthScreen = ({ onLoginSuccess }: { onLoginSuccess: (user: User) => void }) => {
+  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const user = await loginWithGoogle();
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err.message || 'Gagal login dengan Google');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+      let user;
+      if (isRegister) {
+        user = await registerWithEmail(email, password);
+      } else {
+        user = await loginWithEmail(email, password);
+      }
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err.message || 'Gagal autentikasi email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="p-8 text-center bg-primary text-white">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-white/20 rounded-full">
+              <Wallet size={40} />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold">DompetCerdas</h1>
+          <p className="text-blue-100 mt-2">Kelola Kartu Kredit & Hutang dengan Bijak</p>
+        </div>
+        
+        <div className="p-8">
+          {error && (
+            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4 flex items-center gap-2">
+              <AlertTriangle size={16} /> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleEmailAuth} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none" 
+                  placeholder="nama@email.com"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none" 
+                  placeholder="******"
+                  required
+                  minLength={6}
+                />
+              </div>
+            </div>
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full bg-slate-800 text-white py-2.5 rounded-lg font-medium hover:bg-slate-900 transition-colors disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (isRegister ? 'Daftar Akun Baru' : 'Masuk')}
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px bg-slate-200 flex-1"></div>
+            <span className="text-xs text-slate-400 font-medium">ATAU</span>
+            <div className="h-px bg-slate-200 flex-1"></div>
+          </div>
+
+          <button 
+            onClick={handleGoogleLogin} 
+            disabled={isLoading}
+            className="w-full border border-slate-300 bg-white text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Masuk dengan Google
+          </button>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'} 
+            <button onClick={() => setIsRegister(!isRegister)} className="text-primary font-bold ml-1 hover:underline">
+              {isRegister ? 'Login disini' : 'Daftar disini'}
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App Logic ---
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
   const [view, setView] = useState<ViewMode>('DASHBOARD');
   const [data, setData] = useState<AppState>(initialState);
   
@@ -535,15 +675,28 @@ export default function App() {
     onConfirm: () => {},
   });
 
-  // --- Core Calculation Logic (Moved up for shared access) ---
+  // --- Auth Subscription ---
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth((currentUser) => {
+      setUser(currentUser);
+      setIsAuthChecking(false);
+      
+      // If no user, stop loading data spin (handled by view transition)
+      if (!currentUser) {
+        setIsLoading(false); 
+      } else {
+        setIsLoading(true); // Start loading data for this user
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- Core Calculation Logic ---
   
   const calculatePeriodBill = (cardId: string, month: number, year: number) => {
-      // Get Card Details for Due Date logic
       const card = data.cards.find(c => c.id === cardId);
-      // If no due day set, assume end of month (standard calendar)
       const dueDay = card?.dueDay || 31;
 
-      // 1. One-time Expenses (Non-Installment) with Due Date Shift Logic
       const oneTimeSum = data.transactions
           .filter(t => {
               if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
@@ -553,8 +706,6 @@ export default function App() {
               const tMonth = tDate.getMonth();
               const tYear = tDate.getFullYear();
 
-              // Calculate "Billing Period" based on Due Date
-              // If transaction date > dueDay, it belongs to the NEXT month's bill
               let billingMonth = tMonth;
               let billingYear = tYear;
 
@@ -570,7 +721,6 @@ export default function App() {
           })
           .reduce((sum, t) => sum + t.amount, 0);
 
-      // 2. Installment Portions
       const installmentSum = data.installments
           .filter(inst => {
                 if (inst.cardId !== cardId) return false;
@@ -580,12 +730,10 @@ export default function App() {
                 const currentTotalMonths = (year * 12) + month;
                 const endTotalMonths = startTotalMonths + inst.totalMonths;
 
-                // Check if current month is within installment period
                 return currentTotalMonths >= startTotalMonths && currentTotalMonths < endTotalMonths;
           })
           .reduce((sum, inst) => sum + inst.monthlyAmount, 0);
 
-      // 3. Payments made specifically for this period
       const paymentSum = data.transactions
           .filter(t => 
               t.cardId === cardId &&
@@ -596,45 +744,43 @@ export default function App() {
           )
           .reduce((sum, t) => sum + t.amount, 0);
 
-      // Result is "Remaining Bill" for this period
       return (oneTimeSum + installmentSum) - paymentSum;
   };
 
-  // 1. Realtime Sync Subscription (Replace LocalStorage/Drive)
+  // 1. Realtime Sync Subscription (User Specific)
   useEffect(() => {
-    // Subscribe to Firebase Firestore on mount
-    const unsubscribe = subscribeToAppState((newData) => {
-      // Flag this as a remote update to prevent echo-save
+    if (!user) return;
+
+    // Subscribe to Firebase Firestore for the specific User ID
+    const unsubscribe = subscribeToAppState(user.uid, (newData) => {
       isRemoteUpdate.current = true;
       setData(newData);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
-  // 2. Auto-Save to Firebase (Replacing LocalStorage logic)
+  // 2. Auto-Save to Firebase (User Specific)
   useEffect(() => {
-    if (isLoading) return; // Don't overwrite cloud data with empty state on initial load
+    if (isLoading || !user) return; 
     
-    // If the update came from Firebase (isRemoteUpdate), ignore saving it back
     if (isRemoteUpdate.current) {
       isRemoteUpdate.current = false;
       return;
     }
 
-    // Debounce save to prevent spamming writes on every keypress/change
     const timer = setTimeout(() => {
-      saveAppState(data);
+      saveAppState(user.uid, data);
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [data, isLoading]);
+  }, [data, isLoading, user]);
 
 
-  // 3. Sync Installments Progress (Client side derivation)
+  // 3. Sync Installments Progress
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !user) return;
 
     const syncInstallmentProgress = () => {
         let hasUpdates = false;
@@ -668,14 +814,12 @@ export default function App() {
         });
 
         if (hasUpdates) {
-            // Note: This setData will trigger the Save effect, which is correct
-            // because this is a client-side calculated update that should persist.
             setData(prev => ({ ...prev, installments: newInstallments }));
         }
     };
 
     syncInstallmentProgress();
-  }, [data.transactions, data.cards]); 
+  }, [data.transactions, data.cards, user, isLoading]); 
 
   // Actions
   const addOrUpdateCard = (card: CreditCard) => {
@@ -722,12 +866,11 @@ export default function App() {
             newInstallments = [result.installment, ...newInstallments];
         }
 
-        // 3. Handle Savings Deduction (If payment used savings)
+        // 3. Handle Savings Deduction
         let newSavings = [...prev.savings];
         if (result.usedSavingsAmount && result.usedSavingsAmount > 0) {
             let remainingToDeduct = result.usedSavingsAmount;
             
-            // Sort by date ascending (FIFO) or just filter available
             const availableSavings = newSavings
                 .filter(s => s.cardId === result.transaction.cardId && !s.isTransferred)
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -736,19 +879,15 @@ export default function App() {
                 if (remainingToDeduct <= 0) break;
 
                 if (saving.amount <= remainingToDeduct) {
-                    // Consume full saving entry
                     saving.isTransferred = true;
                     saving.note += ` (Terpakai: ${formatDate(result.transaction.date)})`;
                     remainingToDeduct -= saving.amount;
                 } else {
-                    // Partial consumption: Split the saving
-                    // 1. Update existing to represent the USED part
                     const originalAmount = saving.amount;
                     saving.amount = remainingToDeduct;
                     saving.isTransferred = true;
                     saving.note += ` (Bagian terpakai)`;
                     
-                    // 2. Create new saving for the REMAINDER
                     const newSavingEntry: Saving = {
                         id: generateId(),
                         cardId: saving.cardId,
@@ -853,7 +992,7 @@ export default function App() {
                   type: TransactionType.PAYMENT,
                   category: 'Auto-Transfer',
                   targetPeriod: { month: new Date().getMonth(), year: new Date().getFullYear() },
-                  isValidated: true // Auto-generated payments assumed valid
+                  isValidated: true
               };
               return {
                   ...prev,
@@ -864,7 +1003,7 @@ export default function App() {
       }
   };
 
-  // Derived Data
+  // Derived Data & Views Calculations (Same as before)
   const getCardBalance = (cardId: string) => {
     const expenses = data.transactions
       .filter(t => t.cardId === cardId && t.type === TransactionType.EXPENSE)
@@ -888,7 +1027,7 @@ export default function App() {
   const transactionsByMonth = useMemo(() => {
     const grouped: Record<string, Transaction[]> = {};
     data.transactions.forEach(t => {
-        const key = t.date.substring(0, 7); // YYYY-MM
+        const key = t.date.substring(0, 7);
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(t);
     });
@@ -897,34 +1036,25 @@ export default function App() {
 
   // --- Views ---
 
+  // Reused Dashboard, TransactionsView, etc. from previous context.
+  // I will just include them directly in the return below for clarity, or reuse if they were separate components.
+  // Since they were defined inside App in the previous file, I will keep them here.
+
   const Dashboard = () => {
     const today = new Date();
     const upcomingBills = data.cards
         .map(c => {
             const dueDay = c.dueDay || 1;
-            
-            // Calculate Next Due Date
             let targetDate = new Date(today.getFullYear(), today.getMonth(), dueDay);
-            
-            // If today is past due date, looking at next month's bill
-            // BUT, if we are on the 22nd and due date is 21st, the bill for "This Month" is technically due next month?
-            // Let's keep the reminder simple: "Next Payment Deadline"
             if (today.getDate() > dueDay) {
                 targetDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
             }
-            
             const diffTime = targetDate.getTime() - today.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            // CALCULATE PERIOD BILL: Syncs exactly with Yearly Report
-            // The bill due on 'targetDate' corresponds to the "Billing Month" associated with that due date.
-            // Usually, if due date is Jan 21st, it pays for the "January Bill" (which covers Dec 22 - Jan 21).
-            // So we pass targetDate.getMonth() and Year.
             const billAmount = calculatePeriodBill(c.id, targetDate.getMonth(), targetDate.getFullYear());
-
             return { ...c, currentDebt: Math.max(0, billAmount), nextDueDate: targetDate, daysLeft: diffDays };
         })
-        .filter(c => c.currentDebt > 0) // Only show if there is a bill for this period
+        .filter(c => c.currentDebt > 0)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
     return (
@@ -1023,7 +1153,6 @@ export default function App() {
           ) : (
               <div className="space-y-8">
                   {transactionsByMonth.map(([month, trans]) => {
-                      // Group transactions by card within this month
                       const cardGroups: Record<string, Transaction[]> = {};
                       trans.forEach(t => {
                           if (!cardGroups[t.cardId]) cardGroups[t.cardId] = [];
@@ -1060,7 +1189,6 @@ export default function App() {
                                                     `}
                                                   >
                                                       <div className="flex items-center gap-4">
-                                                          {/* Checkbox Validasi */}
                                                           <button 
                                                             type="button"
                                                             onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }}
@@ -1161,9 +1289,8 @@ export default function App() {
                                   <tr key={month} className="hover:bg-slate-50">
                                       <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white border-r">{monthName}</td>
                                       {data.cards.map(card => {
-                                          // USE THE SHARED FUNCTION
                                           const amount = calculatePeriodBill(card.id, month, selectedYear);
-                                          monthlyTotalAllCards += Math.max(0, amount); // Only sum positive debts for total
+                                          monthlyTotalAllCards += Math.max(0, amount);
                                           return (
                                               <td key={card.id} className="px-4 py-3 text-slate-600">
                                                   {amount > 0 ? (
@@ -1361,7 +1488,6 @@ export default function App() {
 
                   return (
                       <div key={inst.id} className="bg-white p-5 rounded-xl shadow-sm border relative group">
-                          {/* Delete Button (Always visible on mobile via absolute positioning and z-index) */}
                           <button 
                              onClick={() => handleDeleteInstallmentClick(inst.id)}
                              className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors p-1"
@@ -1439,7 +1565,6 @@ export default function App() {
                         <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center mb-4">
                             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: card.color }}></div>
                         </div>
-                        {/* Changed visibility logic: always visible on mobile/default, hover only on MD screens if desired, but for safety kept visible for now or use md:opacity-0 */}
                         <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-2">
                              <button onClick={() => { setEditingCard(card); setCardModalOpen(true); }} className="p-1.5 bg-white/10 hover:bg-white/20 rounded"><Edit2 size={14} /></button>
                              <button onClick={() => handleDeleteCardClick(card.id)} className="p-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded"><Trash2 size={14} /></button>
@@ -1464,15 +1589,27 @@ export default function App() {
       </div>
   );
 
-  // --- Layout ---
+  // --- Layout Render ---
+
+  if (isAuthChecking) {
+     return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <Loader2 className="animate-spin text-primary" size={48} />
+        </div>
+     );
+  }
+
+  if (!user) {
+    return <AuthScreen onLoginSuccess={setUser} />;
+  }
 
   if (isLoading) {
       return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
               <div className="text-center">
                   <Loader2 className="animate-spin mx-auto text-primary mb-4" size={48} />
-                  <p className="text-slate-500 font-medium">Menghubungkan ke Database...</p>
-                  <p className="text-xs text-slate-400 mt-2">Sinkronisasi Realtime Firebase</p>
+                  <p className="text-slate-500 font-medium">Memuat Data Keuangan...</p>
+                  <p className="text-xs text-slate-400 mt-2">Menghubungkan ke Akun Anda</p>
               </div>
           </div>
       )
@@ -1510,22 +1647,22 @@ export default function App() {
         </nav>
         
         <div className="p-4 border-t bg-slate-50">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                        <Cloud size={16} />
+            <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                   <UserIcon size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">Firebase Sync</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        <span>Live Connected</span>
-                    </p>
+                    <p className="text-sm font-bold text-slate-800 truncate">{user.displayName || user.email?.split('@')[0]}</p>
+                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
                 </div>
             </div>
+            <button onClick={logout} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                <LogOut size={14} /> Keluar Aplikasi
+            </button>
         </div>
       </aside>
 
-      {/* Mobile Nav (Bottom) */}
+      {/* Mobile Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 z-20 text-xs text-slate-600 overflow-x-auto">
           <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center min-w-[50px] ${view === 'DASHBOARD' && 'text-primary'}`}><LayoutDashboard size={20} /> Dash</button>
           <button onClick={() => setView('TRANSACTIONS')} className={`flex flex-col items-center min-w-[50px] ${view === 'TRANSACTIONS' && 'text-primary'}`}><List size={20} /> Trans</button>
@@ -1535,10 +1672,10 @@ export default function App() {
       </div>
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 pb-20 md:pb-8 overflow-y-auto relative">
-        <div className="md:hidden absolute top-4 right-4 z-0">
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-green-100 text-green-700`}>
-                <Cloud size={12} /> Live
-            </div>
+        <div className="md:hidden absolute top-4 right-4 z-0 flex gap-2">
+            <button onClick={logout} className="bg-white p-2 rounded-full shadow-sm text-slate-500 hover:text-red-500">
+                <LogOut size={18} />
+            </button>
         </div>
 
         {view === 'DASHBOARD' && <Dashboard />}
@@ -1554,7 +1691,6 @@ export default function App() {
       {isSavingModalOpen && <SavingForm cards={data.cards} onSave={addSaving} onCancel={() => setSavingModalOpen(false)} />}
       {isInstallmentModalOpen && <InstallmentForm cards={data.cards} onSave={addInstallment} onCancel={() => setInstallmentModalOpen(false)} />}
       
-      {/* Confirmation Modal */}
       <ConfirmDialog 
          isOpen={confirmModal.isOpen} 
          title={confirmModal.title} 

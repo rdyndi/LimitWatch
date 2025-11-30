@@ -38,7 +38,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// --- Auth Functions (Optional/Future Use) ---
+// --- Auth Functions ---
 
 export const loginWithGoogle = async () => {
   try {
@@ -84,16 +84,17 @@ export const subscribeToAuth = (callback: (user: User | null) => void) => {
 
 // --- Database Functions ---
 
-// Use a fixed global document for app data synchronization since no user ID is passed from App.tsx
-const GLOBAL_DOC_REF = doc(db, "app_data", "main_data");
+export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
+  if (!userId) return () => {};
 
-export const subscribeToAppState = (onUpdate: (data: AppState) => void) => {
-  // Listen for realtime updates on the global document
-  const unsubscribe = onSnapshot(GLOBAL_DOC_REF, (docSnap) => {
+  // Data is now stored under "users/{userId}" document
+  const userDocRef = doc(db, "users", userId);
+
+  const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
       onUpdate(docSnap.data() as AppState);
     } else {
-      console.log("No data found, starting with empty state.");
+      console.log("No user data found, creating new empty state.");
       // Send empty state so the app stops loading
       onUpdate({
         cards: [],
@@ -108,9 +109,12 @@ export const subscribeToAppState = (onUpdate: (data: AppState) => void) => {
   return unsubscribe;
 };
 
-export const saveAppState = async (data: AppState) => {
+export const saveAppState = async (userId: string, data: AppState) => {
+  if (!userId) return;
+  
   try {
-    await setDoc(GLOBAL_DOC_REF, data);
+    const userDocRef = doc(db, "users", userId);
+    await setDoc(userDocRef, data);
   } catch (error) {
     console.error("Error saving to Firebase:", error);
   }
