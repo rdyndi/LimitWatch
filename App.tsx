@@ -1524,7 +1524,7 @@ const App: React.FC = () => {
       <div className="md:hidden fixed inset-0 bg-slate-50 font-sans flex flex-col">
         
         {/* --- Header (Shared across tabs) --- */}
-        <header className="flex-none bg-white px-5 pt-8 pb-4 z-20 shadow-sm relative">
+        <header className="flex-none bg-white px-5 pt-8 pb-4 z-20 shadow-sm relative pt-safe">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-slate-500 text-sm">Selamat Datang,</p>
