@@ -54,7 +54,11 @@ import {
   Bell,
   Clock,
   BellRing,
-  Check
+  Check,
+  Settings,
+  Shield,
+  ToggleLeft,
+  ToggleRight
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -96,6 +100,10 @@ const App: React.FC = () => {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState<NotificationItem | null>(null);
+  
+  // Profile Menu State (Mobile)
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isNotifEnabled, setIsNotifEnabled] = useState(true); // Dummy state for toggle
   
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile'>('home');
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
@@ -1577,7 +1585,10 @@ const App: React.FC = () => {
                 {/* Notification Bell (Mobile) */}
                 <div className="relative">
                     <button 
-                        onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                        onClick={() => {
+                            setShowNotifDropdown(!showNotifDropdown);
+                            setShowProfileMenu(false);
+                        }}
                         className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-200 active:bg-slate-50 relative"
                     >
                         <BellRing size={20} />
@@ -1616,12 +1627,66 @@ const App: React.FC = () => {
                     )}
                 </div>
 
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
-                {user.photoURL ? (
-                    <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                    <UserIcon size={20} className="text-slate-400" />
-                )}
+                {/* Profile Photo (Dropdown Toggle) */}
+                <div className="relative">
+                    <button 
+                        onClick={() => {
+                             setShowProfileMenu(!showProfileMenu);
+                             setShowNotifDropdown(false);
+                        }}
+                        className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 active:scale-95 transition-transform"
+                    >
+                        {user.photoURL ? (
+                            <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <UserIcon size={20} className="text-slate-400" />
+                        )}
+                    </button>
+                    
+                    {/* Quick Profile Menu Dropdown */}
+                    {showProfileMenu && (
+                        <div className="absolute right-0 top-full mt-3 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                             <div className="p-4 bg-slate-50 border-b border-slate-100">
+                                 <p className="font-bold text-slate-800 text-sm truncate">{user.displayName || 'Pengguna'}</p>
+                                 <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                             </div>
+                             
+                             <div className="p-2 space-y-1">
+                                 <button 
+                                     onClick={() => {
+                                         setMobileTab('profile');
+                                         setShowProfileMenu(false);
+                                     }}
+                                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-lg text-slate-700 text-sm transition-colors"
+                                 >
+                                     <Settings size={16} /> <span>Pengaturan Akun</span>
+                                 </button>
+                                 
+                                 <button 
+                                     onClick={() => setIsNotifEnabled(!isNotifEnabled)}
+                                     className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 rounded-lg text-slate-700 text-sm transition-colors"
+                                 >
+                                     <div className="flex items-center gap-3">
+                                         <Bell size={16} /> <span>Notifikasi</span>
+                                     </div>
+                                     {isNotifEnabled ? (
+                                         <ToggleRight size={24} className="text-green-500" />
+                                     ) : (
+                                         <ToggleLeft size={24} className="text-slate-400" />
+                                     )}
+                                 </button>
+                                 
+                                 <div className="h-px bg-slate-100 my-1"></div>
+                                 
+                                 <button 
+                                     onClick={() => logout()}
+                                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-50 rounded-lg text-red-600 text-sm transition-colors"
+                                 >
+                                     <LogOut size={16} /> <span>Keluar</span>
+                                 </button>
+                             </div>
+                        </div>
+                    )}
                 </div>
             </div>
           </div>
