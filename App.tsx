@@ -52,12 +52,27 @@ import {
   ChevronUp,
   AlertCircle,
   Bell,
-  Clock
+  Clock,
+  BellRing,
+  Check
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+// Helper to parse "Rp 10.000" back to 10000
+const getNumericValue = (val: string) => {
+    return parseInt(val.replace(/\D/g, '') || '0', 10);
+};
+
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+interface NotificationItem {
+  id: string;
+  type: 'urgent' | 'warning' | 'info';
+  title: string;
+  message: string;
+  date: string;
+}
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -74,7 +89,13 @@ const App: React.FC = () => {
   const [cardModalOpen, setCardModalOpen] = useState(false);
   const [savingModalOpen, setSavingModalOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
-  const [batchPayModalOpen, setBatchPayModalOpen] = useState(false); // NEW: Batch Pay Modal
+  const [batchPayModalOpen, setBatchPayModalOpen] = useState(false);
+  
+  // Notification States
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<NotificationItem | null>(null);
   
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile'>('home');
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
@@ -86,6 +107,8 @@ const App: React.FC = () => {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const minSwipeDistance = 50;
+  const maxVerticalDistance = 30; // Maximum allowed vertical scroll during swipe
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   // Auth States
   const [email, setEmail] = useState('');
@@ -101,7 +124,7 @@ const App: React.FC = () => {
   const [txDesc, setTxDesc] = useState('');
   const [txCardId, setTxCardId] = useState('');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
-  const [payFromSavings, setPayFromSavings] = useState(false); // NEW: Option to pay from savings manually
+  const [payFromSavings, setPayFromSavings] = useState(false);
   
   // Installment Conversion State
   const [txIsInstallment, setTxIsInstallment] = useState(false);
@@ -149,22 +172,104 @@ const App: React.FC = () => {
     }
   }, [data.cards, txCardId, savingCardId]);
 
+  // Helper for Input Currency Formatting
+  const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
+    const numericVal = getNumericValue(val);
+    if(numericVal === 0 && val.replace(/\D/g, '') === '') {
+        setter('');
+        return;
+    }
+    setter(formatIDR(numericVal));
+  };
+
+  // --- NOTIFICATION LOGIC ---
+  useEffect(() => {
+    if (data.cards.length === 0) return;
+
+    const newNotifications: NotificationItem[] = [];
+    const today = new Date();
+
+    data.cards.forEach(card => {
+        if (card.dueDay) {
+            const currentDay = today.getDate();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            let targetMonth = currentMonth;
+            let targetYear = currentYear;
+            
+            if (card.dueDay < currentDay) {
+                targetMonth++;
+                if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+            }
+            
+            const dueDate = new Date(targetYear, targetMonth, card.dueDay);
+            const diffTime = dueDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 3 && diffDays >= 0) {
+                newNotifications.push({
+                    id: `urgent-${card.id}`,
+                    type: 'urgent',
+                    title: 'Jatuh Tempo Segera!',
+                    message: `Kartu ${card.name} jatuh tempo dalam ${diffDays === 0 ? 'HARI INI' : `${diffDays} hari`}. Segera lakukan pembayaran.`,
+                    date: new Date().toISOString()
+                });
+            } else if (diffDays <= 7 && diffDays > 3) {
+                newNotifications.push({
+                    id: `warning-${card.id}`,
+                    type: 'warning',
+                    title: 'Pengingat Tagihan',
+                    message: `Tagihan ${card.name} jatuh tempo dalam ${diffDays} hari lagi.`,
+                    date: new Date().toISOString()
+                });
+            }
+        }
+    });
+
+    setNotifications(newNotifications);
+
+    // Trigger Toast for most urgent notification if exists
+    const urgentNotif = newNotifications.find(n => n.type === 'urgent');
+    if (urgentNotif) {
+        setToastMessage(urgentNotif);
+        setShowToast(true);
+        // Auto hide toast after 5 seconds
+        const timer = setTimeout(() => setShowToast(false), 5000);
+        return () => clearTimeout(timer);
+    }
+
+  }, [data.cards]);
+
   // --- SWIPE HANDLERS ---
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null); // Reset
+    setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
   };
 
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart || !touchEnd || !touchStartY) return;
     
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    const touchEndY = e.changedTouches[0].clientY;
+    const horizontalDistance = touchStart - touchEnd;
+    const verticalDistance = Math.abs(touchStartY - touchEndY);
+    
+    // Check if swipe is horizontal dominant
+    if (verticalDistance > maxVerticalDistance) {
+        // This was likely a scroll, ignore swipe
+        setTouchStart(null);
+        setTouchEnd(null);
+        setTouchStartY(null);
+        return;
+    }
+
+    const isLeftSwipe = horizontalDistance > minSwipeDistance;
+    const isRightSwipe = horizontalDistance < -minSwipeDistance;
 
     // Swipe Left to Right (Negative distance) -> Go Home
     if (isRightSwipe) {
@@ -174,6 +279,7 @@ const App: React.FC = () => {
     // Reset
     setTouchStart(null);
     setTouchEnd(null);
+    setTouchStartY(null);
   };
 
   const saveData = (newData: AppState) => {
@@ -221,7 +327,7 @@ const App: React.FC = () => {
   const handleEditClick = (t: Transaction) => {
     setEditingTransaction(t);
     setTxType(t.type);
-    setTxAmount(t.amount.toString());
+    setTxAmount(formatIDR(t.amount)); // Pre-fill with formatted currency
     setTxDesc(t.description);
     setTxCardId(t.cardId);
     setTxDate(new Date(t.date).toISOString().split('T')[0]);
@@ -272,7 +378,9 @@ const App: React.FC = () => {
     let updatedInstallments = [...data.installments];
     let updatedSavings = [...data.savings];
     let finalIsInstallment = txIsInstallment;
-    const amountVal = parseFloat(txAmount);
+    const amountVal = getNumericValue(txAmount); // Parse from formatted string
+
+    if (amountVal === 0) return;
 
     // 1. Logic for Installment Conversion (Expense only)
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
@@ -357,10 +465,13 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!cardName || !cardLimit) return;
 
+    const limitVal = getNumericValue(cardLimit);
+    if(limitVal === 0) return;
+
     const newCard: CreditCardType = {
         id: generateId(),
         name: cardName,
-        limit: parseFloat(cardLimit),
+        limit: limitVal,
         color: 'bg-slate-800', 
         dueDay: cardDue ? parseInt(cardDue) : undefined
     };
@@ -391,7 +502,7 @@ const App: React.FC = () => {
   const handleEditSaving = (s: Saving) => {
     setEditingSaving(s);
     setSavingCardId(s.cardId);
-    setSavingAmount(s.amount.toString());
+    setSavingAmount(formatIDR(s.amount)); // Pre-fill with formatted
     setSavingNote(s.note);
     if (s.targetPeriod) {
         setSavingTargetMonth(s.targetPeriod.month);
@@ -404,6 +515,9 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!savingCardId || !savingAmount) return;
 
+    const amountVal = getNumericValue(savingAmount);
+    if(amountVal === 0) return;
+
     if (editingSaving) {
         // UPDATE Existing Saving
         const updatedSavings = data.savings.map(s => {
@@ -411,7 +525,7 @@ const App: React.FC = () => {
                 return {
                     ...s,
                     cardId: savingCardId,
-                    amount: parseFloat(savingAmount),
+                    amount: amountVal,
                     note: savingNote || 'Tabungan Rutin',
                     targetPeriod: { month: savingTargetMonth, year: savingTargetYear }
                 };
@@ -425,7 +539,7 @@ const App: React.FC = () => {
         const newSaving: Saving = {
           id: generateId(),
           cardId: savingCardId,
-          amount: parseFloat(savingAmount),
+          amount: amountVal,
           date: new Date().toISOString(),
           note: savingNote || 'Tabungan Rutin',
           targetPeriod: { month: savingTargetMonth, year: savingTargetYear },
@@ -509,7 +623,7 @@ const App: React.FC = () => {
     if (activeSavingsGroup.length === 0) return;
 
     const totalAvailable = activeSavingsGroup.reduce((sum, s) => sum + s.amount, 0);
-    const amountToWithdraw = parseFloat(withdrawAmount);
+    const amountToWithdraw = getNumericValue(withdrawAmount);
 
     if (isNaN(amountToWithdraw) || amountToWithdraw <= 0) {
         alert("Masukkan nominal yang valid.");
@@ -654,7 +768,7 @@ const App: React.FC = () => {
     .filter(s => !s.isTransferred)
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  // --- Bill Reminder Logic ---
+  // --- Bill Reminder Logic for Widget ---
   const upcomingBills = data.cards
       .filter(c => c.dueDay)
       .map(c => {
@@ -866,6 +980,49 @@ const App: React.FC = () => {
                  </p>
               </div>
               <div className="flex items-center gap-4">
+                 
+                 {/* Notification Bell (Desktop) */}
+                 <div className="relative">
+                    <button 
+                      onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-200 hover:bg-slate-50 transition shadow-sm relative"
+                    >
+                        <BellRing size={20} />
+                        {notifications.length > 0 && (
+                            <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                        )}
+                    </button>
+                    {showNotifDropdown && (
+                        <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                            <div className="p-4 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-800 text-sm">Notifikasi</h3>
+                                {notifications.length > 0 && (
+                                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{notifications.length} Baru</span>
+                                )}
+                            </div>
+                            <div className="max-h-80 overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                    <div className="p-8 text-center text-slate-400 text-xs">Tidak ada notifikasi baru.</div>
+                                ) : (
+                                    notifications.map(n => (
+                                        <div key={n.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer ${n.type === 'urgent' ? 'bg-red-50/50' : ''}`}>
+                                            <div className="flex gap-3">
+                                                <div className={`mt-1 p-1.5 rounded-full h-fit ${n.type === 'urgent' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                    <AlertCircle size={14} />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-sm font-bold ${n.type === 'urgent' ? 'text-red-700' : 'text-slate-700'}`}>{n.title}</p>
+                                                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.message}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                 </div>
+
                  <button 
                    onClick={openAddTransactionModal}
                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-200 active:scale-95"
@@ -1355,12 +1512,57 @@ const App: React.FC = () => {
                 {user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : 'User')}
               </h2>
             </div>
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <UserIcon size={20} className="text-slate-400" />
-              )}
+            
+            <div className="flex items-center gap-3">
+                {/* Notification Bell (Mobile) */}
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                        className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-200 active:bg-slate-50 relative"
+                    >
+                        <BellRing size={20} />
+                        {notifications.length > 0 && (
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                        )}
+                    </button>
+                    {showNotifDropdown && (
+                        <div className="absolute right-0 mt-3 w-72 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                             <div className="p-3 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-800 text-xs">Notifikasi</h3>
+                                {notifications.length > 0 && (
+                                    <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{notifications.length} Baru</span>
+                                )}
+                            </div>
+                            <div className="max-h-60 overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                    <div className="p-6 text-center text-slate-400 text-xs">Tidak ada notifikasi baru.</div>
+                                ) : (
+                                    notifications.map(n => (
+                                        <div key={n.id} className={`p-3 border-b border-slate-50 active:bg-slate-50 ${n.type === 'urgent' ? 'bg-red-50/50' : ''}`}>
+                                            <div className="flex gap-3">
+                                                <div className={`mt-0.5 p-1 rounded-full h-fit ${n.type === 'urgent' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                    <AlertCircle size={12} />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-xs font-bold ${n.type === 'urgent' ? 'text-red-700' : 'text-slate-700'}`}>{n.title}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-1 leading-snug">{n.message}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                {user.photoURL ? (
+                    <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                    <UserIcon size={20} className="text-slate-400" />
+                )}
+                </div>
             </div>
           </div>
         </header>
@@ -1850,6 +2052,29 @@ const App: React.FC = () => {
       </div>
 
       {/* ========================================= */}
+      {/* GLOBAL NOTIFICATION TOAST (URGENT)        */}
+      {/* ========================================= */}
+      {showToast && toastMessage && (
+          <div className="fixed top-24 right-5 md:top-5 md:right-5 z-[100] max-w-sm w-full animate-in slide-in-from-top-5 fade-in duration-300">
+              <div className="bg-red-600 text-white rounded-xl shadow-2xl p-4 flex gap-3 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <AlertCircle size={48} />
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-full h-fit flex-shrink-0">
+                      <AlertCircle size={20} className="text-white"/>
+                  </div>
+                  <div className="flex-1 z-10">
+                      <h4 className="font-bold text-sm">{toastMessage.title}</h4>
+                      <p className="text-xs text-red-100 mt-1 leading-relaxed">{toastMessage.message}</p>
+                  </div>
+                  <button onClick={() => setShowToast(false)} className="text-red-200 hover:text-white h-fit z-10">
+                      <X size={18} />
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* ========================================= */}
       {/* MODALS (Shared Desktop/Mobile)            */}
       {/* ========================================= */}
 
@@ -1907,8 +2132,15 @@ const App: React.FC = () => {
                </div>
                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Limit Kartu (IDR)</label>
-                  <input type="number" required placeholder="10000000" value={cardLimit} onChange={e => setCardLimit(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input 
+                    type="text" 
+                    inputMode="numeric" 
+                    required 
+                    placeholder="Rp 10.000.000" 
+                    value={cardLimit} 
+                    onChange={e => handleCurrencyInput(e.target.value, setCardLimit)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                  />
                </div>
                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tanggal Jatuh Tempo (Opsional)</label>
@@ -1972,8 +2204,15 @@ const App: React.FC = () => {
 
                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nominal Disisihkan (IDR)</label>
-                  <input type="number" required placeholder="0" value={savingAmount} onChange={e => setSavingAmount(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500" />
+                  <input 
+                    type="text" 
+                    inputMode="numeric" 
+                    required 
+                    placeholder="Rp 0" 
+                    value={savingAmount} 
+                    onChange={e => handleCurrencyInput(e.target.value, setSavingAmount)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 font-bold" 
+                  />
                </div>
                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Catatan (Opsional)</label>
@@ -2070,11 +2309,12 @@ const App: React.FC = () => {
                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nominal Penarikan (IDR)</label>
                   <input 
-                    type="number" 
+                    type="text" 
+                    inputMode="numeric"
                     required 
-                    placeholder="0" 
+                    placeholder="Rp 0" 
                     value={withdrawAmount} 
-                    onChange={e => setWithdrawAmount(e.target.value)}
+                    onChange={e => handleCurrencyInput(e.target.value, setWithdrawAmount)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 font-bold text-lg text-slate-800" 
                   />
                </div>
@@ -2129,10 +2369,11 @@ const App: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nominal (Rp)</label>
                 <input
-                  type="number"
-                  placeholder="0"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Rp 0"
                   value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
+                  onChange={(e) => handleCurrencyInput(e.target.value, setTxAmount)}
                   className="w-full text-3xl font-bold text-slate-800 border-b-2 border-slate-200 focus:border-blue-500 outline-none py-2 bg-transparent placeholder-slate-300"
                   required
                 />
@@ -2269,7 +2510,7 @@ const App: React.FC = () => {
                          {txAmount && (
                             <div className="flex items-center justify-between text-xs font-medium text-slate-600 bg-white p-2 rounded-lg border border-indigo-100">
                                <span>Est. Cicilan/Bulan:</span>
-                               <span className="text-indigo-700">{formatIDR(parseFloat(txAmount) / txInstallmentMonths)}</span>
+                               <span className="text-indigo-700">{formatIDR(getNumericValue(txAmount) / txInstallmentMonths)}</span>
                             </div>
                          )}
                       </div>
