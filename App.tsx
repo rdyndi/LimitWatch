@@ -4,7 +4,8 @@ import {
   Installment, 
   Transaction, 
   TransactionType,
-  CreditCard as CreditCardType
+  CreditCard as CreditCardType,
+  Saving
 } from "./types";
 import { 
   loginWithGoogle, 
@@ -37,14 +38,26 @@ import {
   X,
   Calendar,
   CheckCircle2,
-  Settings,
-  MoreVertical,
   Pencil,
-  Trash2
+  Trash2,
+  PieChart,
+  PiggyBank,
+  FileBarChart,
+  Landmark,
+  Target,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Banknote,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Bell,
+  Clock
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -58,11 +71,21 @@ const App: React.FC = () => {
   // UI States
   const [installmentModalOpen, setInstallmentModalOpen] = useState(false);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
-  const [cardModalOpen, setCardModalOpen] = useState(false); // NEW: Card Modal
-  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'history' | 'profile'>('home');
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [savingModalOpen, setSavingModalOpen] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [batchPayModalOpen, setBatchPayModalOpen] = useState(false); // NEW: Batch Pay Modal
+  
+  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile'>('home');
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
+
+  // Swipe Gesture States
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
 
   // Auth States
   const [email, setEmail] = useState('');
@@ -78,11 +101,31 @@ const App: React.FC = () => {
   const [txDesc, setTxDesc] = useState('');
   const [txCardId, setTxCardId] = useState('');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payFromSavings, setPayFromSavings] = useState(false); // NEW: Option to pay from savings manually
+  
+  // Installment Conversion State
+  const [txIsInstallment, setTxIsInstallment] = useState(false);
+  const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
 
   // Card Form State
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
   const [cardDue, setCardDue] = useState('');
+
+  // Saving Form State
+  const [savingAmount, setSavingAmount] = useState('');
+  const [savingNote, setSavingNote] = useState('');
+  const [savingCardId, setSavingCardId] = useState('');
+  const [savingTargetMonth, setSavingTargetMonth] = useState(new Date().getMonth());
+  const [savingTargetYear, setSavingTargetYear] = useState(new Date().getFullYear());
+
+  // Withdraw & Batch Pay State
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [activeSavingsGroup, setActiveSavingsGroup] = useState<Saving[]>([]);
+  const [activeBatchGroup, setActiveBatchGroup] = useState<{items: Saving[], label: string, total: number, month: number, year: number} | null>(null);
+
+  // Report State
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth(setUser);
@@ -100,10 +143,38 @@ const App: React.FC = () => {
 
   // Set default card selection when cards are loaded
   useEffect(() => {
-    if (data.cards.length > 0 && !txCardId) {
-      setTxCardId(data.cards[0].id);
+    if (data.cards.length > 0) {
+      if (!txCardId) setTxCardId(data.cards[0].id);
+      if (!savingCardId) setSavingCardId(data.cards[0].id);
     }
-  }, [data.cards, txCardId]);
+  }, [data.cards, txCardId, savingCardId]);
+
+  // --- SWIPE HANDLERS ---
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null); // Reset
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    // Swipe Left to Right (Negative distance) -> Go Home
+    if (isRightSwipe) {
+      setMobileTab('home');
+    }
+    
+    // Reset
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   const saveData = (newData: AppState) => {
     setData(newData);
@@ -140,6 +211,9 @@ const App: React.FC = () => {
     setTxDesc('');
     setTxDate(new Date().toISOString().split('T')[0]);
     setTxType(TransactionType.EXPENSE);
+    setTxIsInstallment(false); // Reset installment toggle
+    setTxInstallmentMonths(3);
+    setPayFromSavings(false); // Reset savings toggle
     if (data.cards.length > 0) setTxCardId(data.cards[0].id);
     setTransactionModalOpen(true);
   };
@@ -151,6 +225,8 @@ const App: React.FC = () => {
     setTxDesc(t.description);
     setTxCardId(t.cardId);
     setTxDate(new Date(t.date).toISOString().split('T')[0]);
+    setTxIsInstallment(!!t.isInstallment);
+    setPayFromSavings(false); // Edit mode doesn't support complex logic re-trigger
     setTransactionModalOpen(true);
   };
 
@@ -161,9 +237,76 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to consume savings (FIFO)
+  const consumeSavings = (cardId: string, amount: number, existingSavings: Saving[]) => {
+      let remainingToDeduct = amount;
+      let updatedSavings = [...existingSavings];
+
+      // Get available savings for this card
+      // Sort by date (oldest first) to use FIFO
+      const availableSavings = updatedSavings
+          .filter(s => s.cardId === cardId && !s.isTransferred)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      for (const item of availableSavings) {
+          if (remainingToDeduct <= 0) break;
+
+          if (item.amount <= remainingToDeduct) {
+              // Mark as transferred/used
+              remainingToDeduct -= item.amount;
+              updatedSavings = updatedSavings.map(s => s.id === item.id ? { ...s, isTransferred: true } : s);
+          } else {
+              // Reduce amount
+              const newAmount = item.amount - remainingToDeduct;
+              updatedSavings = updatedSavings.map(s => s.id === item.id ? { ...s, amount: newAmount } : s);
+              remainingToDeduct = 0;
+          }
+      }
+      return updatedSavings;
+  };
+
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!txCardId || !txAmount || !txDesc) return;
+
+    let updatedInstallments = [...data.installments];
+    let updatedSavings = [...data.savings];
+    let finalIsInstallment = txIsInstallment;
+    const amountVal = parseFloat(txAmount);
+
+    // 1. Logic for Installment Conversion (Expense only)
+    if (txIsInstallment && txType === TransactionType.EXPENSE) {
+       if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
+          const newInstallment: Installment = {
+              id: generateId(),
+              cardId: txCardId,
+              name: txDesc,
+              totalAmount: amountVal,
+              monthlyAmount: amountVal / txInstallmentMonths,
+              totalMonths: txInstallmentMonths,
+              monthsPaid: 0,
+              startDate: new Date(txDate).toISOString()
+          };
+          updatedInstallments = [newInstallment, ...updatedInstallments];
+       }
+    } else {
+        finalIsInstallment = false;
+    }
+
+    // 2. Logic for Pay From Savings (Payment only)
+    if (txType === TransactionType.PAYMENT && payFromSavings && !editingTransaction) {
+        // Calculate available savings
+        const totalAvailable = updatedSavings
+            .filter(s => s.cardId === txCardId && !s.isTransferred)
+            .reduce((sum, s) => sum + s.amount, 0);
+        
+        if (amountVal > totalAvailable) {
+            alert(`Saldo tabungan tidak mencukupi. Tersedia: ${formatIDR(totalAvailable)}`);
+            return;
+        }
+
+        updatedSavings = consumeSavings(txCardId, amountVal, updatedSavings);
+    }
 
     if (editingTransaction) {
       // Edit Logic
@@ -172,31 +315,35 @@ const App: React.FC = () => {
           return {
             ...t,
             cardId: txCardId,
-            amount: parseFloat(txAmount),
+            amount: amountVal,
             date: new Date(txDate).toISOString(),
             description: txDesc,
             type: txType,
+            isInstallment: finalIsInstallment 
           };
         }
         return t;
       });
-      saveData({ ...data, transactions: updatedTransactions });
+      saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
       setEditingTransaction(null);
     } else {
       // Add Logic
       const newTransaction: Transaction = {
         id: generateId(),
         cardId: txCardId,
-        amount: parseFloat(txAmount),
+        amount: amountVal,
         date: new Date(txDate).toISOString(),
         description: txDesc,
         type: txType,
-        category: 'General',
-        isValidated: false
+        category: payFromSavings ? 'Payment from Savings' : 'General',
+        isValidated: false,
+        isInstallment: finalIsInstallment
       };
       saveData({
         ...data,
-        transactions: [newTransaction, ...data.transactions]
+        transactions: [newTransaction, ...data.transactions],
+        installments: updatedInstallments,
+        savings: updatedSavings
       });
     }
 
@@ -214,7 +361,7 @@ const App: React.FC = () => {
         id: generateId(),
         name: cardName,
         limit: parseFloat(cardLimit),
-        color: 'bg-slate-800', // Default color, could be made selectable
+        color: 'bg-slate-800', 
         dueDay: cardDue ? parseInt(cardDue) : undefined
     };
 
@@ -227,6 +374,239 @@ const App: React.FC = () => {
     setCardLimit('');
     setCardDue('');
     setCardModalOpen(false);
+  };
+
+  // --- SAVING FUNCTIONS ---
+  
+  const openAddSavingModal = () => {
+    setEditingSaving(null);
+    setSavingAmount('');
+    setSavingNote('');
+    if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+    setSavingTargetMonth(new Date().getMonth());
+    setSavingTargetYear(new Date().getFullYear());
+    setSavingModalOpen(true);
+  };
+
+  const handleEditSaving = (s: Saving) => {
+    setEditingSaving(s);
+    setSavingCardId(s.cardId);
+    setSavingAmount(s.amount.toString());
+    setSavingNote(s.note);
+    if (s.targetPeriod) {
+        setSavingTargetMonth(s.targetPeriod.month);
+        setSavingTargetYear(s.targetPeriod.year);
+    }
+    setSavingModalOpen(true);
+  };
+
+  const handleSaveSaving = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!savingCardId || !savingAmount) return;
+
+    if (editingSaving) {
+        // UPDATE Existing Saving
+        const updatedSavings = data.savings.map(s => {
+            if (s.id === editingSaving.id) {
+                return {
+                    ...s,
+                    cardId: savingCardId,
+                    amount: parseFloat(savingAmount),
+                    note: savingNote || 'Tabungan Rutin',
+                    targetPeriod: { month: savingTargetMonth, year: savingTargetYear }
+                };
+            }
+            return s;
+        });
+        saveData({ ...data, savings: updatedSavings });
+        setEditingSaving(null);
+    } else {
+        // CREATE New Saving
+        const newSaving: Saving = {
+          id: generateId(),
+          cardId: savingCardId,
+          amount: parseFloat(savingAmount),
+          date: new Date().toISOString(),
+          note: savingNote || 'Tabungan Rutin',
+          targetPeriod: { month: savingTargetMonth, year: savingTargetYear },
+          isTransferred: false
+        };
+        saveData({
+          ...data,
+          savings: [newSaving, ...data.savings]
+        });
+    }
+
+    setSavingAmount('');
+    setSavingNote('');
+    setSavingModalOpen(false);
+  };
+
+  // Helper to open batch pay modal
+  const handleOpenBatchPay = (savings: Saving[], label: string, total: number) => {
+    if (savings.length === 0) return;
+    const firstItem = savings[0];
+    const month = firstItem.targetPeriod ? firstItem.targetPeriod.month : -1;
+    const year = firstItem.targetPeriod ? firstItem.targetPeriod.year : -1;
+    
+    setActiveBatchGroup({
+        items: savings,
+        label,
+        total,
+        month,
+        year
+    });
+    setBatchPayModalOpen(true);
+  }
+
+  // Handle confirm Batch Pay
+  const handleConfirmBatchPay = () => {
+    if (!activeBatchGroup) return;
+
+    const { items, total, month, year } = activeBatchGroup;
+    const firstItem = items[0];
+    const periodText = (month >= 0 && year > 0) 
+        ? ` (${monthNames[month]} ${year})` 
+        : '';
+
+    // 1. Create ONE Payment Transaction
+    const newTransaction: Transaction = {
+        id: generateId(),
+        cardId: firstItem.cardId,
+        amount: total,
+        date: new Date().toISOString(),
+        description: `Bayar Tagihan Full${periodText}`,
+        type: TransactionType.PAYMENT,
+        category: 'Savings Payment',
+        targetPeriod: (month >= 0 && year > 0) ? { month, year } : undefined,
+        isValidated: true
+    };
+
+    // 2. Mark ALL Savings in this group as Transferred
+    const idsToMark = new Set(items.map(s => s.id));
+    const updatedSavings = data.savings.map(s => 
+        idsToMark.has(s.id) ? { ...s, isTransferred: true } : s
+    );
+
+    saveData({
+        ...data,
+        transactions: [newTransaction, ...data.transactions],
+        savings: updatedSavings
+    });
+    setBatchPayModalOpen(false);
+  };
+
+  // Handle ambil tabungan: Open Modal
+  const openWithdrawModal = (savingsGroup: Saving[]) => {
+      setActiveSavingsGroup(savingsGroup);
+      setWithdrawAmount('');
+      setWithdrawModalOpen(true);
+  }
+
+  // Handle confirm withdraw in modal
+  const handleConfirmWithdraw = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (activeSavingsGroup.length === 0) return;
+
+    const totalAvailable = activeSavingsGroup.reduce((sum, s) => sum + s.amount, 0);
+    const amountToWithdraw = parseFloat(withdrawAmount);
+
+    if (isNaN(amountToWithdraw) || amountToWithdraw <= 0) {
+        alert("Masukkan nominal yang valid.");
+        return;
+    }
+
+    if (amountToWithdraw > totalAvailable) {
+        alert("Saldo tabungan di bulan ini tidak mencukupi.");
+        return;
+    }
+
+    // Reuse helper
+    const updatedSavings = consumeSavings(
+        activeSavingsGroup[0].cardId, 
+        amountToWithdraw, 
+        data.savings
+    );
+
+    saveData({ ...data, savings: updatedSavings });
+    setWithdrawModalOpen(false);
+  }
+
+  // Helper for deleting single item
+  const handleDeleteSaving = (id: string) => {
+     if(window.confirm("Hapus data tabungan ini?")) {
+        const updatedSavings = data.savings.filter(s => s.id !== id);
+        saveData({...data, savings: updatedSavings});
+     }
+  }
+
+  // Helper: Group savings by target month
+  const getSavingsByMonth = (cardId: string) => {
+     const activeSavings = data.savings.filter(s => s.cardId === cardId && !s.isTransferred);
+     
+     // Group key: "YYYY-MM"
+     const grouped: Record<string, Saving[]> = {};
+     
+     activeSavings.forEach(s => {
+         let key = "Lainnya";
+         if (s.targetPeriod) {
+             key = `${s.targetPeriod.year}-${s.targetPeriod.month}`;
+         }
+         if (!grouped[key]) grouped[key] = [];
+         grouped[key].push(s);
+     });
+
+     // Sort keys: "Lainnya" last, others chronologically
+     const keys = Object.keys(grouped).sort((a, b) => {
+         if (a === "Lainnya") return 1;
+         if (b === "Lainnya") return -1;
+         return a.localeCompare(b);
+     });
+
+     return keys.map(key => ({
+         key,
+         label: key === "Lainnya" ? "Lainnya" : `${monthNames[parseInt(key.split('-')[1])]} ${key.split('-')[0]}`,
+         items: grouped[key],
+         total: grouped[key].reduce((sum, s) => sum + s.amount, 0)
+     }));
+  };
+
+  // --- REPORT FUNCTIONS ---
+  const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
+     // 1. Sum Regular Expenses (Non-Installment Transactions)
+     const expenses = data.transactions
+       .filter(t => {
+          const d = new Date(t.date);
+          return t.cardId === cardId && 
+                 t.type === TransactionType.EXPENSE && 
+                 !t.isInstallment && 
+                 d.getMonth() === monthIndex && 
+                 d.getFullYear() === year;
+       })
+       .reduce((sum, t) => sum + t.amount, 0);
+
+     // 2. Add Monthly Installment Portion
+     // Logic: Installment contributes to bill if current month is within range [start, start + duration]
+     const installmentLoad = data.installments
+       .filter(i => i.cardId === cardId)
+       .reduce((sum, i) => {
+          const startDate = new Date(i.startDate);
+          // Calculate end date
+          const endDate = new Date(startDate);
+          endDate.setMonth(startDate.getMonth() + i.totalMonths);
+
+          const currentMonthDate = new Date(year, monthIndex, 1);
+          // Check if current analysis month is AFTER/EQUAL start AND BEFORE end
+          // Simple month diff check
+          const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
+          
+          if (monthDiff >= 0 && monthDiff < i.totalMonths) {
+             return sum + i.monthlyAmount;
+          }
+          return sum;
+       }, 0);
+
+     return expenses + installmentLoad;
   };
 
   const handleGetAdvice = async () => {
@@ -273,6 +653,32 @@ const App: React.FC = () => {
   const totalSavings = data.savings
     .filter(s => !s.isTransferred)
     .reduce((acc, curr) => acc + curr.amount, 0);
+
+  // --- Bill Reminder Logic ---
+  const upcomingBills = data.cards
+      .filter(c => c.dueDay)
+      .map(c => {
+         const today = new Date();
+         const currentDay = today.getDate();
+         const currentMonth = today.getMonth();
+         const currentYear = today.getFullYear();
+         
+         let targetMonth = currentMonth;
+         let targetYear = currentYear;
+         
+         // If due day passed this month, target is next month
+         if (c.dueDay! < currentDay) {
+            targetMonth++;
+            if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+         }
+         
+         const dueDate = new Date(targetYear, targetMonth, c.dueDay);
+         const diffTime = dueDate.getTime() - today.getTime();
+         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+         
+         return { ...c, daysLeft: diffDays, nextDueDate: dueDate };
+      })
+      .sort((a, b) => a.daysLeft - b.daysLeft);
 
   if (!user) {
     return (
@@ -422,11 +828,13 @@ const App: React.FC = () => {
               <span className="font-bold text-xl text-slate-800 tracking-tight">LimitWatch</span>
            </div>
            
-           <nav className="p-4 space-y-1 flex-1">
+           <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
               <div className="px-4 pb-2 pt-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</div>
               <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
               <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu Saya" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat Transaksi" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
+              <DesktopNavItem icon={<PiggyBank size={20}/>} label="Tabungan Pelunasan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
+              <DesktopNavItem icon={<FileBarChart size={20}/>} label="Laporan Tahunan" active={mobileTab === 'report'} onClick={() => setMobileTab('report')} />
               
               <div className="px-4 pb-2 pt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">Akun</div>
               <DesktopNavItem icon={<UserIcon size={20}/>} label="Profil Pengguna" active={mobileTab === 'profile'} onClick={() => setMobileTab('profile')} />
@@ -449,6 +857,8 @@ const App: React.FC = () => {
                     {mobileTab === 'home' && 'Ringkasan Keuangan'}
                     {mobileTab === 'cards' && 'Kelola Kartu Kredit'}
                     {mobileTab === 'history' && 'Riwayat Transaksi'}
+                    {mobileTab === 'savings' && 'Tabungan Pelunasan'}
+                    {mobileTab === 'report' && 'Laporan Tagihan Tahunan'}
                     {mobileTab === 'profile' && 'Pengaturan Akun'}
                  </h1>
                  <p className="text-slate-500">
@@ -476,41 +886,72 @@ const App: React.FC = () => {
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in duration-500">
                {/* Stats Grid */}
-               <div className="grid grid-cols-3 gap-6">
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
+               <div className="grid grid-cols-4 gap-6">
+                  <div className="col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <TrendingDown size={64} className="text-red-600"/>
                      </div>
                      <div className="relative z-10">
-                       <p className="text-slate-500 font-medium mb-1">Total Hutang Berjalan</p>
-                       <h3 className="text-3xl font-bold text-slate-800">{formatIDR(totalDebt)}</h3>
+                       <p className="text-slate-500 font-medium mb-1">Total Hutang</p>
+                       <h3 className="text-2xl font-bold text-slate-800">{formatIDR(totalDebt)}</h3>
                      </div>
                      <div className="relative z-10 text-sm text-red-500 flex items-center gap-1 font-medium">
                         Perlu dilunasi
                      </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
+                  <div className="col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Wallet size={64} className="text-green-600"/>
+                        <PiggyBank size={64} className="text-green-600"/>
                      </div>
                      <div className="relative z-10">
-                       <p className="text-slate-500 font-medium mb-1">Tabungan Terkumpul</p>
-                       <h3 className="text-3xl font-bold text-slate-800">{formatIDR(totalSavings)}</h3>
+                       <p className="text-slate-500 font-medium mb-1">Tabungan</p>
+                       <h3 className="text-2xl font-bold text-slate-800">{formatIDR(totalSavings)}</h3>
                      </div>
-                     <div className="relative z-10 text-sm text-green-600 flex items-center gap-1 font-medium">
-                        Dana tersedia
-                     </div>
+                     <button onClick={openAddSavingModal} className="relative z-10 text-sm text-green-600 flex items-center gap-1 font-medium hover:underline w-fit">
+                        + Tambah
+                     </button>
                   </div>
 
-                  <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white flex flex-col justify-between h-40">
+                  <div className="col-span-1 bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white flex flex-col justify-between h-40">
                      <div>
                        <p className="text-blue-100 font-medium mb-1">Cicilan Aktif</p>
-                       <h3 className="text-3xl font-bold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length} Item</h3>
+                       <h3 className="text-2xl font-bold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length} Item</h3>
                      </div>
                      <button onClick={() => setInstallmentModalOpen(true)} className="text-sm bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-4 rounded-lg w-fit transition-colors">
-                        + Tambah Cicilan
+                        + Baru
                      </button>
+                  </div>
+                  
+                  {/* Bill Reminder Widget (Desktop) */}
+                  <div className="col-span-1 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 h-40 overflow-y-auto">
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100 sticky top-0 bg-white z-10">
+                          <Bell size={16} className="text-orange-500"/>
+                          <h3 className="text-sm font-bold text-slate-800">Pengingat Tagihan</h3>
+                      </div>
+                      <div className="space-y-2">
+                          {upcomingBills.length === 0 ? (
+                              <p className="text-xs text-slate-400 text-center py-4">Tidak ada tagihan dekat.</p>
+                          ) : (
+                              upcomingBills.map(c => {
+                                  const isUrgent = c.daysLeft <= 3;
+                                  const isWarning = c.daysLeft <= 7;
+                                  return (
+                                      <div key={c.id} className={`p-2 rounded-lg text-xs border ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
+                                          <div className="flex justify-between font-bold">
+                                              <span className="truncate w-20">{c.name}</span>
+                                              <span className={isUrgent ? 'text-red-600' : isWarning ? 'text-orange-600' : 'text-slate-600'}>
+                                                  {c.daysLeft} Hari Lagi
+                                              </span>
+                                          </div>
+                                          <div className="text-slate-500 mt-0.5">
+                                              Tgl {c.nextDueDate.toLocaleDateString('id-ID')}
+                                          </div>
+                                      </div>
+                                  )
+                              })
+                          )}
+                      </div>
                   </div>
                </div>
 
@@ -551,7 +992,10 @@ const App: React.FC = () => {
                         {data.transactions.slice(0, 5).map(t => (
                            <tr key={t.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
                               <td className="p-4 text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</td>
-                              <td className="p-4 font-medium">{t.description}</td>
+                              <td className="p-4 font-medium flex items-center gap-2">
+                                 {t.description}
+                                 {t.isInstallment && <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold">CICILAN</span>}
+                              </td>
                               <td className="p-4">
                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
                                     t.type === TransactionType.EXPENSE ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
@@ -628,7 +1072,183 @@ const App: React.FC = () => {
              </div>
            )}
 
-           {/* --- HISTORY VIEW (UPDATED WITH ACTIONS) --- */}
+           {/* --- SAVINGS VIEW (DESKTOP) --- */}
+           {mobileTab === 'savings' && (
+             <div className="space-y-6">
+                <div className="flex justify-between items-center bg-green-50 p-6 rounded-2xl border border-green-100">
+                    <div>
+                        <h2 className="text-2xl font-bold text-green-800">Tabungan Pelunasan</h2>
+                        <p className="text-green-600 mt-1">Sisihkan uang setiap bulan untuk membayar tagihan.</p>
+                    </div>
+                    <button 
+                      onClick={openAddSavingModal}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-200"
+                    >
+                       <PlusCircle size={20} /> Tambah Tabungan
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {data.cards.map(card => {
+                      const cardDebt = data.transactions
+                        .filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE)
+                        .reduce((sum, t) => sum + t.amount, 0) - 
+                        data.transactions
+                        .filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT)
+                        .reduce((sum, t) => sum + t.amount, 0);
+
+                      const cardSaved = data.savings
+                        .filter(s => s.cardId === card.id && !s.isTransferred)
+                        .reduce((sum, s) => sum + s.amount, 0);
+
+                      const progress = cardDebt > 0 ? Math.min((cardSaved / cardDebt) * 100, 100) : 0;
+                      const monthGroups = getSavingsByMonth(card.id);
+
+                      return (
+                         <div key={card.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                               <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                                     <CreditCard size={20} />
+                                  </div>
+                                  <div>
+                                     <h3 className="font-bold text-slate-800">{card.name}</h3>
+                                     <p className="text-xs text-slate-500">Hutang: {formatIDR(cardDebt)}</p>
+                                  </div>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-xs text-slate-400">Terkumpul</p>
+                                  <p className="text-xl font-bold text-green-600">{formatIDR(cardSaved)}</p>
+                               </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full bg-slate-100 rounded-full h-2.5 mb-6">
+                               <div className="bg-green-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                            </div>
+
+                            {/* Savings Groups */}
+                            <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                               {monthGroups.length === 0 ? (
+                                  <p className="text-center text-xs text-slate-400 italic py-2">Belum ada tabungan aktif.</p>
+                               ) : (
+                                  monthGroups.map(group => (
+                                    <div key={group.key} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                                       <div className="p-3 bg-slate-100 flex justify-between items-center border-b border-slate-200">
+                                          <div>
+                                             <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Tagihan {group.label}</p>
+                                             <p className="text-lg font-bold text-green-700">{formatIDR(group.total)}</p>
+                                          </div>
+                                          <div className="flex gap-2">
+                                             <button 
+                                                onClick={() => openWithdrawModal(group.items)}
+                                                className="px-3 py-1.5 bg-white text-orange-600 border border-orange-200 rounded-lg text-xs font-bold hover:bg-orange-50 transition"
+                                             >
+                                                Ambil
+                                             </button>
+                                             <button 
+                                                onClick={() => handleOpenBatchPay(group.items, group.label, group.total)}
+                                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-sm"
+                                             >
+                                                Bayar Tagihan
+                                             </button>
+                                          </div>
+                                       </div>
+                                       <div className="divide-y divide-slate-100">
+                                          {group.items.map(s => (
+                                             <div key={s.id} className="p-3 flex justify-between items-center hover:bg-white transition-colors">
+                                                <div>
+                                                   <p className="text-sm font-medium text-slate-700">{s.note}</p>
+                                                   <p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                   <span className="font-semibold text-slate-600 text-sm">{formatIDR(s.amount)}</span>
+                                                   <div className="flex gap-1 ml-2">
+                                                      <button onClick={() => handleEditSaving(s)} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><Pencil size={12} /></button>
+                                                      <button onClick={() => handleDeleteSaving(s.id)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 size={12} /></button>
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          ))}
+                                       </div>
+                                    </div>
+                                  ))
+                               )}
+                            </div>
+                         </div>
+                      )
+                   })}
+                </div>
+             </div>
+           )}
+
+           {/* --- REPORT VIEW (NEW) --- */}
+           {mobileTab === 'report' && (
+              <div className="space-y-6">
+                 <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-800">Laporan Tagihan Tahunan</h2>
+                    <select 
+                      value={selectedYear} 
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                       {[0, 1, 2].map(offset => {
+                          const y = new Date().getFullYear() - 1 + offset;
+                          return <option key={y} value={y}>{y}</option>;
+                       })}
+                    </select>
+                 </div>
+
+                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                       <table className="w-full text-left border-collapse">
+                          <thead>
+                             <tr className="bg-slate-800 text-white text-sm uppercase tracking-wider">
+                                <th className="p-4 font-semibold sticky left-0 bg-slate-800 z-10 w-32">Bulan</th>
+                                {data.cards.map(c => (
+                                   <th key={c.id} className="p-4 font-semibold whitespace-nowrap">{c.name}</th>
+                                ))}
+                                <th className="p-4 font-semibold text-right bg-slate-900/50">Total</th>
+                             </tr>
+                          </thead>
+                          <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
+                             {Array.from({ length: 12 }).map((_, monthIndex) => {
+                                const monthName = new Date(selectedYear, monthIndex).toLocaleString('id-ID', { month: 'long' });
+                                let monthlyTotal = 0;
+
+                                return (
+                                   <tr key={monthIndex} className="hover:bg-slate-50 transition-colors">
+                                      <td className="p-4 font-medium text-slate-800 sticky left-0 bg-white shadow-[1px_0_5px_-2px_rgba(0,0,0,0.1)]">{monthName}</td>
+                                      {data.cards.map(c => {
+                                         const bill = getMonthlyBill(c.id, monthIndex, selectedYear);
+                                         monthlyTotal += bill;
+                                         return (
+                                            <td key={c.id} className="p-4 whitespace-nowrap text-slate-600">
+                                               {bill > 0 ? formatIDR(bill) : '-'}
+                                            </td>
+                                         );
+                                      })}
+                                      <td className="p-4 text-right font-bold text-slate-800 bg-slate-50/50">
+                                         {monthlyTotal > 0 ? formatIDR(monthlyTotal) : '-'}
+                                      </td>
+                                   </tr>
+                                );
+                             })}
+                          </tbody>
+                       </table>
+                    </div>
+                 </div>
+                 
+                 <div className="bg-blue-50 p-4 rounded-xl text-sm text-blue-700 border border-blue-100 flex items-start gap-3">
+                    <div className="mt-0.5"><Sparkles size={16}/></div>
+                    <p>
+                       <strong>Catatan Laporan:</strong> Angka di atas adalah proyeksi tagihan berdasarkan transaksi belanja reguler dan cicilan aktif pada bulan tersebut. Pembayaran (Payment) tidak mengurangi angka ini karena tabel ini fokus pada "Beban Tagihan".
+                    </p>
+                 </div>
+              </div>
+           )}
+
+           {/* --- HISTORY VIEW --- */}
            {mobileTab === 'history' && (
              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                  <div className="p-6 border-b border-slate-100">
@@ -652,7 +1272,10 @@ const App: React.FC = () => {
                              <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4 text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</td>
                                 <td className="p-4 text-slate-600">{cardName}</td>
-                                <td className="p-4 font-medium text-slate-800">{t.description}</td>
+                                <td className="p-4 font-medium text-slate-800 flex items-center gap-2">
+                                  {t.description}
+                                  {t.isInstallment && <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold">CICILAN</span>}
+                                </td>
                                 <td className="p-4">
                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
                                       t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
@@ -754,7 +1377,7 @@ const App: React.FC = () => {
                 <h3 className="text-3xl font-bold mb-4">{formatIDR(totalDebt)}</h3>
                 
                 <div className="flex gap-4 border-t border-white/20 pt-4">
-                  <div>
+                  <div onClick={() => setMobileTab('savings')} className="cursor-pointer">
                     <p className="text-blue-100 text-xs">Tabungan Pelunasan</p>
                     <p className="font-semibold">{formatIDR(totalSavings)}</p>
                   </div>
@@ -764,6 +1387,45 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* BILL REMINDER WIDGET (Mobile Super App Style) */}
+            <div>
+                <div className="flex items-center gap-2 mb-2 text-slate-600">
+                    <Bell size={16} />
+                    <h3 className="text-xs font-bold uppercase tracking-wider">Pengingat Tagihan</h3>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    {upcomingBills.length === 0 ? (
+                        <div className="bg-white border border-slate-100 rounded-xl p-3 min-w-[200px] flex items-center gap-3">
+                           <div className="p-2 bg-green-50 rounded-full text-green-600"><CheckCircle2 size={16}/></div>
+                           <p className="text-xs text-slate-500">Semua aman, tidak ada tagihan dekat.</p>
+                        </div>
+                    ) : (
+                        upcomingBills.map(c => {
+                             const isUrgent = c.daysLeft <= 3;
+                             const isWarning = c.daysLeft <= 7;
+                             return (
+                                <div key={c.id} className={`min-w-[220px] p-3 rounded-xl border flex flex-col justify-between ${
+                                    isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'
+                                }`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="text-xs font-bold text-slate-800">{c.name}</div>
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                            isUrgent ? 'bg-red-100 text-red-600' : isWarning ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {c.daysLeft} Hari
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                                        <Clock size={12} />
+                                        <span>Jatuh Tempo: {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</span>
+                                    </div>
+                                </div>
+                             );
+                        })
+                    )}
+                </div>
             </div>
 
             {/* Quick Actions Grid (Gojek Style) */}
@@ -791,23 +1453,23 @@ const App: React.FC = () => {
                 </button>
 
                 <button 
-                  onClick={handleGetAdvice} 
-                  className="flex flex-col items-center gap-2"
+                   onClick={() => setMobileTab('report')}
+                   className="flex flex-col items-center gap-2"
                 >
-                  <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <Sparkles size={24} />
+                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <FileBarChart size={24} />
                   </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Tanya<br/>AI</span>
+                  <span className="text-xs text-slate-600 font-medium text-center">Laporan<br/>Tagihan</span>
                 </button>
 
                 <button 
-                  onClick={() => setMobileTab('cards')} 
+                  onClick={() => setMobileTab('savings')} 
                   className="flex flex-col items-center gap-2"
                 >
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <CreditCard size={24} />
+                  <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <PiggyBank size={24} />
                   </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Kelola<br/>Kartu</span>
+                  <span className="text-xs text-slate-600 font-medium text-center">Tabungan<br/>Rutin</span>
                 </button>
               </div>
             </div>
@@ -830,6 +1492,12 @@ const App: React.FC = () => {
                   <pre className="whitespace-pre-wrap font-sans text-xs">{aiAdvice}</pre>
                 </div>
               </div>
+            )}
+            
+            {!aiAdvice && (
+                 <button onClick={handleGetAdvice} className="w-full py-3 bg-purple-50 text-purple-600 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+                    <Sparkles size={16} /> Minta Saran AI
+                 </button>
             )}
 
             {/* Recent Transactions List */}
@@ -908,7 +1576,151 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- HISTORY TAB CONTENT (UPDATED WITH ACTIONS) --- */}
+        {/* --- SAVINGS TAB CONTENT (MOBILE SUPER APP) --- */}
+        {mobileTab === 'savings' && (
+           <div 
+             className="px-5 mt-4 pb-20 min-h-[80vh]"
+             onTouchStart={onTouchStart}
+             onTouchMove={onTouchMove}
+             onTouchEnd={onTouchEnd}
+           >
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-bold text-lg text-slate-800">Tabungan Pelunasan</h3>
+                 <button onClick={openAddSavingModal} className="text-sm font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                    + Nabung
+                 </button>
+              </div>
+
+              <div className="space-y-4">
+                  {data.cards.map(card => {
+                      const cardSaved = data.savings
+                        .filter(s => s.cardId === card.id && !s.isTransferred)
+                        .reduce((sum, s) => sum + s.amount, 0);
+                      
+                      const monthGroups = getSavingsByMonth(card.id);
+
+                      return (
+                         <div key={card.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                               <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-white border border-slate-100 rounded-full flex items-center justify-center shadow-sm">
+                                     <CreditCard size={14} className="text-slate-500"/>
+                                  </div>
+                                  <span className="font-semibold text-slate-700 text-sm">{card.name}</span>
+                               </div>
+                               <span className="font-bold text-green-600">{formatIDR(cardSaved)}</span>
+                            </div>
+                            
+                            {monthGroups.length > 0 ? (
+                               <div className="p-3 space-y-3">
+                                  {monthGroups.map(group => (
+                                     <div key={group.key} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                         {/* Group Header */}
+                                         <div className="p-3 bg-indigo-50/50 border-b border-slate-100">
+                                            <div className="flex justify-between items-center mb-2">
+                                               <span className="text-xs font-bold uppercase text-indigo-600 tracking-wide">Tagihan {group.label}</span>
+                                               <span className="font-bold text-slate-800">{formatIDR(group.total)}</span>
+                                            </div>
+                                            
+                                            {/* Group Actions */}
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button 
+                                                   onClick={() => openWithdrawModal(group.items)}
+                                                   className="py-1.5 px-2 bg-white border border-orange-200 text-orange-600 text-xs font-bold rounded-lg hover:bg-orange-50"
+                                                >
+                                                   Ambil
+                                                </button>
+                                                <button 
+                                                   onClick={() => handleOpenBatchPay(group.items, group.label, group.total)}
+                                                   className="py-1.5 px-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm"
+                                                >
+                                                   Bayar Tagihan
+                                                </button>
+                                            </div>
+                                         </div>
+
+                                         {/* Group Items */}
+                                         <div className="divide-y divide-slate-50">
+                                            {group.items.map(s => (
+                                                <div key={s.id} className="p-3 flex justify-between items-center">
+                                                   <div className="flex-1">
+                                                      <p className="text-sm font-medium text-slate-700">{s.note}</p>
+                                                      <p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p>
+                                                   </div>
+                                                   <div className="flex items-center gap-3">
+                                                      <span className="font-bold text-slate-600 text-sm">{formatIDR(s.amount)}</span>
+                                                      <div className="flex gap-1">
+                                                         <button onClick={() => handleEditSaving(s)} className="p-1 bg-slate-100 text-blue-500 rounded-md"><Pencil size={12}/></button>
+                                                         <button onClick={() => handleDeleteSaving(s.id)} className="p-1 bg-slate-100 text-red-500 rounded-md"><Trash2 size={12}/></button>
+                                                      </div>
+                                                   </div>
+                                                </div>
+                                            ))}
+                                         </div>
+                                     </div>
+                                  ))}
+                               </div>
+                            ) : (
+                               <div className="p-4 text-center text-xs text-slate-400">Belum ada tabungan aktif.</div>
+                            )}
+                         </div>
+                      );
+                  })}
+              </div>
+           </div>
+        )}
+
+        {/* --- REPORT TAB CONTENT (MOBILE) --- */}
+        {mobileTab === 'report' && (
+           <div className="px-5 mt-4 pb-20">
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-bold text-lg text-slate-800">Laporan Tahunan</h3>
+                 <select 
+                   value={selectedYear} 
+                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                   className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm text-slate-700 outline-none"
+                 >
+                    {[0, 1].map(offset => {
+                       const y = new Date().getFullYear() - 1 + offset;
+                       return <option key={y} value={y}>{y}</option>;
+                    })}
+                 </select>
+              </div>
+
+              <div className="space-y-4">
+                 {Array.from({ length: 12 }).map((_, monthIndex) => {
+                     // Check if month has data to avoid empty list clutter
+                     const hasData = data.cards.some(c => getMonthlyBill(c.id, monthIndex, selectedYear) > 0);
+                     if (!hasData) return null;
+
+                     const monthName = new Date(selectedYear, monthIndex).toLocaleString('id-ID', { month: 'long' });
+                     
+                     return (
+                        <div key={monthIndex} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                           <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 mb-2">{monthName}</h4>
+                           <div className="space-y-2">
+                              {data.cards.map(c => {
+                                 const bill = getMonthlyBill(c.id, monthIndex, selectedYear);
+                                 if (bill === 0) return null;
+                                 return (
+                                    <div key={c.id} className="flex justify-between items-center text-sm">
+                                       <span className="text-slate-600">{c.name}</span>
+                                       <span className="font-medium text-slate-900">{formatIDR(bill)}</span>
+                                    </div>
+                                 )
+                              })}
+                           </div>
+                        </div>
+                     )
+                 })}
+                 <div className="text-center text-xs text-slate-400 mt-4">
+                    Menampilkan bulan yang memiliki tagihan/cicilan saja.
+                 </div>
+              </div>
+           </div>
+        )}
+
+        {/* --- HISTORY TAB CONTENT --- */}
         {mobileTab === 'history' && (
            <div className="px-5 mt-4">
               <h3 className="font-bold text-lg text-slate-800 mb-4">Riwayat Transaksi</h3>
@@ -917,7 +1729,10 @@ const App: React.FC = () => {
                   <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border-b border-slate-50 flex flex-col gap-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-slate-800">{t.description}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-800">{t.description}</p>
+                            {t.isInstallment && <span className="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold">CICILAN</span>}
+                        </div>
                         <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', { dateStyle: 'full'})}</p>
                       </div>
                       <span className={`font-semibold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
@@ -969,9 +1784,12 @@ const App: React.FC = () => {
                    </div>
                    <ChevronRight size={16} className="text-slate-400" />
                 </button>
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100">
+                <button 
+                  onClick={() => setMobileTab('savings')}
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100"
+                >
                    <div className="flex items-center gap-3 text-slate-700">
-                      <Wallet size={18} /> <span>Target Tabungan</span>
+                      <Target size={18} /> <span>Target Tabungan</span>
                    </div>
                    <ChevronRight size={16} className="text-slate-400" />
                 </button>
@@ -988,46 +1806,45 @@ const App: React.FC = () => {
         )}
 
         {/* --- BOTTOM NAVIGATION --- */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe pt-2 px-6 flex justify-between items-center z-50 h-[80px]">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe pt-2 px-4 flex justify-between items-center z-50 h-[80px]">
           <button 
             onClick={() => setMobileTab('home')}
             className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}
           >
-            <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Beranda</span>
+            <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
+            <span className="text-[9px] font-medium">Beranda</span>
           </button>
           
           <button 
             onClick={() => setMobileTab('cards')}
             className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}
           >
-            <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Kartu</span>
+            <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
+            <span className="text-[9px] font-medium">Kartu</span>
           </button>
 
-          <div className="relative -top-6">
-             <button 
-               onClick={openAddTransactionModal}
-               className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-200 active:scale-95 transition-transform"
-             >
-                <PlusCircle size={28} />
-             </button>
-          </div>
+          <button 
+            onClick={() => setMobileTab('savings')}
+            className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}
+          >
+            <PiggyBank size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
+            <span className="text-[9px] font-medium">Tabungan</span>
+          </button>
 
           <button 
             onClick={() => setMobileTab('history')}
             className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`}
           >
-            <History size={24} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Riwayat</span>
+            <History size={22} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
+            <span className="text-[9px] font-medium">Riwayat</span>
           </button>
 
           <button 
             onClick={() => setMobileTab('profile')}
             className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}
           >
-            <UserIcon size={24} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Akun</span>
+            <UserIcon size={22} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
+            <span className="text-[9px] font-medium">Akun</span>
           </button>
         </nav>
       </div>
@@ -1049,9 +1866,9 @@ const App: React.FC = () => {
                    const mockInstallment: Installment = {
                      id: generateId(),
                      cardId: data.cards[0]?.id || 'unknown_card',
-                     name: 'iPhone 15 Pro',
-                     totalAmount: 20000000,
-                     monthlyAmount: 1666666,
+                     name: 'Simulasi Cicilan',
+                     totalAmount: 12000000,
+                     monthlyAmount: 1000000,
                      totalMonths: 12,
                      monthsPaid: 0,
                      startDate: new Date().toISOString()
@@ -1060,7 +1877,7 @@ const App: React.FC = () => {
                  }}
                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700"
                >
-                 Simpan Simulasi
+                 Simpan Simulasi (12jt/12bln)
                </button>
                <button 
                  onClick={() => setInstallmentModalOpen(false)} 
@@ -1104,10 +1921,176 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- SAVING MODAL --- */}
+      {savingModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+               <h3 className="text-lg font-bold text-slate-800">
+                  {editingSaving ? 'Edit Tabungan' : 'Tambah Tabungan'}
+               </h3>
+               <button onClick={() => setSavingModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+             </div>
+             
+             <form onSubmit={handleSaveSaving} className="space-y-4">
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Untuk Kartu</label>
+                  {data.cards.length === 0 ? (
+                    <div className="p-3 bg-red-50 text-red-600 text-xs rounded">Belum ada kartu</div>
+                  ) : (
+                    <select 
+                      value={savingCardId}
+                      onChange={(e) => setSavingCardId(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 outline-none"
+                    >
+                       {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bulan Tagihan</label>
+                    <select 
+                      value={savingTargetMonth}
+                      onChange={(e) => setSavingTargetMonth(parseInt(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 outline-none"
+                    >
+                       {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tahun</label>
+                    <input 
+                      type="number" 
+                      value={savingTargetYear} 
+                      onChange={(e) => setSavingTargetYear(parseInt(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none" 
+                    />
+                  </div>
+               </div>
+
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nominal Disisihkan (IDR)</label>
+                  <input type="number" required placeholder="0" value={savingAmount} onChange={e => setSavingAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500" />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Catatan (Opsional)</label>
+                  <input type="text" placeholder="Contoh: Tabungan Awal" value={savingNote} onChange={e => setSavingNote(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500" />
+               </div>
+               <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 mt-2">
+                   {editingSaving ? 'Simpan Perubahan' : 'Simpan Tabungan'}
+               </button>
+             </form>
+           </div>
+        </div>
+      )}
+
+      {/* --- BATCH PAY MODAL --- */}
+      {batchPayModalOpen && activeBatchGroup && (
+         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-slate-800">Konfirmasi Pembayaran Tagihan</h3>
+                  <button onClick={() => setBatchPayModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+               </div>
+               
+               <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-xl space-y-3">
+                     <p className="text-sm text-slate-500 font-medium">Anda akan melakukan pembayaran untuk:</p>
+                     <div className="flex justify-between items-center">
+                        <span className="text-slate-700 font-bold">Periode</span>
+                        <span className="text-slate-800">{activeBatchGroup.label}</span>
+                     </div>
+                     <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                         <span className="text-slate-700">Tabungan Tersedia</span>
+                         <span className="text-green-600 font-bold">{formatIDR(activeBatchGroup.total)}</span>
+                     </div>
+                     {activeBatchGroup.month >= 0 && activeBatchGroup.year > 0 && activeBatchGroup.items.length > 0 && (
+                        <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                           <span className="text-slate-700">Estimasi Tagihan</span>
+                           <span className="text-red-600 font-bold">
+                              {formatIDR(getMonthlyBill(activeBatchGroup.items[0].cardId, activeBatchGroup.month, activeBatchGroup.year))}
+                           </span>
+                        </div>
+                     )}
+                  </div>
+
+                  {activeBatchGroup.month >= 0 && activeBatchGroup.year > 0 && activeBatchGroup.items.length > 0 && (
+                     <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex justify-between items-center">
+                        <span className="text-sm font-bold text-indigo-800">Sisa Tagihan</span>
+                        <span className="text-lg font-bold text-indigo-700">
+                           {formatIDR(
+                              Math.max(0, getMonthlyBill(activeBatchGroup.items[0].cardId, activeBatchGroup.month, activeBatchGroup.year) - activeBatchGroup.total)
+                           )}
+                        </span>
+                     </div>
+                  )}
+
+                  <p className="text-xs text-slate-500 text-center px-4">
+                     Pembayaran ini akan membuat transaksi "PAYMENT" sebesar <strong>{formatIDR(activeBatchGroup.total)}</strong> dan mengurangi saldo tabungan pada periode ini.
+                  </p>
+
+                  <button 
+                     onClick={handleConfirmBatchPay}
+                     className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-200"
+                  >
+                     Bayarkan Sekarang
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
+
+      {/* --- WITHDRAW MODAL --- */}
+      {withdrawModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+               <h3 className="text-lg font-bold text-slate-800">Ambil Tabungan</h3>
+               <button onClick={() => setWithdrawModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+             </div>
+             
+             <form onSubmit={handleConfirmWithdraw} className="space-y-4">
+               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-3">
+                  <AlertCircle size={20} className="text-orange-500 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1">Saldo Tersedia</p>
+                    <p className="text-xl font-bold text-slate-800">
+                      {formatIDR(activeSavingsGroup.reduce((sum, s) => sum + s.amount, 0))}
+                    </p>
+                    <p className="text-[10px] text-orange-600 mt-1">
+                      Mengambil tabungan akan mengurangi saldo dari catatan tabungan terlama di periode ini.
+                    </p>
+                  </div>
+               </div>
+
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nominal Penarikan (IDR)</label>
+                  <input 
+                    type="number" 
+                    required 
+                    placeholder="0" 
+                    value={withdrawAmount} 
+                    onChange={e => setWithdrawAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 font-bold text-lg text-slate-800" 
+                  />
+               </div>
+
+               <button type="submit" className="w-full bg-orange-600 text-white py-3 rounded-xl font-bold hover:bg-orange-700 mt-2 shadow-lg shadow-orange-200">
+                   Konfirmasi Penarikan
+               </button>
+             </form>
+           </div>
+        </div>
+      )}
+
       {/* --- TRANSACTION INPUT MODAL --- */}
       {transactionModalOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center sm:p-4">
-          <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto">
             
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800">
@@ -1206,6 +2189,93 @@ const App: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* PAY FROM SAVINGS TOGGLE (PAYMENT ONLY) */}
+              {txType === TransactionType.PAYMENT && !editingTransaction && (
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+                     <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-green-200 rounded-lg text-green-700">
+                               <PiggyBank size={16} />
+                            </div>
+                            <div>
+                               <p className="font-bold text-slate-700 text-sm">Ambil dari Tabungan?</p>
+                               <p className="text-[10px] text-slate-500">Saldo tabungan akan berkurang otomatis</p>
+                            </div>
+                         </div>
+                         <label className="relative inline-flex items-center cursor-pointer">
+                           <input 
+                             type="checkbox" 
+                             className="sr-only peer" 
+                             checked={payFromSavings} 
+                             onChange={(e) => setPayFromSavings(e.target.checked)}
+                           />
+                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                         </label>
+                     </div>
+                     {payFromSavings && txCardId && (
+                         <div className="mt-3 pt-2 border-t border-green-200 flex justify-between items-center text-xs">
+                             <span className="text-slate-600 font-medium">Saldo Tersedia:</span>
+                             <span className="font-bold text-green-700">
+                                 {formatIDR(data.savings
+                                     .filter(s => s.cardId === txCardId && !s.isTransferred)
+                                     .reduce((sum, s) => sum + s.amount, 0))}
+                             </span>
+                         </div>
+                     )}
+                  </div>
+              )}
+
+              {/* INSTALLMENT CONVERSION TOGGLE (EXPENSE ONLY) */}
+              {txType === TransactionType.EXPENSE && (
+                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                   <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                         <div className="p-1.5 bg-indigo-200 rounded-lg text-indigo-700">
+                            <PieChart size={16} />
+                         </div>
+                         <div>
+                            <p className="font-bold text-slate-700 text-sm">Jadikan Cicilan</p>
+                            <p className="text-[10px] text-slate-500">Ubah transaksi ini menjadi cicilan tetap</p>
+                         </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={txIsInstallment} 
+                          onChange={(e) => setTxIsInstallment(e.target.checked)}
+                          disabled={editingTransaction?.isInstallment === true}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                      </label>
+                   </div>
+                   
+                   {txIsInstallment && (
+                      <div className="animate-in slide-in-from-top-2 duration-200">
+                         <label className="block text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-2">Tenor (Bulan)</label>
+                         <select 
+                           value={txInstallmentMonths}
+                           onChange={(e) => setTxInstallmentMonths(parseInt(e.target.value))}
+                           className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none mb-3"
+                         >
+                            <option value={3}>3 Bulan</option>
+                            <option value={6}>6 Bulan</option>
+                            <option value={12}>12 Bulan</option>
+                            <option value={18}>18 Bulan</option>
+                            <option value={24}>24 Bulan</option>
+                         </select>
+                         
+                         {txAmount && (
+                            <div className="flex items-center justify-between text-xs font-medium text-slate-600 bg-white p-2 rounded-lg border border-indigo-100">
+                               <span>Est. Cicilan/Bulan:</span>
+                               <span className="text-indigo-700">{formatIDR(parseFloat(txAmount) / txInstallmentMonths)}</span>
+                            </div>
+                         )}
+                      </div>
+                   )}
+                </div>
+              )}
 
               <button 
                 type="submit"

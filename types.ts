@@ -43,6 +43,7 @@ export interface Saving {
   amount: number;
   date: string;
   note: string;
+  targetPeriod?: { month: number, year: number }; // Target pembayaran untuk tagihan bulan apa
   isTransferred: boolean; // Jika true, berarti sudah dipakai bayar tagihan
 }
 
