@@ -1,14 +1,15 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './services/firebase';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
 
-const rootElement = document.getElementById('root');
+const rootElement = document.getElementById("root");
+
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  throw new Error("Root element #root tidak ditemukan");
 }
 
-const root = ReactDOM.createRoot(rootElement);
+const root = createRoot(rootElement);
+
 root.render(
   <React.StrictMode>
     <App />

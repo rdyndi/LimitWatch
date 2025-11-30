@@ -1,6 +1,16 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut, 
+  onAuthStateChanged, 
+  User 
+} from "firebase/auth";
 import { AppState } from "../types";
 
 // Your web app's Firebase configuration
@@ -16,21 +26,75 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const analytics = getAnalytics(app);
-const db = getFirestore(app);
 
-// Reference to the main data document
-// We use a single document 'main' in collection 'app_data' for global sync
-const DOC_REF = doc(db, "app_data", "main");
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (error) {
+  console.warn("Firebase Analytics initialization failed (this is optional):", error);
+}
+
+const db = getFirestore(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+// --- Auth Functions (Optional/Future Use) ---
+
+export const loginWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Login failed:", error);
+    throw error;
+  }
+};
+
+export const registerWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    return result.user;
+  } catch (error) {
+    console.error("Register failed:", error);
+    throw error;
+  }
+};
+
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    return result.user;
+  } catch (error) {
+    console.error("Login failed:", error);
+    throw error;
+  }
+};
+
+export const logout = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout failed:", error);
+  }
+};
+
+export const subscribeToAuth = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, callback);
+};
+
+// --- Database Functions ---
+
+// Use a fixed global document for app data synchronization since no user ID is passed from App.tsx
+const GLOBAL_DOC_REF = doc(db, "app_data", "main_data");
 
 export const subscribeToAppState = (onUpdate: (data: AppState) => void) => {
-  // Listen for realtime updates
-  const unsubscribe = onSnapshot(DOC_REF, (docSnap) => {
+  // Listen for realtime updates on the global document
+  const unsubscribe = onSnapshot(GLOBAL_DOC_REF, (docSnap) => {
     if (docSnap.exists()) {
       onUpdate(docSnap.data() as AppState);
     } else {
-      console.log("No data found in Firebase, starting with empty state.");
-      // Fix: Send empty state so the app stops loading
+      console.log("No data found, starting with empty state.");
+      // Send empty state so the app stops loading
       onUpdate({
         cards: [],
         transactions: [],
@@ -40,19 +104,16 @@ export const subscribeToAppState = (onUpdate: (data: AppState) => void) => {
     }
   }, (error) => {
     console.error("Firestore subscription error:", error);
-    // On error (e.g. offline/permission), possibly stop loading too or show error
-    // For now, let's allow the app to render with empty state or handle in UI
   });
   return unsubscribe;
 };
 
 export const saveAppState = async (data: AppState) => {
   try {
-    // console.log("Saving to Firebase...", data);
-    await setDoc(DOC_REF, data);
+    await setDoc(GLOBAL_DOC_REF, data);
   } catch (error) {
     console.error("Error saving to Firebase:", error);
   }
 };
 
-export { app, analytics, db };
+export { app, analytics, db, auth };
