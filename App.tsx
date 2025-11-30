@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   AppState, 
   Installment, 
@@ -150,6 +150,10 @@ const App: React.FC = () => {
   // Report State
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+  // History / Back Button Logic Refs
+  const prevTabRef = useRef(mobileTab);
+  const isBackNavigationRef = useRef(false);
+
   useEffect(() => {
     const unsubscribe = subscribeToAuth(setUser);
     return () => unsubscribe();
@@ -171,6 +175,42 @@ const App: React.FC = () => {
       if (!savingCardId) setSavingCardId(data.cards[0].id);
     }
   }, [data.cards, txCardId, savingCardId]);
+
+  // --- HISTORY & BACK BUTTON MANAGEMENT ---
+  useEffect(() => {
+    const handlePopState = () => {
+      // Saat tombol back ditekan
+      isBackNavigationRef.current = true;
+      setMobileTab('home');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    // Jangan push history jika perubahan state disebabkan oleh tombol back
+    if (isBackNavigationRef.current) {
+        isBackNavigationRef.current = false;
+        prevTabRef.current = mobileTab;
+        return;
+    }
+
+    if (mobileTab === 'home') {
+        // Jika kembali ke home, kita tidak perlu push state baru, 
+        // biarkan browser stack apa adanya (atau user menekan tombol home)
+    } else {
+        // Jika pindah ke tab selain home
+        if (prevTabRef.current === 'home') {
+            // Home -> Tab: Push State (agar tombol back aktif)
+            window.history.pushState({ tab: mobileTab }, '', '');
+        } else {
+            // Tab -> Tab: Replace State (agar stack tidak menumpuk: Home -> TabBaru)
+            window.history.replaceState({ tab: mobileTab }, '', '');
+        }
+    }
+    prevTabRef.current = mobileTab;
+  }, [mobileTab]);
 
   // Helper for Input Currency Formatting
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
