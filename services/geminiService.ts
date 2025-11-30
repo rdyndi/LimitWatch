@@ -40,7 +40,7 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   }).join('\n');
 
   const prompt = `
-    Bertindaklah ok sebagai penasihat keuangan pribadi yang ahli. 
+    Bertindaklah sebagai penasihat keuangan pribadi yang ahli. 
     Analisis data keuangan kartu kredit pengguna berikut ini (dalam Rupiah Indonesia):
 
     DATA KARTU KREDIT:

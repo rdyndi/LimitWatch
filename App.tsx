@@ -772,6 +772,18 @@ const App: React.FC = () => {
   };
 
   const handleGetAdvice = async () => {
+    // Attempt to prompt for API Key if supported by the environment (e.g. AI Studio)
+    if (typeof window !== 'undefined' && (window as any).aistudio) {
+      try {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            await (window as any).aistudio.openSelectKey();
+        }
+      } catch (e) {
+        console.error("Failed to select API key:", e);
+      }
+    }
+
     setLoadingAi(true);
     const advice = await getFinancialAdvice(data);
     setAiAdvice(advice);
