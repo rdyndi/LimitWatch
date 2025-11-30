@@ -1521,10 +1521,10 @@ const App: React.FC = () => {
       {/* ========================================= */}
       {/* MOBILE SUPER APP VIEW                     */}
       {/* ========================================= */}
-      <div className="md:hidden min-h-screen bg-slate-50 font-sans pb-24">
+      <div className="md:hidden fixed inset-0 bg-slate-50 font-sans flex flex-col">
         
         {/* --- Header (Shared across tabs) --- */}
-        <header className="bg-white px-5 pt-8 pb-4 sticky top-0 z-10 shadow-sm">
+        <header className="flex-none bg-white px-5 pt-8 pb-4 z-20 shadow-sm relative">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-slate-500 text-sm">Selamat Datang,</p>
@@ -1587,452 +1587,455 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* --- HOME TAB CONTENT --- */}
-        {mobileTab === 'home' && (
-          <div className="px-5 space-y-6 mt-4">
-            
-            {/* Financial Summary Card */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-              <div className="relative z-10">
-                <p className="text-blue-100 text-sm mb-1">Total Hutang Berjalan</p>
-                <h3 className="text-3xl font-bold mb-4">{formatIDR(totalDebt)}</h3>
-                
-                <div className="flex gap-4 border-t border-white/20 pt-4">
-                  <div onClick={() => setMobileTab('savings')} className="cursor-pointer">
-                    <p className="text-blue-100 text-xs">Tabungan Pelunasan</p>
-                    <p className="font-semibold">{formatIDR(totalSavings)}</p>
-                  </div>
-                  <div>
-                    <p className="text-blue-100 text-xs">Cicilan Aktif</p>
-                    <p className="font-semibold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length}</p>
+        {/* --- SCROLLABLE CONTENT AREA --- */}
+        <main 
+          className="flex-1 overflow-y-auto overscroll-none scrollbar-hide bg-slate-50 pb-24"
+          onTouchStart={mobileTab === 'savings' ? onTouchStart : undefined}
+          onTouchMove={mobileTab === 'savings' ? onTouchMove : undefined}
+          onTouchEnd={mobileTab === 'savings' ? onTouchEnd : undefined}
+        >
+          {/* --- HOME TAB CONTENT --- */}
+          {mobileTab === 'home' && (
+            <div className="px-5 space-y-6 pt-4">
+              
+              {/* Financial Summary Card */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                <div className="relative z-10">
+                  <p className="text-blue-100 text-sm mb-1">Total Hutang Berjalan</p>
+                  <h3 className="text-3xl font-bold mb-4">{formatIDR(totalDebt)}</h3>
+                  
+                  <div className="flex gap-4 border-t border-white/20 pt-4">
+                    <div onClick={() => setMobileTab('savings')} className="cursor-pointer">
+                      <p className="text-blue-100 text-xs">Tabungan Pelunasan</p>
+                      <p className="font-semibold">{formatIDR(totalSavings)}</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-100 text-xs">Cicilan Aktif</p>
+                      <p className="font-semibold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* BILL REMINDER WIDGET (Mobile Super App Style) */}
-            <div>
-                <div className="flex items-center gap-2 mb-2 text-slate-600">
-                    <Bell size={16} />
-                    <h3 className="text-xs font-bold uppercase tracking-wider">Pengingat Tagihan</h3>
+              {/* BILL REMINDER WIDGET (Mobile Super App Style) */}
+              <div>
+                  <div className="flex items-center gap-2 mb-2 text-slate-600">
+                      <Bell size={16} />
+                      <h3 className="text-xs font-bold uppercase tracking-wider">Pengingat Tagihan</h3>
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                      {upcomingBills.length === 0 ? (
+                          <div className="bg-white border border-slate-100 rounded-xl p-3 min-w-[200px] flex items-center gap-3">
+                            <div className="p-2 bg-green-50 rounded-full text-green-600"><CheckCircle2 size={16}/></div>
+                            <p className="text-xs text-slate-500">Semua aman, tidak ada tagihan dekat.</p>
+                          </div>
+                      ) : (
+                          upcomingBills.map(c => {
+                              const isUrgent = c.daysLeft <= 3;
+                              const isWarning = c.daysLeft <= 7;
+                              return (
+                                  <div key={c.id} className={`min-w-[220px] p-3 rounded-xl border flex flex-col justify-between ${
+                                      isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'
+                                  }`}>
+                                      <div className="flex justify-between items-start mb-2">
+                                          <div className="text-xs font-bold text-slate-800">{c.name}</div>
+                                          <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                              isUrgent ? 'bg-red-100 text-red-600' : isWarning ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'
+                                          }`}>
+                                              {c.daysLeft} Hari
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                                          <Clock size={12} />
+                                          <span>Jatuh Tempo: {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</span>
+                                      </div>
+                                      <div className="mt-1 pt-2 border-t border-slate-100/50 flex justify-between items-center">
+                                        <span className="text-[10px] text-slate-500">Sisa Tagihan</span>
+                                        <span className="text-xs font-bold text-slate-800">{formatIDR(c.remainingBill)}</span>
+                                      </div>
+                                  </div>
+                              );
+                          })
+                      )}
+                  </div>
+              </div>
+
+              {/* Quick Actions Grid (Gojek Style) */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-3">Menu Utama</h3>
+                <div className="grid grid-cols-4 gap-4">
+                  <button 
+                    onClick={openAddTransactionModal} 
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <PlusCircle size={24} />
+                    </div>
+                    <span className="text-xs text-slate-600 font-medium text-center">Catat<br/>Belanja</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setInstallmentModalOpen(true)} 
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <LayoutGrid size={24} />
+                    </div>
+                    <span className="text-xs text-slate-600 font-medium text-center">Cicilan<br/>Baru</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setMobileTab('report')}
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <FileBarChart size={24} />
+                    </div>
+                    <span className="text-xs text-slate-600 font-medium text-center">Laporan<br/>Tagihan</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setMobileTab('savings')} 
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shadow-sm">
+                      <PiggyBank size={24} />
+                    </div>
+                    <span className="text-xs text-slate-600 font-medium text-center">Tabungan<br/>Rutin</span>
+                  </button>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {upcomingBills.length === 0 ? (
-                        <div className="bg-white border border-slate-100 rounded-xl p-3 min-w-[200px] flex items-center gap-3">
-                           <div className="p-2 bg-green-50 rounded-full text-green-600"><CheckCircle2 size={16}/></div>
-                           <p className="text-xs text-slate-500">Semua aman, tidak ada tagihan dekat.</p>
+              </div>
+
+              {/* AI Advice Section (Dynamic) */}
+              {loadingAi && (
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-pulse">
+                  <div className="h-4 bg-purple-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-purple-200 rounded w-1/2"></div>
+                </div>
+              )}
+              
+              {aiAdvice && !loadingAi && (
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                  <div className="flex items-center gap-2 mb-2 text-purple-600">
+                    <Sparkles size={16} />
+                    <h4 className="font-semibold text-sm">Analisis AI</h4>
+                  </div>
+                  <div className="text-sm text-slate-600 leading-relaxed max-h-40 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap font-sans text-xs">{aiAdvice}</pre>
+                  </div>
+                </div>
+              )}
+              
+              {!aiAdvice && (
+                  <button onClick={handleGetAdvice} className="w-full py-3 bg-purple-50 text-purple-600 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+                      <Sparkles size={16} /> Minta Saran AI
+                  </button>
+              )}
+
+              {/* Recent Transactions List */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-slate-800">Transaksi Terakhir</h3>
+                  <button onClick={() => setMobileTab('history')} className="text-blue-600 text-xs font-medium">Lihat Semua</button>
+                </div>
+                <div className="space-y-3">
+                  {data.transactions.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-sm bg-white rounded-xl border border-slate-100 border-dashed">
+                      Belum ada transaksi
+                    </div>
+                  ) : (
+                    data.transactions.slice(0, 5).map(t => (
+                      <div key={t.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'
+                          }`}>
+                            {t.type === TransactionType.EXPENSE ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800 text-sm">{t.description}</p>
+                            <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                          </div>
                         </div>
-                    ) : (
-                        upcomingBills.map(c => {
-                             const isUrgent = c.daysLeft <= 3;
-                             const isWarning = c.daysLeft <= 7;
-                             return (
-                                <div key={c.id} className={`min-w-[220px] p-3 rounded-xl border flex flex-col justify-between ${
-                                    isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'
-                                }`}>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="text-xs font-bold text-slate-800">{c.name}</div>
-                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                                            isUrgent ? 'bg-red-100 text-red-600' : isWarning ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'
-                                        }`}>
-                                            {c.daysLeft} Hari
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
-                                        <Clock size={12} />
-                                        <span>Jatuh Tempo: {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</span>
-                                    </div>
-                                    <div className="mt-1 pt-2 border-t border-slate-100/50 flex justify-between items-center">
-                                       <span className="text-[10px] text-slate-500">Sisa Tagihan</span>
-                                       <span className="text-xs font-bold text-slate-800">{formatIDR(c.remainingBill)}</span>
-                                    </div>
-                                </div>
-                             );
-                        })
-                    )}
-                </div>
-            </div>
-
-            {/* Quick Actions Grid (Gojek Style) */}
-            <div>
-              <h3 className="font-semibold text-slate-800 mb-3">Menu Utama</h3>
-              <div className="grid grid-cols-4 gap-4">
-                <button 
-                  onClick={openAddTransactionModal} 
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <PlusCircle size={24} />
-                  </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Catat<br/>Belanja</span>
-                </button>
-
-                <button 
-                  onClick={() => setInstallmentModalOpen(true)} 
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <LayoutGrid size={24} />
-                  </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Cicilan<br/>Baru</span>
-                </button>
-
-                <button 
-                   onClick={() => setMobileTab('report')}
-                   className="flex flex-col items-center gap-2"
-                >
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <FileBarChart size={24} />
-                  </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Laporan<br/>Tagihan</span>
-                </button>
-
-                <button 
-                  onClick={() => setMobileTab('savings')} 
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <PiggyBank size={24} />
-                  </div>
-                  <span className="text-xs text-slate-600 font-medium text-center">Tabungan<br/>Rutin</span>
-                </button>
-              </div>
-            </div>
-
-            {/* AI Advice Section (Dynamic) */}
-            {loadingAi && (
-               <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-pulse">
-                 <div className="h-4 bg-purple-200 rounded w-3/4 mb-2"></div>
-                 <div className="h-4 bg-purple-200 rounded w-1/2"></div>
-               </div>
-            )}
-            
-            {aiAdvice && !loadingAi && (
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <div className="flex items-center gap-2 mb-2 text-purple-600">
-                   <Sparkles size={16} />
-                   <h4 className="font-semibold text-sm">Analisis AI</h4>
-                </div>
-                <div className="text-sm text-slate-600 leading-relaxed max-h-40 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap font-sans text-xs">{aiAdvice}</pre>
-                </div>
-              </div>
-            )}
-            
-            {!aiAdvice && (
-                 <button onClick={handleGetAdvice} className="w-full py-3 bg-purple-50 text-purple-600 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                    <Sparkles size={16} /> Minta Saran AI
-                 </button>
-            )}
-
-            {/* Recent Transactions List */}
-            <div>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-slate-800">Transaksi Terakhir</h3>
-                <button onClick={() => setMobileTab('history')} className="text-blue-600 text-xs font-medium">Lihat Semua</button>
-              </div>
-              <div className="space-y-3">
-                {data.transactions.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 text-sm bg-white rounded-xl border border-slate-100 border-dashed">
-                    Belum ada transaksi
-                  </div>
-                ) : (
-                  data.transactions.slice(0, 5).map(t => (
-                    <div key={t.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'
+                        <span className={`font-semibold text-sm ${
+                          t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'
                         }`}>
-                          {t.type === TransactionType.EXPENSE ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-800 text-sm">{t.description}</p>
-                          <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</p>
-                        </div>
+                          {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
+                        </span>
                       </div>
-                      <span className={`font-semibold text-sm ${
-                        t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'
-                      }`}>
-                        {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
-                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- CARDS TAB CONTENT --- */}
+          {mobileTab === 'cards' && (
+            <div className="px-5 mt-4 space-y-4">
+              <h3 className="font-bold text-lg text-slate-800">Kartu Kredit Saya</h3>
+              {data.cards.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-xl">
+                    <CreditCard className="mx-auto text-slate-300 mb-2" size={48} />
+                    <p className="text-slate-500">Belum ada kartu kredit</p>
+                  </div>
+              ) : (
+                  data.cards.map(card => (
+                    <div key={card.id} className="bg-slate-800 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-48 flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                          <span className="font-medium tracking-wider">{card.name}</span>
+                          <CreditCard size={20} className="opacity-80"/>
+                      </div>
+                      <div>
+                          <p className="text-xs text-slate-400 mb-1">Limit Kartu</p>
+                          <p className="text-xl font-bold tracking-widest">{formatIDR(card.limit)}</p>
+                      </div>
+                      <div className="flex justify-between items-end">
+                          <div className="text-xs text-slate-400">
+                            {card.dueDay ? `Jatuh Tempo: Tgl ${card.dueDay}` : 'No Due Date'}
+                          </div>
+                          <div className="w-8 h-8 rounded-full bg-white/20"></div>
+                      </div>
                     </div>
                   ))
-                )}
+              )}
+              <button 
+                onClick={() => setCardModalOpen(true)}
+                className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-medium flex items-center justify-center gap-2 hover:bg-slate-50"
+              >
+                  <PlusCircle size={18} /> Tambah Kartu Baru
+              </button>
+            </div>
+          )}
+
+          {/* --- SAVINGS TAB CONTENT (MOBILE SUPER APP) --- */}
+          {mobileTab === 'savings' && (
+            <div className="px-5 mt-4 min-h-[50vh]">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-slate-800">Tabungan Pelunasan</h3>
+                  <button onClick={openAddSavingModal} className="text-sm font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                      + Nabung
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                    {data.cards.map(card => {
+                        const cardSaved = data.savings
+                          .filter(s => s.cardId === card.id && !s.isTransferred)
+                          .reduce((sum, s) => sum + s.amount, 0);
+                        
+                        const monthGroups = getSavingsByMonth(card.id);
+
+                        return (
+                          <div key={card.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                              <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-white border border-slate-100 rounded-full flex items-center justify-center shadow-sm">
+                                      <CreditCard size={14} className="text-slate-500"/>
+                                    </div>
+                                    <span className="font-semibold text-slate-700 text-sm">{card.name}</span>
+                                </div>
+                                <span className="font-bold text-green-600">{formatIDR(cardSaved)}</span>
+                              </div>
+                              
+                              {monthGroups.length > 0 ? (
+                                <div className="p-3 space-y-3">
+                                    {monthGroups.map(group => (
+                                      <div key={group.key} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                          {/* Group Header */}
+                                          <div className="p-3 bg-indigo-50/50 border-b border-slate-100">
+                                              <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold uppercase text-indigo-600 tracking-wide">Tagihan {group.label}</span>
+                                                <span className="font-bold text-slate-800">{formatIDR(group.total)}</span>
+                                              </div>
+                                              
+                                              {/* Group Actions */}
+                                              <div className="grid grid-cols-2 gap-2">
+                                                  <button 
+                                                    onClick={() => openWithdrawModal(group.items)}
+                                                    className="py-1.5 px-2 bg-white border border-orange-200 text-orange-600 text-xs font-bold rounded-lg hover:bg-orange-50"
+                                                  >
+                                                    Ambil
+                                                  </button>
+                                                  <button 
+                                                    onClick={() => handleOpenBatchPay(group.items, group.label, group.total)}
+                                                    className="py-1.5 px-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm"
+                                                  >
+                                                    Bayar Tagihan
+                                                  </button>
+                                              </div>
+                                          </div>
+
+                                          {/* Group Items */}
+                                          <div className="divide-y divide-slate-50">
+                                              {group.items.map(s => (
+                                                  <div key={s.id} className="p-3 flex justify-between items-center">
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium text-slate-700">{s.note}</p>
+                                                        <p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="font-bold text-slate-600 text-sm">{formatIDR(s.amount)}</span>
+                                                        <div className="flex gap-1">
+                                                          <button onClick={() => handleEditSaving(s)} className="p-1 bg-slate-100 text-blue-500 rounded-md"><Pencil size={12}/></button>
+                                                          <button onClick={() => handleDeleteSaving(s.id)} className="p-1 bg-slate-100 text-red-500 rounded-md"><Trash2 size={12}/></button>
+                                                        </div>
+                                                    </div>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div className="p-4 text-center text-xs text-slate-400">Belum ada tabungan aktif.</div>
+                              )}
+                          </div>
+                        );
+                    })}
+                </div>
+            </div>
+          )}
+
+          {/* --- REPORT TAB CONTENT (MOBILE) --- */}
+          {mobileTab === 'report' && (
+            <div className="px-5 mt-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-slate-800">Laporan Tahunan</h3>
+                  <select 
+                    value={selectedYear} 
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm text-slate-700 outline-none"
+                  >
+                      {[0, 1].map(offset => {
+                        const y = new Date().getFullYear() - 1 + offset;
+                        return <option key={y} value={y}>{y}</option>;
+                      })}
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  {Array.from({ length: 12 }).map((_, monthIndex) => {
+                      // Check if month has data to avoid empty list clutter
+                      const hasData = data.cards.some(c => getMonthlyBill(c.id, monthIndex, selectedYear) > 0);
+                      if (!hasData) return null;
+
+                      const monthName = new Date(selectedYear, monthIndex).toLocaleString('id-ID', { month: 'long' });
+                      
+                      return (
+                          <div key={monthIndex} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                            <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 mb-2">{monthName}</h4>
+                            <div className="space-y-2">
+                                {data.cards.map(c => {
+                                  const bill = getMonthlyBill(c.id, monthIndex, selectedYear);
+                                  if (bill === 0) return null;
+                                  return (
+                                      <div key={c.id} className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-600">{c.name}</span>
+                                        <span className="font-medium text-slate-900">{formatIDR(bill)}</span>
+                                      </div>
+                                  )
+                                })}
+                            </div>
+                          </div>
+                      )
+                  })}
+                  <div className="text-center text-xs text-slate-400 mt-4">
+                      Menampilkan bulan yang memiliki tagihan/cicilan saja.
+                  </div>
+                </div>
+            </div>
+          )}
+
+          {/* --- HISTORY TAB CONTENT --- */}
+          {mobileTab === 'history' && (
+            <div className="px-5 mt-4">
+                <h3 className="font-bold text-lg text-slate-800 mb-4">Riwayat Transaksi</h3>
+                <div className="space-y-3">
+                  {data.transactions.map(t => (
+                    <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border-b border-slate-50 flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                              <p className="font-medium text-slate-800">{t.description}</p>
+                              {t.isInstallment && <span className="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold">CICILAN</span>}
+                          </div>
+                          <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', { dateStyle: 'full'})}</p>
+                        </div>
+                        <span className={`font-semibold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
+                          {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
+                        </span>
+                      </div>
+                      {/* Action Buttons for Mobile */}
+                      <div className="flex gap-2 justify-end pt-2 border-t border-slate-50">
+                          <button 
+                            onClick={() => handleEditClick(t)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteClick(t.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition"
+                          >
+                            <Trash2 size={12} /> Hapus
+                          </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            </div>
+          )}
+
+          {/* --- PROFILE TAB CONTENT --- */}
+          {mobileTab === 'profile' && (
+            <div className="px-5 mt-4">
+              <div className="bg-white p-5 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden">
+                    {user.photoURL ? (
+                        <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <UserIcon size={32} className="m-auto mt-4 text-slate-400" />
+                      )}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">{user.displayName || user.email}</h3>
+                    <p className="text-sm text-slate-500">{user.email}</p>
+                  </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100">
+                    <div className="flex items-center gap-3 text-slate-700">
+                        <CreditCard size={18} /> <span>Pengaturan Kartu</span>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-400" />
+                  </button>
+                  <button 
+                    onClick={() => setMobileTab('savings')}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100"
+                  >
+                    <div className="flex items-center gap-3 text-slate-700">
+                        <Target size={18} /> <span>Target Tabungan</span>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-400" />
+                  </button>
+                  <button 
+                    onClick={() => logout()}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-red-50 text-red-600"
+                  >
+                    <div className="flex items-center gap-3">
+                        <LogOut size={18} /> <span>Keluar Aplikasi</span>
+                    </div>
+                  </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </main>
 
-        {/* --- CARDS TAB CONTENT --- */}
-        {mobileTab === 'cards' && (
-          <div className="px-5 mt-4 space-y-4">
-             <h3 className="font-bold text-lg text-slate-800">Kartu Kredit Saya</h3>
-             {data.cards.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-xl">
-                  <CreditCard className="mx-auto text-slate-300 mb-2" size={48} />
-                  <p className="text-slate-500">Belum ada kartu kredit</p>
-                </div>
-             ) : (
-                data.cards.map(card => (
-                  <div key={card.id} className="bg-slate-800 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-48 flex flex-col justify-between">
-                     <div className="flex justify-between items-start">
-                        <span className="font-medium tracking-wider">{card.name}</span>
-                        <CreditCard size={20} className="opacity-80"/>
-                     </div>
-                     <div>
-                        <p className="text-xs text-slate-400 mb-1">Limit Kartu</p>
-                        <p className="text-xl font-bold tracking-widest">{formatIDR(card.limit)}</p>
-                     </div>
-                     <div className="flex justify-between items-end">
-                        <div className="text-xs text-slate-400">
-                          {card.dueDay ? `Jatuh Tempo: Tgl ${card.dueDay}` : 'No Due Date'}
-                        </div>
-                        <div className="w-8 h-8 rounded-full bg-white/20"></div>
-                     </div>
-                  </div>
-                ))
-             )}
-             <button 
-               onClick={() => setCardModalOpen(true)}
-               className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-medium flex items-center justify-center gap-2 hover:bg-slate-50"
-             >
-                <PlusCircle size={18} /> Tambah Kartu Baru
-             </button>
-          </div>
-        )}
-
-        {/* --- SAVINGS TAB CONTENT (MOBILE SUPER APP) --- */}
-        {mobileTab === 'savings' && (
-           <div 
-             className="px-5 mt-4 pb-20 min-h-[80vh]"
-             onTouchStart={onTouchStart}
-             onTouchMove={onTouchMove}
-             onTouchEnd={onTouchEnd}
-           >
-              <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold text-lg text-slate-800">Tabungan Pelunasan</h3>
-                 <button onClick={openAddSavingModal} className="text-sm font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                    + Nabung
-                 </button>
-              </div>
-
-              <div className="space-y-4">
-                  {data.cards.map(card => {
-                      const cardSaved = data.savings
-                        .filter(s => s.cardId === card.id && !s.isTransferred)
-                        .reduce((sum, s) => sum + s.amount, 0);
-                      
-                      const monthGroups = getSavingsByMonth(card.id);
-
-                      return (
-                         <div key={card.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                            <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                               <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 bg-white border border-slate-100 rounded-full flex items-center justify-center shadow-sm">
-                                     <CreditCard size={14} className="text-slate-500"/>
-                                  </div>
-                                  <span className="font-semibold text-slate-700 text-sm">{card.name}</span>
-                               </div>
-                               <span className="font-bold text-green-600">{formatIDR(cardSaved)}</span>
-                            </div>
-                            
-                            {monthGroups.length > 0 ? (
-                               <div className="p-3 space-y-3">
-                                  {monthGroups.map(group => (
-                                     <div key={group.key} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                         {/* Group Header */}
-                                         <div className="p-3 bg-indigo-50/50 border-b border-slate-100">
-                                            <div className="flex justify-between items-center mb-2">
-                                               <span className="text-xs font-bold uppercase text-indigo-600 tracking-wide">Tagihan {group.label}</span>
-                                               <span className="font-bold text-slate-800">{formatIDR(group.total)}</span>
-                                            </div>
-                                            
-                                            {/* Group Actions */}
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button 
-                                                   onClick={() => openWithdrawModal(group.items)}
-                                                   className="py-1.5 px-2 bg-white border border-orange-200 text-orange-600 text-xs font-bold rounded-lg hover:bg-orange-50"
-                                                >
-                                                   Ambil
-                                                </button>
-                                                <button 
-                                                   onClick={() => handleOpenBatchPay(group.items, group.label, group.total)}
-                                                   className="py-1.5 px-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm"
-                                                >
-                                                   Bayar Tagihan
-                                                </button>
-                                            </div>
-                                         </div>
-
-                                         {/* Group Items */}
-                                         <div className="divide-y divide-slate-50">
-                                            {group.items.map(s => (
-                                                <div key={s.id} className="p-3 flex justify-between items-center">
-                                                   <div className="flex-1">
-                                                      <p className="text-sm font-medium text-slate-700">{s.note}</p>
-                                                      <p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p>
-                                                   </div>
-                                                   <div className="flex items-center gap-3">
-                                                      <span className="font-bold text-slate-600 text-sm">{formatIDR(s.amount)}</span>
-                                                      <div className="flex gap-1">
-                                                         <button onClick={() => handleEditSaving(s)} className="p-1 bg-slate-100 text-blue-500 rounded-md"><Pencil size={12}/></button>
-                                                         <button onClick={() => handleDeleteSaving(s.id)} className="p-1 bg-slate-100 text-red-500 rounded-md"><Trash2 size={12}/></button>
-                                                      </div>
-                                                   </div>
-                                                </div>
-                                            ))}
-                                         </div>
-                                     </div>
-                                  ))}
-                               </div>
-                            ) : (
-                               <div className="p-4 text-center text-xs text-slate-400">Belum ada tabungan aktif.</div>
-                            )}
-                         </div>
-                      );
-                  })}
-              </div>
-           </div>
-        )}
-
-        {/* --- REPORT TAB CONTENT (MOBILE) --- */}
-        {mobileTab === 'report' && (
-           <div className="px-5 mt-4 pb-20">
-              <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold text-lg text-slate-800">Laporan Tahunan</h3>
-                 <select 
-                   value={selectedYear} 
-                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                   className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm text-slate-700 outline-none"
-                 >
-                    {[0, 1].map(offset => {
-                       const y = new Date().getFullYear() - 1 + offset;
-                       return <option key={y} value={y}>{y}</option>;
-                    })}
-                 </select>
-              </div>
-
-              <div className="space-y-4">
-                 {Array.from({ length: 12 }).map((_, monthIndex) => {
-                     // Check if month has data to avoid empty list clutter
-                     const hasData = data.cards.some(c => getMonthlyBill(c.id, monthIndex, selectedYear) > 0);
-                     if (!hasData) return null;
-
-                     const monthName = new Date(selectedYear, monthIndex).toLocaleString('id-ID', { month: 'long' });
-                     
-                     return (
-                        <div key={monthIndex} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-                           <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2 mb-2">{monthName}</h4>
-                           <div className="space-y-2">
-                              {data.cards.map(c => {
-                                 const bill = getMonthlyBill(c.id, monthIndex, selectedYear);
-                                 if (bill === 0) return null;
-                                 return (
-                                    <div key={c.id} className="flex justify-between items-center text-sm">
-                                       <span className="text-slate-600">{c.name}</span>
-                                       <span className="font-medium text-slate-900">{formatIDR(bill)}</span>
-                                    </div>
-                                 )
-                              })}
-                           </div>
-                        </div>
-                     )
-                 })}
-                 <div className="text-center text-xs text-slate-400 mt-4">
-                    Menampilkan bulan yang memiliki tagihan/cicilan saja.
-                 </div>
-              </div>
-           </div>
-        )}
-
-        {/* --- HISTORY TAB CONTENT --- */}
-        {mobileTab === 'history' && (
-           <div className="px-5 mt-4">
-              <h3 className="font-bold text-lg text-slate-800 mb-4">Riwayat Transaksi</h3>
-              <div className="space-y-3">
-                {data.transactions.map(t => (
-                  <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border-b border-slate-50 flex flex-col gap-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                            <p className="font-medium text-slate-800">{t.description}</p>
-                            {t.isInstallment && <span className="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold">CICILAN</span>}
-                        </div>
-                        <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', { dateStyle: 'full'})}</p>
-                      </div>
-                      <span className={`font-semibold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
-                        {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
-                      </span>
-                    </div>
-                    {/* Action Buttons for Mobile */}
-                    <div className="flex gap-2 justify-end pt-2 border-t border-slate-50">
-                        <button 
-                          onClick={() => handleEditClick(t)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition"
-                        >
-                          <Pencil size={12} /> Edit
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteClick(t.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition"
-                        >
-                          <Trash2 size={12} /> Hapus
-                        </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-           </div>
-        )}
-
-        {/* --- PROFILE TAB CONTENT --- */}
-        {mobileTab === 'profile' && (
-          <div className="px-5 mt-4">
-             <div className="bg-white p-5 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden">
-                   {user.photoURL ? (
-                      <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <UserIcon size={32} className="m-auto mt-4 text-slate-400" />
-                    )}
-                </div>
-                <div>
-                   <h3 className="font-bold text-slate-800">{user.displayName || user.email}</h3>
-                   <p className="text-sm text-slate-500">{user.email}</p>
-                </div>
-             </div>
-
-             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100">
-                   <div className="flex items-center gap-3 text-slate-700">
-                      <CreditCard size={18} /> <span>Pengaturan Kartu</span>
-                   </div>
-                   <ChevronRight size={16} className="text-slate-400" />
-                </button>
-                <button 
-                  onClick={() => setMobileTab('savings')}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100"
-                >
-                   <div className="flex items-center gap-3 text-slate-700">
-                      <Target size={18} /> <span>Target Tabungan</span>
-                   </div>
-                   <ChevronRight size={16} className="text-slate-400" />
-                </button>
-                <button 
-                  onClick={() => logout()}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-red-50 text-red-600"
-                >
-                   <div className="flex items-center gap-3">
-                      <LogOut size={18} /> <span>Keluar Aplikasi</span>
-                   </div>
-                </button>
-             </div>
-          </div>
-        )}
-
-        {/* --- BOTTOM NAVIGATION --- */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe pt-2 px-4 flex justify-between items-center z-50 h-[80px]">
+        {/* --- BOTTOM NAVIGATION (FIXED) --- */}
+        <nav className="flex-none bg-white border-t border-slate-200 pb-safe pt-2 px-4 flex justify-between items-center z-30 h-[80px]">
           <button 
             onClick={() => setMobileTab('home')}
             className={`flex flex-col items-center gap-1 transition-colors ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}

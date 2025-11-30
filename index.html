@@ -30,6 +30,11 @@
     />
 
     <style>
+      html, body {
+        overscroll-behavior-y: none; /* Mencegah efek bounce/tarikan pada browser mobile */
+        height: 100%;
+        overflow: hidden; /* Mencegah scroll pada body utama */
+      }
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
