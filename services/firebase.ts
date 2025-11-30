@@ -104,6 +104,9 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   // Data is now stored under "users/{userId}" document
   const userDocRef = doc(db, "users", userId);
 
+  // onSnapshot is a REALTIME listener. 
+  // It fires immediately with current cloud data, and again whenever cloud data changes.
+  // This satisfies "mengambil data setiap membuka menu" because the local state is always kept in sync.
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
       onUpdate(docSnap.data() as AppState);
@@ -127,8 +130,13 @@ export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
+    // Firebase Firestore throws an error if data contains 'undefined' values (common in optional fields).
+    // We sanitize the data by converting to JSON and back, which automatically strips 'undefined' keys.
+    const sanitizedData = JSON.parse(JSON.stringify(data));
+    
     const userDocRef = doc(db, "users", userId);
-    await setDoc(userDocRef, data);
+    await setDoc(userDocRef, sanitizedData);
+    // console.log("Data auto-saved to Firebase");
   } catch (error) {
     console.error("Error saving to Firebase:", error);
   }
