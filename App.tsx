@@ -24,7 +24,16 @@ import {
   Square,
   Mail,
   Lock,
-  User as UserIcon
+  User as UserIcon,
+  QrCode,
+  Settings,
+  Headphones,
+  Home,
+  PieChart,
+  Activity,
+  MoreHorizontal,
+  Save,
+  ShieldCheck
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { AppState, CreditCard, Transaction, Installment, Saving, TransactionType, ViewMode } from './types';
@@ -35,7 +44,8 @@ import {
   loginWithGoogle, 
   loginWithEmail, 
   registerWithEmail, 
-  logout 
+  logout,
+  updateUserProfile 
 } from './services/firebase';
 
 // --- Utility Functions ---
@@ -558,7 +568,7 @@ const AuthScreen = ({ onLoginSuccess }: { onLoginSuccess: (user: User) => void }
               <Wallet size={40} />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">DompetCerdas</h1>
+          <h1 className="text-3xl font-bold">LimitWatch</h1>
           <p className="text-blue-100 mt-2">Kelola Kartu Kredit & Hutang dengan Bijak</p>
         </div>
         
@@ -621,7 +631,7 @@ const AuthScreen = ({ onLoginSuccess }: { onLoginSuccess: (user: User) => void }
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.04-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
@@ -1036,10 +1046,8 @@ export default function App() {
 
   // --- Views ---
 
-  // Reused Dashboard, TransactionsView, etc. from previous context.
-  // I will just include them directly in the return below for clarity, or reuse if they were separate components.
-  // Since they were defined inside App in the previous file, I will keep them here.
-
+  // Dashboard logic separated for reuse if needed, but simplified here.
+  
   const Dashboard = () => {
     const today = new Date();
     const upcomingBills = data.cards
@@ -1058,7 +1066,7 @@ export default function App() {
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
     return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-6 md:pt-0">
       {upcomingBills.length > 0 && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-200 bg-orange-50/50">
               <div className="flex items-center gap-2 mb-4 text-orange-700">
@@ -1089,6 +1097,7 @@ export default function App() {
           </div>
       )}
 
+      {/* Standard Dashboard Cards (Hidden on Mobile Dashboard, visible if Dashboard view selected via BottomNav) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <p className="text-sm text-slate-500 font-medium">Total Hutang (Semua)</p>
@@ -1106,7 +1115,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24 md:pb-0">
         <h3 className="font-bold text-lg text-slate-800">Status Per Kartu</h3>
         {data.cards.length === 0 && <div className="text-slate-400 italic">Belum ada kartu.</div>}
         {data.cards.map(card => {
@@ -1140,7 +1149,7 @@ export default function App() {
   };
 
   const TransactionsView = () => (
-      <div className="space-y-6">
+      <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
           <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-slate-800">Riwayat Transaksi</h2>
               <button onClick={() => { setEditingTransaction(undefined); setTransModalOpen(true); }} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
@@ -1247,7 +1256,7 @@ export default function App() {
       const months = Array.from({ length: 12 }, (_, i) => i);
 
       return (
-          <div className="space-y-6">
+          <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
               <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold text-slate-800">Laporan Tahunan (Sisa Tagihan)</h2>
                   <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg shadow-sm border">
@@ -1339,7 +1348,7 @@ export default function App() {
       const historySavings = data.savings.filter(s => s.isTransferred).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-slate-800">Simpanan Pelunasan (Sinking Fund)</h2>
                 <button onClick={() => setSavingModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
@@ -1471,7 +1480,7 @@ export default function App() {
   };
 
   const InstallmentsView = () => (
-      <div className="space-y-6">
+      <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
            <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-slate-800">Daftar Cicilan Aktif</h2>
               <button onClick={() => setInstallmentModalOpen(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
@@ -1549,7 +1558,7 @@ export default function App() {
   );
 
   const CardsView = () => (
-      <div className="space-y-6">
+      <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
           <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-slate-800">Kelola Kartu</h2>
               <button onClick={() => { setEditingCard(undefined); setCardModalOpen(true); }} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
@@ -1589,6 +1598,196 @@ export default function App() {
       </div>
   );
 
+  const AccountView = () => {
+    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleUpdateProfile = async () => {
+        if (!displayName.trim()) return;
+        setIsSaving(true);
+        try {
+            await updateUserProfile(displayName);
+            setIsEditing(false);
+            // Force user state update since auth listener might not trigger immediately on profile update
+            setUser(prev => prev ? { ...prev, displayName: displayName } as User : null);
+        } catch (error) {
+            alert("Gagal update profil");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6 pt-6 md:pt-0 pb-24 md:pb-0">
+             <div className="md:hidden -mt-6 -mx-4 bg-gradient-to-b from-blue-700 to-blue-500 px-6 pt-10 pb-16 rounded-b-[2rem] text-white text-center mb-12">
+                 <h2 className="text-2xl font-bold mb-1">Profil Saya</h2>
+                 <p className="text-blue-100 text-sm">Kelola informasi akun Anda</p>
+             </div>
+
+             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg border overflow-hidden md:mt-0 -mt-10 relative z-10">
+                 <div className="p-6 bg-slate-50 border-b flex flex-col items-center">
+                     <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-md mb-4 text-primary border-4 border-white">
+                         <UserIcon size={48} />
+                     </div>
+                     <h3 className="font-bold text-xl text-slate-800">{user?.displayName || 'User'}</h3>
+                     <p className="text-sm text-slate-500">{user?.email}</p>
+                 </div>
+                 
+                 <div className="p-6 space-y-4">
+                     <div>
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Email Akun</label>
+                         <div className="flex items-center gap-3 bg-slate-100 p-3 rounded-lg border border-slate-200">
+                             <Mail size={18} className="text-slate-400" />
+                             <span className="text-slate-600 font-medium">{user?.email}</span>
+                             <ShieldCheck size={16} className="text-emerald-500 ml-auto" />
+                         </div>
+                     </div>
+
+                     <div>
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Nama Lengkap (Biodata)</label>
+                         {isEditing ? (
+                             <div className="flex gap-2">
+                                 <input 
+                                    type="text" 
+                                    value={displayName} 
+                                    onChange={(e) => setDisplayName(e.target.value)}
+                                    className="flex-1 border border-primary rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-200"
+                                    autoFocus
+                                 />
+                                 <button 
+                                    onClick={handleUpdateProfile}
+                                    disabled={isSaving}
+                                    className="bg-primary text-white p-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                                 >
+                                    {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                                 </button>
+                             </div>
+                         ) : (
+                             <div className="flex items-center justify-between bg-white border rounded-lg p-3">
+                                 <span className="font-medium text-slate-800">{displayName || '-'}</span>
+                                 <button onClick={() => setIsEditing(true)} className="text-blue-600 hover:bg-blue-50 p-1 rounded">
+                                     <Edit2 size={16} />
+                                 </button>
+                             </div>
+                         )}
+                     </div>
+                 </div>
+
+                 <div className="p-6 bg-slate-50 border-t">
+                     <button 
+                        onClick={() => { if(confirm("Yakin ingin keluar?")) logout(); }}
+                        className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 py-3 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:shadow-md transition-all"
+                     >
+                         <LogOut size={20} />
+                         Keluar Aplikasi
+                     </button>
+                     <p className="text-center text-xs text-slate-400 mt-4">LimitWatch v1.2.0 • Build 2025</p>
+                 </div>
+             </div>
+        </div>
+    );
+  };
+
+  // --- Mobile Specific Views Components ---
+
+  const MobileTopHeader = () => (
+      <div className="bg-gradient-to-b from-blue-700 to-blue-500 text-white px-6 pt-8 pb-20 rounded-b-[2rem]">
+          <div className="flex justify-between items-center mb-6">
+              <div>
+                  <h1 className="text-2xl font-bold italic">LimitWatch</h1>
+              </div>
+              <div className="flex gap-4">
+                  <button className="p-1 hover:bg-white/10 rounded-full"><Headphones size={20} /></button>
+                  <button onClick={() => setView('ACCOUNT')} className="p-1 hover:bg-white/10 rounded-full"><Settings size={20} /></button>
+                  <button onClick={logout} className="p-1 hover:bg-white/10 rounded-full"><LogOut size={20} /></button>
+              </div>
+          </div>
+          <p className="text-blue-100 text-sm font-medium">HALO, {user?.displayName?.toUpperCase() || user?.email?.split('@')[0].toUpperCase()}</p>
+      </div>
+  );
+
+  const MobileBalanceCard = () => (
+      <div className="mx-6 -mt-16 bg-white rounded-xl shadow-lg p-5 relative z-10">
+          <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-xs font-bold">
+                 <Wallet size={12} />
+                 <span>POSISI KEUANGAN</span>
+              </div>
+          </div>
+          <div className="mb-4">
+              <p className="text-slate-500 text-xs mb-1">Posisi Bersih (Simpanan - Hutang)</p>
+              <div className="flex justify-between items-center">
+                  <h2 className={`text-2xl font-bold tracking-tight ${netPosition >= 0 ? 'text-slate-800' : 'text-red-600'}`}>
+                      {formatIDR(netPosition)}
+                  </h2>
+                  <button className="text-blue-600 hover:bg-blue-50 p-1 rounded">
+                      <TrendingUp size={20} />
+                  </button>
+              </div>
+          </div>
+          <div className="pt-3 border-t flex items-center justify-between text-sm">
+             <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                 <span className="text-slate-500">Hutang: <span className="text-slate-800 font-semibold">{formatIDR(totalDebt)}</span></span>
+             </div>
+             <button onClick={() => setView('YEARLY')} className="flex items-center gap-1 text-blue-600 font-medium text-xs">
+                 Laporan <ChevronRight size={14} />
+             </button>
+          </div>
+      </div>
+  );
+
+  const MobileMainMenu = () => {
+      const menuItems = [
+          { id: 'CARDS', label: 'Kartu', icon: CardIcon, color: 'bg-blue-100 text-blue-600' },
+          { id: 'TRANSACTIONS', label: 'Riwayat', icon: List, color: 'bg-orange-100 text-orange-600' },
+          { id: 'SAVINGS', label: 'Simpanan', icon: ChickenIcon, color: 'bg-emerald-100 text-emerald-600' },
+          { id: 'INSTALLMENTS', label: 'Cicilan', icon: CalendarClock, color: 'bg-purple-100 text-purple-600' },
+          { id: 'YEARLY', label: 'Laporan', icon: BarChart3, color: 'bg-indigo-100 text-indigo-600' },
+          { id: 'ADD_TRANS', label: 'Catat', icon: Plus, color: 'bg-slate-100 text-slate-600', action: () => { setEditingTransaction(undefined); setTransModalOpen(true); } },
+          { id: 'ADD_CARD', label: 'Add Kartu', icon: CheckSquare, color: 'bg-pink-100 text-pink-600', action: () => { setEditingCard(undefined); setCardModalOpen(true); } },
+          { id: 'ALL', label: 'Semua', icon: MoreHorizontal, color: 'bg-slate-50 text-slate-400' },
+      ];
+
+      return (
+          <div className="px-6 py-6">
+              <h3 className="font-bold text-slate-800 mb-4">Menu Utama</h3>
+              <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                  {menuItems.map((item, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => item.action ? item.action() : setView(item.id as ViewMode)}
+                        className="flex flex-col items-center gap-2 group"
+                      >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-transform group-active:scale-95 ${item.color}`}>
+                              <item.icon size={24} />
+                          </div>
+                          <span className="text-[10px] text-center font-medium text-slate-600 leading-tight">{item.label}</span>
+                      </button>
+                  ))}
+              </div>
+          </div>
+      );
+  };
+
+  const MobilePromoBanner = () => (
+      <div className="px-6 pb-24">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 text-white shadow-lg overflow-hidden relative">
+              <div className="relative z-10">
+                  <h4 className="font-bold text-lg mb-1">Bebas Hutang 2025!</h4>
+                  <p className="text-xs text-blue-100 w-3/4 mb-3">Kelola cicilanmu dengan bijak dan mulai menabung untuk pelunasan sekarang.</p>
+                  <button onClick={() => setSavingModalOpen(true)} className="bg-white text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
+                      Mulai Menabung
+                  </button>
+              </div>
+              <div className="absolute right-[-20px] bottom-[-20px] opacity-20 rotate-12">
+                  <ChickenIcon size={120} />
+              </div>
+          </div>
+      </div>
+  )
+
   // --- Layout Render ---
 
   if (isAuthChecking) {
@@ -1609,19 +1808,18 @@ export default function App() {
               <div className="text-center">
                   <Loader2 className="animate-spin mx-auto text-primary mb-4" size={48} />
                   <p className="text-slate-500 font-medium">Memuat Data Keuangan...</p>
-                  <p className="text-xs text-slate-400 mt-2">Menghubungkan ke Akun Anda</p>
               </div>
           </div>
       )
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-      {/* Sidebar */}
+    <div className="min-h-screen flex bg-slate-50 font-sans">
+      {/* Sidebar (Desktop Only) */}
       <aside className="w-64 bg-white border-r hidden md:flex flex-col fixed h-full z-10">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-extrabold text-primary flex items-center gap-2">
-            <Wallet /> Dompet<span className="text-slate-800">Cerdas</span>
+            <Wallet /> Limit<span className="text-slate-800">Watch</span>
           </h1>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -1647,44 +1845,127 @@ export default function App() {
         </nav>
         
         <div className="p-4 border-t bg-slate-50">
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <button 
+                onClick={() => setView('ACCOUNT')}
+                className="flex items-center gap-3 mb-3 w-full text-left hover:bg-slate-50 p-2 rounded-lg transition-colors group"
+            >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                    <UserIcon size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{user.displayName || user.email?.split('@')[0]}</p>
                     <p className="text-xs text-slate-500 truncate">{user.email}</p>
                 </div>
-            </div>
+            </button>
             <button onClick={logout} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                 <LogOut size={14} /> Keluar Aplikasi
             </button>
         </div>
       </aside>
 
-      {/* Mobile Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 z-20 text-xs text-slate-600 overflow-x-auto">
-          <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center min-w-[50px] ${view === 'DASHBOARD' && 'text-primary'}`}><LayoutDashboard size={20} /> Dash</button>
-          <button onClick={() => setView('TRANSACTIONS')} className={`flex flex-col items-center min-w-[50px] ${view === 'TRANSACTIONS' && 'text-primary'}`}><List size={20} /> Trans</button>
-          <button onClick={() => setView('YEARLY')} className={`flex flex-col items-center min-w-[50px] ${view === 'YEARLY' && 'text-primary'}`}><BarChart3 size={20} /> Report</button>
-          <button onClick={() => setView('SAVINGS')} className={`flex flex-col items-center min-w-[50px] ${view === 'SAVINGS' && 'text-primary'}`}><ChickenIcon size={20} /> Save</button>
-          <button onClick={() => setView('INSTALLMENTS')} className={`flex flex-col items-center min-w-[50px] ${view === 'INSTALLMENTS' && 'text-primary'}`}><CalendarClock size={20} /> Cicil</button>
+      {/* Mobile Top Header (Only on Mobile Home/Dashboard) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-20 pointer-events-none">
+          {/* This is just a placeholder to push content down if needed, but we render header inside main for flow */}
       </div>
 
-      <main className="flex-1 md:ml-64 p-4 md:p-8 pb-20 md:pb-8 overflow-y-auto relative">
-        <div className="md:hidden absolute top-4 right-4 z-0 flex gap-2">
-            <button onClick={logout} className="bg-white p-2 rounded-full shadow-sm text-slate-500 hover:text-red-500">
-                <LogOut size={18} />
-            </button>
+      <main className="flex-1 md:ml-64 relative min-h-screen">
+        {/* Mobile View Structure */}
+        <div className="md:hidden pb-20">
+            {view === 'DASHBOARD' ? (
+                <>
+                    <MobileTopHeader />
+                    <MobileBalanceCard />
+                    <MobileMainMenu />
+                    <MobilePromoBanner />
+                    {/* Simplified Dashboard content for Mobile Home */}
+                    <div className="px-6 pb-6">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-slate-800">Pengingat Tagihan</h3>
+                            <button onClick={() => setView('CARDS')} className="text-xs text-blue-600">Lihat Semua</button>
+                        </div>
+                        <Dashboard />
+                    </div>
+                </>
+            ) : (
+                <div className="p-4 pt-6">
+                     <div className="flex items-center gap-2 mb-6">
+                        <button onClick={() => setView('DASHBOARD')} className="p-1 rounded-full hover:bg-slate-200">
+                             <ChevronLeft size={24} className="text-slate-600" />
+                        </button>
+                        <h2 className="text-xl font-bold text-slate-800">
+                            {view === 'TRANSACTIONS' && 'Riwayat Transaksi'}
+                            {view === 'SAVINGS' && 'Simpanan'}
+                            {view === 'INSTALLMENTS' && 'Cicilan'}
+                            {view === 'CARDS' && 'Kartu Kredit'}
+                            {view === 'YEARLY' && 'Laporan Tahunan'}
+                            {view === 'ACCOUNT' && 'Akun Saya'}
+                        </h2>
+                     </div>
+                     {view === 'TRANSACTIONS' && <TransactionsView />}
+                     {view === 'YEARLY' && <YearlyRecapView />}
+                     {view === 'SAVINGS' && <SavingsView />}
+                     {view === 'INSTALLMENTS' && <InstallmentsView />}
+                     {view === 'CARDS' && <CardsView />}
+                     {view === 'ACCOUNT' && <AccountView />}
+                </div>
+            )}
         </div>
 
-        {view === 'DASHBOARD' && <Dashboard />}
-        {view === 'TRANSACTIONS' && <TransactionsView />}
-        {view === 'YEARLY' && <YearlyRecapView />}
-        {view === 'SAVINGS' && <SavingsView />}
-        {view === 'INSTALLMENTS' && <InstallmentsView />}
-        {view === 'CARDS' && <CardsView />}
+        {/* Desktop Content Render */}
+        <div className="hidden md:block p-8">
+            <div className="md:hidden absolute top-4 right-4 z-0 flex gap-2">
+                <button onClick={logout} className="bg-white p-2 rounded-full shadow-sm text-slate-500 hover:text-red-500">
+                    <LogOut size={18} />
+                </button>
+            </div>
+
+            {view === 'DASHBOARD' && <Dashboard />}
+            {view === 'TRANSACTIONS' && <TransactionsView />}
+            {view === 'YEARLY' && <YearlyRecapView />}
+            {view === 'SAVINGS' && <SavingsView />}
+            {view === 'INSTALLMENTS' && <InstallmentsView />}
+            {view === 'CARDS' && <CardsView />}
+            {view === 'ACCOUNT' && <AccountView />}
+        </div>
       </main>
+
+      {/* Mobile Bottom Navigation (BCA Style) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-5px_10px_rgba(0,0,0,0.02)] z-50 h-16 px-4">
+          <div className="flex justify-between items-center h-full relative">
+              <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 w-14 ${view === 'DASHBOARD' ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <Home size={20} />
+                  <span className="text-[10px] font-medium">Beranda</span>
+              </button>
+              
+              <button onClick={() => setView('TRANSACTIONS')} className={`flex flex-col items-center gap-1 w-14 ${view === 'TRANSACTIONS' ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <Activity size={20} />
+                  <span className="text-[10px] font-medium">Aktivitas</span>
+              </button>
+
+              {/* Center Prominent Button (QRIS Style -> CATAT) */}
+              <div className="relative -top-5">
+                  <button 
+                    onClick={() => { setEditingTransaction(undefined); setTransModalOpen(true); }}
+                    className="w-14 h-14 bg-blue-600 rounded-2xl rotate-45 flex items-center justify-center shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+                  >
+                      <div className="-rotate-45 text-white flex flex-col items-center justify-center">
+                          <QrCode size={24} />
+                      </div>
+                  </button>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-blue-600">CATAT</span>
+              </div>
+
+              <button onClick={() => setView('YEARLY')} className={`flex flex-col items-center gap-1 w-14 ${view === 'YEARLY' ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <PieChart size={20} />
+                  <span className="text-[10px] font-medium">Untukmu</span>
+              </button>
+
+              <button onClick={() => setView('ACCOUNT')} className={`flex flex-col items-center gap-1 w-14 ${view === 'ACCOUNT' ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <UserIcon size={20} />
+                  <span className="text-[10px] font-medium">Akun</span>
+              </button>
+          </div>
+      </div>
 
       {isCardModalOpen && <CardForm onSave={addOrUpdateCard} onCancel={() => { setCardModalOpen(false); setEditingCard(undefined); }} initialData={editingCard} />}
       {isTransModalOpen && <TransactionForm cards={data.cards} savings={data.savings} onSave={handleSaveTransaction} onCancel={() => { setTransModalOpen(false); setEditingTransaction(undefined); }} initialData={editingTransaction} />}

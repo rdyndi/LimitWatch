@@ -8,7 +8,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut, 
-  onAuthStateChanged, 
+  onAuthStateChanged,
+  updateProfile,
   User 
 } from "firebase/auth";
 import { AppState } from "../types";
@@ -76,6 +77,19 @@ export const logout = async () => {
   } catch (error) {
     console.error("Logout failed:", error);
   }
+};
+
+export const updateUserProfile = async (displayName: string) => {
+  if (auth.currentUser) {
+    try {
+      await updateProfile(auth.currentUser, { displayName });
+      return true;
+    } catch (error) {
+      console.error("Error updating profile", error);
+      throw error;
+    }
+  }
+  return false;
 };
 
 export const subscribeToAuth = (callback: (user: User | null) => void) => {

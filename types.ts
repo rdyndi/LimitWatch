@@ -53,4 +53,4 @@ export interface AppState {
   savings: Saving[];
 }
 
-export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY';
+export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT';
