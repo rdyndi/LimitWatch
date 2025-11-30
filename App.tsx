@@ -33,7 +33,14 @@ import {
   LayoutGrid,
   Mail,
   Lock,
-  ArrowRight
+  ArrowRight,
+  X,
+  Calendar,
+  CheckCircle2,
+  Settings,
+  MoreVertical,
+  Pencil,
+  Trash2
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -50,9 +57,12 @@ const App: React.FC = () => {
   
   // UI States
   const [installmentModalOpen, setInstallmentModalOpen] = useState(false);
+  const [transactionModalOpen, setTransactionModalOpen] = useState(false);
+  const [cardModalOpen, setCardModalOpen] = useState(false); // NEW: Card Modal
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'history' | 'profile'>('home');
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Auth States
   const [email, setEmail] = useState('');
@@ -61,6 +71,18 @@ const App: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Transaction Form State
+  const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
+  const [txAmount, setTxAmount] = useState('');
+  const [txDesc, setTxDesc] = useState('');
+  const [txCardId, setTxCardId] = useState('');
+  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Card Form State
+  const [cardName, setCardName] = useState('');
+  const [cardLimit, setCardLimit] = useState('');
+  const [cardDue, setCardDue] = useState('');
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth(setUser);
@@ -75,6 +97,13 @@ const App: React.FC = () => {
       setData({ cards: [], transactions: [], installments: [], savings: [] });
     }
   }, [user]);
+
+  // Set default card selection when cards are loaded
+  useEffect(() => {
+    if (data.cards.length > 0 && !txCardId) {
+      setTxCardId(data.cards[0].id);
+    }
+  }, [data.cards, txCardId]);
 
   const saveData = (newData: AppState) => {
     setData(newData);
@@ -105,6 +134,101 @@ const App: React.FC = () => {
       setInstallmentModalOpen(false);
   }
 
+  const openAddTransactionModal = () => {
+    setEditingTransaction(null);
+    setTxAmount('');
+    setTxDesc('');
+    setTxDate(new Date().toISOString().split('T')[0]);
+    setTxType(TransactionType.EXPENSE);
+    if (data.cards.length > 0) setTxCardId(data.cards[0].id);
+    setTransactionModalOpen(true);
+  };
+
+  const handleEditClick = (t: Transaction) => {
+    setEditingTransaction(t);
+    setTxType(t.type);
+    setTxAmount(t.amount.toString());
+    setTxDesc(t.description);
+    setTxCardId(t.cardId);
+    setTxDate(new Date(t.date).toISOString().split('T')[0]);
+    setTransactionModalOpen(true);
+  };
+
+  const handleDeleteClick = (id: string) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+      const updatedTransactions = data.transactions.filter(t => t.id !== id);
+      saveData({ ...data, transactions: updatedTransactions });
+    }
+  };
+
+  const handleSaveTransaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!txCardId || !txAmount || !txDesc) return;
+
+    if (editingTransaction) {
+      // Edit Logic
+      const updatedTransactions = data.transactions.map(t => {
+        if (t.id === editingTransaction.id) {
+          return {
+            ...t,
+            cardId: txCardId,
+            amount: parseFloat(txAmount),
+            date: new Date(txDate).toISOString(),
+            description: txDesc,
+            type: txType,
+          };
+        }
+        return t;
+      });
+      saveData({ ...data, transactions: updatedTransactions });
+      setEditingTransaction(null);
+    } else {
+      // Add Logic
+      const newTransaction: Transaction = {
+        id: generateId(),
+        cardId: txCardId,
+        amount: parseFloat(txAmount),
+        date: new Date(txDate).toISOString(),
+        description: txDesc,
+        type: txType,
+        category: 'General',
+        isValidated: false
+      };
+      saveData({
+        ...data,
+        transactions: [newTransaction, ...data.transactions]
+      });
+    }
+
+    // Reset Form
+    setTxAmount('');
+    setTxDesc('');
+    setTransactionModalOpen(false);
+  };
+
+  const handleSaveCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cardName || !cardLimit) return;
+
+    const newCard: CreditCardType = {
+        id: generateId(),
+        name: cardName,
+        limit: parseFloat(cardLimit),
+        color: 'bg-slate-800', // Default color, could be made selectable
+        dueDay: cardDue ? parseInt(cardDue) : undefined
+    };
+
+    saveData({
+        ...data,
+        cards: [...data.cards, newCard]
+    });
+
+    setCardName('');
+    setCardLimit('');
+    setCardDue('');
+    setCardModalOpen(false);
+  };
+
   const handleGetAdvice = async () => {
     setLoadingAi(true);
     const advice = await getFinancialAdvice(data);
@@ -125,7 +249,6 @@ const App: React.FC = () => {
       } else {
         await loginWithEmail(email, password);
       }
-      // Auth subscription will handle the user state update
     } catch (err: any) {
       console.error(err);
       let msg = "Terjadi kesalahan.";
@@ -160,7 +283,7 @@ const App: React.FC = () => {
             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
               <Wallet size={32} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">Dompet Cerdas</h1>
+            <h1 className="text-2xl font-bold text-slate-800">LimitWatch</h1>
             <p className="text-slate-500 mt-2">Kelola finansial Anda dengan lebih bijak.</p>
           </div>
 
@@ -268,42 +391,330 @@ const App: React.FC = () => {
     );
   }
 
+  // Helper component for Sidebar Navigation
+  const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
+    <button 
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+        active 
+          ? 'bg-blue-50 text-blue-700' 
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+      }`}
+    >
+      <span className={active ? 'text-blue-600' : 'text-slate-400'}>{icon}</span>
+      {label}
+    </button>
+  );
+
   return (
     <>
       {/* ========================================= */}
-      {/* DESKTOP VIEW (Original - Preserved)       */}
+      {/* DESKTOP VIEW (Redesigned & Functional)    */}
       {/* ========================================= */}
-      <div className="hidden md:block app-container" style={{ padding: 20 }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h1>Dompet Cerdas</h1>
-          <div>
-            <span>{user.displayName || user.email}</span>
-            <button onClick={() => logout()} style={{ marginLeft: 10 }}>Logout</button>
-          </div>
-        </header>
+      <div className="hidden md:flex min-h-screen bg-slate-50 font-sans">
         
-        <main>
-          <div style={{ marginBottom: 20 }}>
-            <button onClick={() => setInstallmentModalOpen(true)}>Add Installment</button>
-            <button onClick={handleGetAdvice} style={{ marginLeft: 10 }}>Ask AI</button>
-          </div>
+        {/* SIDEBAR */}
+        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col fixed h-full z-20 shadow-sm">
+           <div className="h-20 flex items-center px-8 border-b border-slate-50">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center mr-3 shadow-md shadow-blue-200">
+                <Wallet size={18} />
+              </div>
+              <span className="font-bold text-xl text-slate-800 tracking-tight">LimitWatch</span>
+           </div>
+           
+           <nav className="p-4 space-y-1 flex-1">
+              <div className="px-4 pb-2 pt-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</div>
+              <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
+              <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu Saya" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
+              <DesktopNavItem icon={<History size={20}/>} label="Riwayat Transaksi" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
+              
+              <div className="px-4 pb-2 pt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">Akun</div>
+              <DesktopNavItem icon={<UserIcon size={20}/>} label="Profil Pengguna" active={mobileTab === 'profile'} onClick={() => setMobileTab('profile')} />
+           </nav>
+           
+           <div className="p-4 border-t border-slate-100">
+              <button onClick={() => logout()} className="flex items-center gap-3 text-slate-500 hover:text-red-600 w-full p-3 rounded-lg transition-colors hover:bg-red-50">
+                 <LogOut size={20} />
+                 <span className="font-medium">Keluar Aplikasi</span>
+              </button>
+           </div>
+        </aside>
 
-          {loadingAi && <p>Loading AI advice...</p>}
-          {aiAdvice && (
-            <div style={{ background: '#f0f9ff', padding: 15, borderRadius: 8, marginBottom: 20, whiteSpace: 'pre-line' }}>
-              <h3>Saran Keuangan:</h3>
-              {aiAdvice}
-            </div>
-          )}
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 ml-72 p-10 overflow-y-auto">
+           {/* Desktop Header */}
+           <header className="flex justify-between items-center mb-10">
+              <div>
+                 <h1 className="text-3xl font-bold text-slate-800 mb-1">
+                    {mobileTab === 'home' && 'Ringkasan Keuangan'}
+                    {mobileTab === 'cards' && 'Kelola Kartu Kredit'}
+                    {mobileTab === 'history' && 'Riwayat Transaksi'}
+                    {mobileTab === 'profile' && 'Pengaturan Akun'}
+                 </h1>
+                 <p className="text-slate-500">
+                    Selamat datang kembali, <span className="font-semibold text-slate-700">{user.displayName || user.email}</span>
+                 </p>
+              </div>
+              <div className="flex items-center gap-4">
+                 <button 
+                   onClick={openAddTransactionModal}
+                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                 >
+                    <PlusCircle size={20} /> Catat Transaksi
+                 </button>
+                 <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
+                     {user.photoURL ? (
+                       <img src={user.photoURL} alt="User" className="w-full h-full object-cover"/>
+                     ) : (
+                       <UserIcon className="m-3 text-slate-500"/>
+                     )}
+                 </div>
+              </div>
+           </header>
 
-          <section>
-            <h2>Transactions</h2>
-            <ul>
-              {data.transactions.map(t => (
-                <li key={t.id}>{t.description}: {formatIDR(t.amount)}</li>
-              ))}
-            </ul>
-          </section>
+           {/* --- DASHBOARD VIEW --- */}
+           {mobileTab === 'home' && (
+             <div className="space-y-8 animate-in fade-in duration-500">
+               {/* Stats Grid */}
+               <div className="grid grid-cols-3 gap-6">
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <TrendingDown size={64} className="text-red-600"/>
+                     </div>
+                     <div className="relative z-10">
+                       <p className="text-slate-500 font-medium mb-1">Total Hutang Berjalan</p>
+                       <h3 className="text-3xl font-bold text-slate-800">{formatIDR(totalDebt)}</h3>
+                     </div>
+                     <div className="relative z-10 text-sm text-red-500 flex items-center gap-1 font-medium">
+                        Perlu dilunasi
+                     </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Wallet size={64} className="text-green-600"/>
+                     </div>
+                     <div className="relative z-10">
+                       <p className="text-slate-500 font-medium mb-1">Tabungan Terkumpul</p>
+                       <h3 className="text-3xl font-bold text-slate-800">{formatIDR(totalSavings)}</h3>
+                     </div>
+                     <div className="relative z-10 text-sm text-green-600 flex items-center gap-1 font-medium">
+                        Dana tersedia
+                     </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white flex flex-col justify-between h-40">
+                     <div>
+                       <p className="text-blue-100 font-medium mb-1">Cicilan Aktif</p>
+                       <h3 className="text-3xl font-bold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length} Item</h3>
+                     </div>
+                     <button onClick={() => setInstallmentModalOpen(true)} className="text-sm bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-4 rounded-lg w-fit transition-colors">
+                        + Tambah Cicilan
+                     </button>
+                  </div>
+               </div>
+
+               {/* AI Section */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                  <div className="flex justify-between items-start mb-4">
+                     <div className="flex items-center gap-3">
+                        <div className="bg-purple-100 text-purple-600 p-2 rounded-lg">
+                           <Sparkles size={20} />
+                        </div>
+                        <h3 className="font-bold text-lg text-slate-800">Analisis Keuangan AI</h3>
+                     </div>
+                     <button onClick={handleGetAdvice} disabled={loadingAi} className="text-sm font-semibold text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors">
+                        {loadingAi ? 'Menganalisis...' : 'Refresh Analisis'}
+                     </button>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-5 text-slate-700 text-sm leading-relaxed whitespace-pre-line border border-slate-100 min-h-[100px]">
+                     {aiAdvice ? aiAdvice : "Tekan tombol refresh untuk mendapatkan saran keuangan cerdas berdasarkan data transaksi Anda."}
+                  </div>
+               </div>
+
+               {/* Recent Transactions Table */}
+               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                     <h3 className="font-bold text-lg text-slate-800">Transaksi Terakhir</h3>
+                     <button onClick={() => setMobileTab('history')} className="text-blue-600 text-sm font-semibold hover:underline">Lihat Semua</button>
+                  </div>
+                  <table className="w-full text-left border-collapse">
+                     <thead>
+                        <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
+                           <th className="p-4 font-semibold">Tanggal</th>
+                           <th className="p-4 font-semibold">Keterangan</th>
+                           <th className="p-4 font-semibold">Tipe</th>
+                           <th className="p-4 font-semibold text-right">Jumlah</th>
+                        </tr>
+                     </thead>
+                     <tbody className="text-sm text-slate-700">
+                        {data.transactions.slice(0, 5).map(t => (
+                           <tr key={t.id} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
+                              <td className="p-4 text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</td>
+                              <td className="p-4 font-medium">{t.description}</td>
+                              <td className="p-4">
+                                 <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                    t.type === TransactionType.EXPENSE ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                                 }`}>
+                                    {t.type === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pembayaran'}
+                                 </span>
+                              </td>
+                              <td className={`p-4 text-right font-bold ${
+                                 t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'
+                              }`}>
+                                 {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
+                              </td>
+                           </tr>
+                        ))}
+                        {data.transactions.length === 0 && (
+                           <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-400">Belum ada data transaksi.</td>
+                           </tr>
+                        )}
+                     </tbody>
+                  </table>
+               </div>
+             </div>
+           )}
+
+           {/* --- CARDS VIEW --- */}
+           {mobileTab === 'cards' && (
+             <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                   <h2 className="text-xl font-bold text-slate-700">Daftar Kartu Kredit</h2>
+                   <button onClick={() => setCardModalOpen(true)} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                      <PlusCircle size={16} /> Tambah Kartu
+                   </button>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-6">
+                   {/* Add Card Button (Visual) */}
+                   <button 
+                     onClick={() => setCardModalOpen(true)}
+                     className="border-2 border-dashed border-slate-300 rounded-2xl h-48 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all"
+                   >
+                      <PlusCircle size={32} className="mb-2"/>
+                      <span className="font-medium">Tambah Kartu Baru</span>
+                   </button>
+
+                   {/* Cards List */}
+                   {data.cards.map(card => (
+                      <div key={card.id} className="bg-gradient-to-br from-slate-700 to-slate-900 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1">
+                         <div className="absolute top-0 right-0 p-24 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                         
+                         <div className="flex justify-between items-start z-10">
+                            <span className="font-medium tracking-wider text-slate-300 uppercase text-xs">Credit Card</span>
+                            <div className="flex gap-2">
+                               <div className="w-8 h-5 bg-white/20 rounded"></div>
+                               <div className="w-8 h-5 bg-white/20 rounded"></div>
+                            </div>
+                         </div>
+                         
+                         <div className="z-10">
+                            <h3 className="text-xl font-bold tracking-widest mb-1">{card.name}</h3>
+                            <p className="text-xs text-slate-400">Limit: {formatIDR(card.limit)}</p>
+                         </div>
+                         
+                         <div className="flex justify-between items-end z-10">
+                            <div>
+                               <p className="text-[10px] text-slate-400 uppercase">Jatuh Tempo</p>
+                               <p className="text-sm font-mono">{card.dueDay ? `Tgl ${card.dueDay}` : '-'}</p>
+                            </div>
+                            <CreditCard className="opacity-50" size={24} />
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+           )}
+
+           {/* --- HISTORY VIEW (UPDATED WITH ACTIONS) --- */}
+           {mobileTab === 'history' && (
+             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                 <div className="p-6 border-b border-slate-100">
+                     <h2 className="text-xl font-bold text-slate-800">Semua Riwayat Transaksi</h2>
+                 </div>
+                 <table className="w-full text-left border-collapse">
+                     <thead>
+                        <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
+                           <th className="p-4 font-semibold">Tanggal</th>
+                           <th className="p-4 font-semibold">Kartu</th>
+                           <th className="p-4 font-semibold">Keterangan</th>
+                           <th className="p-4 font-semibold">Kategori</th>
+                           <th className="p-4 font-semibold text-right">Jumlah</th>
+                           <th className="p-4 font-semibold text-center">Aksi</th>
+                        </tr>
+                     </thead>
+                     <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
+                        {data.transactions.map(t => {
+                           const cardName = data.cards.find(c => c.id === t.cardId)?.name || 'Unknown Card';
+                           return (
+                             <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-4 text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</td>
+                                <td className="p-4 text-slate-600">{cardName}</td>
+                                <td className="p-4 font-medium text-slate-800">{t.description}</td>
+                                <td className="p-4">
+                                   <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                      t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                   }`}>
+                                      {t.type === TransactionType.EXPENSE ? 'EXPENSE' : 'PAYMENT'}
+                                   </span>
+                                </td>
+                                <td className={`p-4 text-right font-bold ${
+                                   t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'
+                                }`}>
+                                   {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
+                                </td>
+                                <td className="p-4 flex justify-center gap-2">
+                                  <button onClick={() => handleEditClick(t)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Edit Transaksi">
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button onClick={() => handleDeleteClick(t.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors" title="Hapus Transaksi">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                             </tr>
+                           );
+                        })}
+                     </tbody>
+                 </table>
+             </div>
+           )}
+
+           {/* --- PROFILE VIEW --- */}
+           {mobileTab === 'profile' && (
+              <div className="max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+                 <div className="flex items-center gap-6 mb-8">
+                    <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden">
+                        {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={40} className="m-auto mt-7 text-slate-400"/>}
+                    </div>
+                    <div>
+                       <h2 className="text-2xl font-bold text-slate-800">{user.displayName || 'Pengguna'}</h2>
+                       <p className="text-slate-500">{user.email}</p>
+                    </div>
+                 </div>
+                 
+                 <div className="space-y-4">
+                    <h3 className="font-semibold text-slate-400 uppercase text-xs tracking-wider">Pengaturan Aplikasi</h3>
+                    <div className="p-4 border border-slate-200 rounded-xl flex justify-between items-center hover:bg-slate-50 cursor-pointer">
+                       <span className="text-slate-700 font-medium">Notifikasi Tagihan</span>
+                       <div className="w-10 h-5 bg-green-500 rounded-full relative">
+                          <div className="w-3 h-3 bg-white rounded-full absolute right-1 top-1"></div>
+                       </div>
+                    </div>
+                    <div className="p-4 border border-slate-200 rounded-xl flex justify-between items-center hover:bg-slate-50 cursor-pointer">
+                       <span className="text-slate-700 font-medium">Mata Uang (IDR)</span>
+                       <span className="text-slate-400 text-sm">Default</span>
+                    </div>
+
+                    <h3 className="font-semibold text-slate-400 uppercase text-xs tracking-wider pt-4">Zona Bahaya</h3>
+                    <button onClick={() => logout()} className="w-full p-4 border border-red-200 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors text-left">
+                       Keluar dari Aplikasi
+                    </button>
+                 </div>
+              </div>
+           )}
+
         </main>
       </div>
 
@@ -360,7 +771,7 @@ const App: React.FC = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Menu Utama</h3>
               <div className="grid grid-cols-4 gap-4">
                 <button 
-                  onClick={() => {/* Logic to add transaction */}} 
+                  onClick={openAddTransactionModal} 
                   className="flex flex-col items-center gap-2"
                 >
                   <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -488,26 +899,46 @@ const App: React.FC = () => {
                   </div>
                 ))
              )}
-             <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-medium flex items-center justify-center gap-2">
+             <button 
+               onClick={() => setCardModalOpen(true)}
+               className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-medium flex items-center justify-center gap-2 hover:bg-slate-50"
+             >
                 <PlusCircle size={18} /> Tambah Kartu Baru
              </button>
           </div>
         )}
 
-        {/* --- HISTORY TAB CONTENT --- */}
+        {/* --- HISTORY TAB CONTENT (UPDATED WITH ACTIONS) --- */}
         {mobileTab === 'history' && (
            <div className="px-5 mt-4">
               <h3 className="font-bold text-lg text-slate-800 mb-4">Riwayat Transaksi</h3>
               <div className="space-y-3">
                 {data.transactions.map(t => (
-                  <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border-b border-slate-50 flex justify-between items-center">
-                    <div>
-                      <p className="font-medium text-slate-800">{t.description}</p>
-                      <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', { dateStyle: 'full'})}</p>
+                  <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border-b border-slate-50 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-slate-800">{t.description}</p>
+                        <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', { dateStyle: 'full'})}</p>
+                      </div>
+                      <span className={`font-semibold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
+                        {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
+                      </span>
                     </div>
-                    <span className={`font-semibold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
-                      {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
-                    </span>
+                    {/* Action Buttons for Mobile */}
+                    <div className="flex gap-2 justify-end pt-2 border-t border-slate-50">
+                        <button 
+                          onClick={() => handleEditClick(t)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition"
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteClick(t.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition"
+                        >
+                          <Trash2 size={12} /> Hapus
+                        </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -576,10 +1007,7 @@ const App: React.FC = () => {
 
           <div className="relative -top-6">
              <button 
-               onClick={() => {
-                 // Open add menu or modal
-                 setInstallmentModalOpen(true);
-               }}
+               onClick={openAddTransactionModal}
                className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-200 active:scale-95 transition-transform"
              >
                 <PlusCircle size={28} />
@@ -604,7 +1032,11 @@ const App: React.FC = () => {
         </nav>
       </div>
 
-      {/* --- MODAL (Shared logic, improved UI for mobile) --- */}
+      {/* ========================================= */}
+      {/* MODALS (Shared Desktop/Mobile)            */}
+      {/* ========================================= */}
+
+      {/* --- INSTALLMENT MODAL --- */}
       {installmentModalOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in duration-200">
@@ -637,6 +1069,154 @@ const App: React.FC = () => {
                  Batal
                </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD CARD MODAL --- */}
+      {cardModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+               <h3 className="text-lg font-bold text-slate-800">Tambah Kartu Kredit</h3>
+               <button onClick={() => setCardModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+             </div>
+             
+             <form onSubmit={handleSaveCard} className="space-y-4">
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Kartu</label>
+                  <input type="text" required placeholder="BCA Visa Batman" value={cardName} onChange={e => setCardName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500" />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Limit Kartu (IDR)</label>
+                  <input type="number" required placeholder="10000000" value={cardLimit} onChange={e => setCardLimit(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500" />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tanggal Jatuh Tempo (Opsional)</label>
+                  <input type="number" min="1" max="31" placeholder="Tanggal (Contoh: 25)" value={cardDue} onChange={e => setCardDue(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500" />
+               </div>
+               <button type="submit" className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 mt-2">Simpan Kartu</button>
+             </form>
+           </div>
+        </div>
+      )}
+
+      {/* --- TRANSACTION INPUT MODAL --- */}
+      {transactionModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center sm:p-4">
+          <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom duration-300">
+            
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-slate-800">
+                {editingTransaction ? 'Edit Transaksi' : 'Catat Transaksi'}
+              </h3>
+              <button onClick={() => setTransactionModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTransaction} className="space-y-5">
+              
+              {/* Type Toggle */}
+              <div className="flex bg-slate-100 rounded-xl p-1 relative">
+                <button
+                  type="button"
+                  onClick={() => setTxType(TransactionType.EXPENSE)}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    txType === TransactionType.EXPENSE ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <TrendingDown size={16} /> Pengeluaran
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTxType(TransactionType.PAYMENT)}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    txType === TransactionType.PAYMENT ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <TrendingUp size={16} /> Pembayaran
+                </button>
+              </div>
+
+              {/* Amount Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nominal (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={txAmount}
+                  onChange={(e) => setTxAmount(e.target.value)}
+                  className="w-full text-3xl font-bold text-slate-800 border-b-2 border-slate-200 focus:border-blue-500 outline-none py-2 bg-transparent placeholder-slate-300"
+                  required
+                />
+              </div>
+
+              {/* Card Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pilih Kartu</label>
+                {data.cards.length === 0 ? (
+                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex justify-between items-center">
+                    <span>Belum ada kartu.</span>
+                    <button type="button" onClick={() => setCardModalOpen(true)} className="text-red-700 font-bold text-xs underline">Tambah</button>
+                  </div>
+                ) : (
+                  <select 
+                    value={txCardId}
+                    onChange={(e) => setTxCardId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  >
+                    {data.cards.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} (Limit: {formatIDR(c.limit)})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Keterangan</label>
+                <input
+                  type="text"
+                  placeholder={txType === TransactionType.EXPENSE ? "Contoh: Belanja Bulanan, Makan Siang" : "Contoh: Bayar Tagihan BCA"}
+                  value={txDesc}
+                  onChange={(e) => setTxDesc(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                  required
+                />
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tanggal</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                     <Calendar size={18} />
+                  </div>
+                  <input
+                    type="date"
+                    value={txDate}
+                    onChange={(e) => setTxDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={data.cards.length === 0 || !txAmount || !txDesc}
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+              >
+                <CheckCircle2 size={20} />
+                {editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
+              </button>
+
+            </form>
           </div>
         </div>
       )}
