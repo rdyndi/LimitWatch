@@ -786,12 +786,27 @@ const App: React.FC = () => {
             if (targetMonth > 11) { targetMonth = 0; targetYear++; }
          }
          
-         const dueDate = new Date(targetYear, targetMonth, c.dueDay);
+         const dueDate = new Date(targetYear, targetMonth, c.dueDay!);
          const diffTime = dueDate.getTime() - today.getTime();
          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+         // Calculate Remaining Bill (Expenses & Installments - Payments) for Target Month
+         const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
+         const paidAmount = data.transactions
+            .filter(t => {
+                const d = new Date(t.date);
+                return t.cardId === c.id &&
+                       t.type === TransactionType.PAYMENT &&
+                       d.getMonth() === targetMonth &&
+                       d.getFullYear() === targetYear;
+            })
+            .reduce((sum, t) => sum + t.amount, 0);
          
-         return { ...c, daysLeft: diffDays, nextDueDate: dueDate };
+         const remaining = Math.max(0, billAmount - paidAmount);
+         
+         return { ...c, daysLeft: diffDays, nextDueDate: dueDate, remainingBill: remaining };
       })
+      .filter(c => c.remainingBill > 1000) // Only show bills with remaining debt
       .sort((a, b) => a.daysLeft - b.daysLeft);
 
   if (!user) {
@@ -1088,7 +1103,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                           {upcomingBills.length === 0 ? (
-                              <p className="text-xs text-slate-400 text-center py-4">Tidak ada tagihan dekat.</p>
+                              <p className="text-xs text-slate-400 text-center py-4">Semua tagihan lunas!</p>
                           ) : (
                               upcomingBills.map(c => {
                                   const isUrgent = c.daysLeft <= 3;
@@ -1096,13 +1111,18 @@ const App: React.FC = () => {
                                   return (
                                       <div key={c.id} className={`p-2 rounded-lg text-xs border ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
                                           <div className="flex justify-between font-bold">
-                                              <span className="truncate w-20">{c.name}</span>
+                                              <span className="truncate w-16">{c.name}</span>
                                               <span className={isUrgent ? 'text-red-600' : isWarning ? 'text-orange-600' : 'text-slate-600'}>
-                                                  {c.daysLeft} Hari Lagi
+                                                  {c.daysLeft} Hari
                                               </span>
                                           </div>
-                                          <div className="text-slate-500 mt-0.5">
-                                              Tgl {c.nextDueDate.toLocaleDateString('id-ID')}
+                                          <div className="flex justify-between items-center mt-1">
+                                             <div className="text-slate-500 text-[10px]">
+                                                {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
+                                             </div>
+                                             <div className="font-bold text-slate-800 text-[10px]">
+                                                Sisa: {formatIDR(c.remainingBill)}
+                                             </div>
                                           </div>
                                       </div>
                                   )
@@ -1619,9 +1639,13 @@ const App: React.FC = () => {
                                             {c.daysLeft} Hari
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
                                         <Clock size={12} />
                                         <span>Jatuh Tempo: {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</span>
+                                    </div>
+                                    <div className="mt-1 pt-2 border-t border-slate-100/50 flex justify-between items-center">
+                                       <span className="text-[10px] text-slate-500">Sisa Tagihan</span>
+                                       <span className="text-xs font-bold text-slate-800">{formatIDR(c.remainingBill)}</span>
                                     </div>
                                 </div>
                              );
