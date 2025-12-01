@@ -580,6 +580,31 @@ const App: React.FC = () => {
     }
 
     if (editingTransaction) {
+      // Check if this transaction was an installment and if we need to update the installment record too
+      if (editingTransaction.isInstallment) {
+          updatedInstallments = updatedInstallments.map(inst => {
+              // Try to find the matching installment (by old values)
+              const isMatch = (
+                  inst.cardId === editingTransaction.cardId &&
+                  inst.totalAmount === editingTransaction.amount &&
+                  inst.name === editingTransaction.description &&
+                  inst.startDate === editingTransaction.date
+              );
+              
+              if (isMatch) {
+                  return { 
+                      ...inst, 
+                      cardId: txCardId, // Update Card ID
+                      name: txDesc, // Update Name
+                      startDate: new Date(txDate).toISOString(), // Update Date
+                      // We don't update amount/months automatically here to avoid complex recalc bugs, 
+                      // user should delete and recreate if structure changes significantly.
+                  }; 
+              }
+              return inst;
+          });
+      }
+
       const updatedTransactions = data.transactions.map(t => {
         if (t.id === editingTransaction.id) {
           return {
@@ -832,6 +857,9 @@ const App: React.FC = () => {
 
   const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
      const activeInstallmentsThisMonth = data.installments.filter(i => {
+         // CRITICAL FIX: Ensure installment belongs to the requested card
+         if (i.cardId !== cardId) return false;
+
          const startDate = new Date(i.startDate);
          const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
          return (monthDiff >= 0 && monthDiff < i.totalMonths);
