@@ -18,7 +18,6 @@ import {
   saveAppState 
 } from "./services/firebase";
 import { User } from "firebase/auth";
-import { getFinancialAdvice } from "./services/geminiService";
 import { 
   Home, 
   CreditCard, 
@@ -26,7 +25,6 @@ import {
   User as UserIcon, 
   PlusCircle, 
   Wallet, 
-  Sparkles, 
   LogOut,
   ChevronRight,
   TrendingUp,
@@ -60,7 +58,9 @@ import {
   ToggleLeft,
   ToggleRight,
   List,
-  Grid
+  Grid,
+  Filter,
+  Columns
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -120,8 +120,6 @@ const App: React.FC = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile'>('home');
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
@@ -134,7 +132,7 @@ const App: React.FC = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   // Drag & Drop Mobile Menu States
-  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'laporan', 'ai', 'kartu', 'tabungan', 'history', 'profile']);
+  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'laporan', 'kartu', 'tabungan', 'history', 'profile']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
@@ -185,6 +183,8 @@ const App: React.FC = () => {
 
   // Report State
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [reportCardId, setReportCardId] = useState(''); 
+  const [reportViewMode, setReportViewMode] = useState<'detail' | 'matrix'>('detail');
 
   // History / Back Button Logic Refs
   const prevTabRef = useRef(mobileTab);
@@ -211,8 +211,9 @@ const App: React.FC = () => {
       if (!txCardId) setTxCardId(data.cards[0].id);
       if (!savingCardId) setSavingCardId(data.cards[0].id);
       if (!instCardId) setInstCardId(data.cards[0].id);
+      if (!reportCardId) setReportCardId(data.cards[0].id);
     }
-  }, [data.cards, txCardId, savingCardId, instCardId]);
+  }, [data.cards, txCardId, savingCardId, instCardId, reportCardId]);
 
   // Auto calculate monthly amount when Total or Tenure changes in Manual Installment Form
   useEffect(() => {
@@ -929,48 +930,67 @@ const App: React.FC = () => {
      }));
   };
 
-  const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
-     const activeInstallmentsThisMonth = data.installments.filter(i => {
-         // CRITICAL FIX: Ensure installment belongs to the requested card
-         if (i.cardId !== cardId) return false;
+  // Improved calculation logic for report
+  const getMonthlyReportData = (cardId: string, monthIndex: number, year: number) => {
+    // 1. Expenses
+    const monthlyExpenses = data.transactions.filter(t => {
+        const d = new Date(t.date);
+        return t.cardId === cardId &&
+               t.type === TransactionType.EXPENSE &&
+               !t.isInstallment && // Don't double count if it was converted
+               d.getMonth() === monthIndex &&
+               d.getFullYear() === year;
+    });
 
+    // 2. Installments
+    const monthlyInstallments = data.installments.filter(i => {
+         if (i.cardId !== cardId) return false;
          const startDate = new Date(i.startDate);
          const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
          return (monthDiff >= 0 && monthDiff < i.totalMonths);
-     });
+    }).map(i => {
+        const startDate = new Date(i.startDate);
+        const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
+        return {
+            ...i,
+            currentMonthIndex: monthDiff + 1
+        };
+    });
 
-     const installmentLoad = activeInstallmentsThisMonth.reduce((sum, i) => sum + i.monthlyAmount, 0);
-
-     const expenses = data.transactions
-       .filter(t => {
-          const d = new Date(t.date);
-          return t.cardId === cardId && 
-                 t.type === TransactionType.EXPENSE && 
-                 !t.isInstallment && 
-                 d.getMonth() === monthIndex && 
-                 d.getFullYear() === year;
-       })
-       .reduce((sum, t) => sum + t.amount, 0);
-
-     return expenses + installmentLoad;
-  };
-
-  const handleGetAdvice = async () => {
-    if (typeof window !== 'undefined' && (window as any).aistudio) {
-      try {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
+    // 3. Payments
+    const monthlyPayments = data.transactions.filter(t => {
+        if (t.cardId !== cardId || t.type !== TransactionType.PAYMENT) return false;
+        
+        // Prioritize targetPeriod if set (e.g. from Batch Pay or Savings Pay)
+        if (t.targetPeriod) {
+            return t.targetPeriod.month === monthIndex && t.targetPeriod.year === year;
         }
-      } catch (e) {
-        console.error("Failed to select API key:", e);
-      }
-    }
+        
+        // Fallback to transaction date
+        const d = new Date(t.date);
+        return d.getMonth() === monthIndex && d.getFullYear() === year;
+    });
 
-    setLoadingAi(true);
-    const advice = await getFinancialAdvice(data);
-    setAiAdvice(advice);
-    setLoadingAi(false);
+    const totalExpense = monthlyExpenses.reduce((sum, t) => sum + t.amount, 0);
+    const totalInstallment = monthlyInstallments.reduce((sum, i) => sum + i.monthlyAmount, 0);
+    const totalBill = totalExpense + totalInstallment;
+    const totalPaid = monthlyPayments.reduce((sum, t) => sum + t.amount, 0);
+    const remaining = totalBill - totalPaid;
+
+    return {
+        expenses: monthlyExpenses,
+        installments: monthlyInstallments,
+        payments: monthlyPayments,
+        totalBill,
+        totalPaid,
+        remaining
+    };
+  }
+
+  // Used for bill reminder
+  const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
+     const reportData = getMonthlyReportData(cardId, monthIndex, year);
+     return reportData.totalBill;
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -990,7 +1010,9 @@ const App: React.FC = () => {
       console.error(err);
       let msg = "Terjadi kesalahan.";
       if (err.code === 'auth/invalid-email') msg = "Format email tidak valid.";
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') msg = "Email atau password salah.";
+      if (err.code === 'auth/user-not-found') msg = "Akun tidak ditemukan. Silakan daftar.";
+      if (err.code === 'auth/wrong-password') msg = "Password salah.";
+      if (err.code === 'auth/invalid-credential') msg = "Email atau password salah.";
       if (err.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar.";
       if (err.code === 'auth/weak-password') msg = "Password terlalu lemah (min 6 karakter).";
       setAuthError(msg);
@@ -1030,20 +1052,25 @@ const App: React.FC = () => {
          const diffTime = dueDate.getTime() - today.getTime();
          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-         const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
-         const paidAmount = data.transactions
-            .filter(t => {
-                const d = new Date(t.date);
-                return t.cardId === c.id &&
-                       t.type === TransactionType.PAYMENT &&
-                       d.getMonth() === targetMonth &&
-                       d.getFullYear() === targetYear;
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
+         const reportData = getMonthlyReportData(c.id, targetMonth, targetYear);
+         const remaining = Math.max(0, reportData.remaining);
+
+         // Calculate available savings for this card (Not specific to period, just total card savings available)
+         const availableSavings = data.savings
+            .filter(s => s.cardId === c.id && !s.isTransferred)
+            .reduce((sum, s) => sum + s.amount, 0);
          
-         const remaining = Math.max(0, billAmount - paidAmount);
+         // Calculate Shortfall
+         const shortfall = remaining - availableSavings;
          
-         return { ...c, daysLeft: diffDays, nextDueDate: dueDate, remainingBill: remaining };
+         return { 
+            ...c, 
+            daysLeft: diffDays, 
+            nextDueDate: dueDate, 
+            remainingBill: remaining,
+            availableSavings,
+            shortfall
+         };
       })
       .filter(c => c.remainingBill > 1000) 
       .sort((a, b) => a.daysLeft - b.daysLeft);
@@ -1122,8 +1149,9 @@ const App: React.FC = () => {
             </div>
 
             {authError && (
-              <div className="bg-red-50 text-red-600 text-xs p-3 rounded-lg border border-red-100">
-                {authError}
+              <div className="bg-red-50 text-red-600 text-xs p-3 rounded-lg border border-red-100 flex items-start gap-2">
+                 <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                 <span>{authError}</span>
               </div>
             )}
 
@@ -1244,7 +1272,6 @@ const App: React.FC = () => {
                  </p>
               </div>
               <div className="flex items-center gap-4">
-                 
                  {/* Notification Bell (Desktop) */}
                  <div className="relative">
                     <button 
@@ -1365,6 +1392,8 @@ const App: React.FC = () => {
                               upcomingBills.map(c => {
                                   const isUrgent = c.daysLeft <= 3;
                                   const isWarning = c.daysLeft <= 7;
+                                  const isCovered = c.shortfall <= 0;
+
                                   return (
                                       <div key={c.id} className={`p-2 rounded-lg text-xs border ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
                                           <div className="flex justify-between font-bold">
@@ -1373,37 +1402,27 @@ const App: React.FC = () => {
                                                   {c.daysLeft} Hari
                                               </span>
                                           </div>
-                                          <div className="flex justify-between items-center mt-1">
-                                             <div className="text-slate-500 text-[10px]">
+                                          <div className="flex justify-between items-center mt-1 text-[10px]">
+                                             <div className="text-slate-500">
                                                 {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
                                              </div>
-                                             <div className="font-bold text-slate-800 text-[10px]">
-                                                Sisa: {formatIDR(c.remainingBill)}
+                                             <div className="font-bold text-slate-800">
+                                                Tagihan: {formatIDR(c.remainingBill)}
                                              </div>
+                                          </div>
+                                          <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
+                                             <span>Tabungan:</span>
+                                             <span>{formatIDR(c.availableSavings)}</span>
+                                          </div>
+                                          <div className={`flex justify-between items-center text-[10px] mt-0.5 border-t border-slate-200/50 pt-1 font-bold ${isCovered ? 'text-green-600' : 'text-red-600'}`}>
+                                             <span>Kurang:</span>
+                                             <span>{isCovered ? 'Aman (Tertutup)' : formatIDR(c.shortfall)}</span>
                                           </div>
                                       </div>
                                   )
                               })
                           )}
                       </div>
-                  </div>
-               </div>
-
-               {/* AI Section */}
-               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                  <div className="flex justify-between items-start mb-4">
-                     <div className="flex items-center gap-3">
-                        <div className="bg-purple-100 text-purple-600 p-2 rounded-lg">
-                           <Sparkles size={20} />
-                        </div>
-                        <h3 className="font-bold text-lg text-slate-800">Analisis Keuangan AI</h3>
-                     </div>
-                     <button onClick={handleGetAdvice} disabled={loadingAi} className="text-sm font-semibold text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors">
-                        {loadingAi ? 'Menganalisis...' : 'Refresh Analisis'}
-                     </button>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl p-5 text-slate-700 text-sm leading-relaxed whitespace-pre-line border border-slate-100 min-h-[100px]">
-                     {aiAdvice ? aiAdvice : "Tekan tombol refresh untuk mendapatkan saran keuangan cerdas berdasarkan data transaksi Anda."}
                   </div>
                </div>
 
@@ -1618,66 +1637,191 @@ const App: React.FC = () => {
            {mobileTab === 'report' && (
               <div className="space-y-6">
                  <div className="flex justify-between items-center">
-                     <h2 className="text-xl font-bold text-slate-700">Laporan Matriks Tagihan</h2>
-                     <select 
-                        value={selectedYear} 
-                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="bg-white border border-slate-300 rounded-lg px-4 py-2 font-medium text-slate-700"
-                     >
-                        {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                     </select>
+                     <div>
+                        <h2 className="text-xl font-bold text-slate-700">Laporan Tahunan</h2>
+                        <p className="text-slate-500 text-sm">Lihat detail tagihan, cicilan, dan pembayaran bulanan.</p>
+                     </div>
+                     <div className="flex gap-3">
+                        {/* Toggle View Mode */}
+                        <div className="bg-slate-100 p-1 rounded-lg flex items-center">
+                            <button 
+                                onClick={() => setReportViewMode('detail')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${reportViewMode === 'detail' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                            >
+                                <List size={16}/> Detail
+                            </button>
+                            <button 
+                                onClick={() => setReportViewMode('matrix')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${reportViewMode === 'matrix' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                            >
+                                <Grid size={16}/> Matriks
+                            </button>
+                        </div>
+                        
+                        {/* Filters */}
+                        {reportViewMode === 'detail' && (
+                            <div className="relative">
+                                <select 
+                                    value={reportCardId} 
+                                    onChange={(e) => setReportCardId(e.target.value)}
+                                    className="appearance-none bg-white border border-slate-300 rounded-lg pl-4 pr-10 py-2 font-medium text-slate-700 w-48"
+                                >
+                                    {data.cards.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={16} className="absolute right-3 top-3 text-slate-400 pointer-events-none"/>
+                            </div>
+                        )}
+                        <div className="relative">
+                            <select 
+                                value={selectedYear} 
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                className="appearance-none bg-white border border-slate-300 rounded-lg pl-4 pr-10 py-2 font-medium text-slate-700 w-28"
+                            >
+                                {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-3 text-slate-400 pointer-events-none"/>
+                        </div>
+                     </div>
                  </div>
                  
-                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                       <thead>
-                          <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
-                             <th className="p-4 border-b border-r font-bold sticky left-0 bg-slate-50">Bulan</th>
-                             {data.cards.map(card => (
-                                 <th key={card.id} className="p-4 border-b font-bold whitespace-nowrap min-w-[150px]">{card.name}</th>
-                             ))}
-                             <th className="p-4 border-b font-bold bg-slate-100">Total Bulanan</th>
-                          </tr>
-                       </thead>
-                       <tbody className="text-sm">
-                          {monthNames.map((month, idx) => {
-                              const cardBills = data.cards.map(card => getMonthlyBill(card.id, idx, selectedYear));
-                              const totalMonth = cardBills.reduce((a, b) => a + b, 0);
-                              
-                              // Highlight current month
-                              const isCurrentMonth = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+                 {/* DETAILED VIEW (Per Card) */}
+                 {reportViewMode === 'detail' && (
+                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                           <thead>
+                              <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
+                                 <th className="p-4 border-b w-32 font-bold">Bulan</th>
+                                 <th className="p-4 border-b font-bold">Rincian Transaksi</th>
+                                 <th className="p-4 border-b w-40 font-bold text-right">Total Tagihan</th>
+                                 <th className="p-4 border-b w-40 font-bold text-right">Dibayar</th>
+                                 <th className="p-4 border-b w-40 font-bold text-right bg-slate-100">Sisa Tagihan</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100">
+                              {monthNames.map((month, idx) => {
+                                  const reportData = getMonthlyReportData(reportCardId, idx, selectedYear);
+                                  const isCurrentMonth = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+                                  
+                                  const isEmpty = reportData.expenses.length === 0 && reportData.installments.length === 0 && reportData.totalBill === 0;
 
-                              return (
-                                  <tr key={month} className={isCurrentMonth ? "bg-blue-50/50" : "hover:bg-slate-50 transition"}>
-                                      <td className={`p-4 border-r font-medium text-slate-700 sticky left-0 ${isCurrentMonth ? "bg-blue-50" : "bg-white"}`}>{month}</td>
-                                      {cardBills.map((bill, cardIdx) => (
-                                          <td key={cardIdx} className="p-4 border-b text-slate-600">
-                                              {bill > 0 ? formatIDR(bill) : '-'}
+                                  return (
+                                      <tr key={month} className={`hover:bg-slate-50/50 transition ${isCurrentMonth ? 'bg-blue-50/30' : ''}`}>
+                                          <td className={`p-4 font-bold text-slate-700 align-top ${isCurrentMonth ? 'text-blue-600' : ''}`}>
+                                              {month}
                                           </td>
-                                      ))}
-                                      <td className="p-4 border-b font-bold text-slate-800 bg-slate-50/50">
-                                          {totalMonth > 0 ? formatIDR(totalMonth) : '-'}
-                                      </td>
-                                  </tr>
-                              )
-                          })}
-                       </tbody>
-                       <tfoot>
-                           <tr className="bg-slate-100 font-bold text-slate-800">
-                               <td className="p-4 border-r sticky left-0 bg-slate-100">TOTAL TAHUNAN</td>
-                               {data.cards.map(card => {
-                                   const totalYear = Array.from({length: 12}, (_, i) => getMonthlyBill(card.id, i, selectedYear)).reduce((a,b)=>a+b,0);
-                                   return <td key={card.id} className="p-4">{formatIDR(totalYear)}</td>
-                               })}
-                               <td className="p-4 bg-slate-200">
-                                   {formatIDR(data.cards.reduce((sum, card) => sum + Array.from({length: 12}, (_, i) => getMonthlyBill(card.id, i, selectedYear)).reduce((a,b)=>a+b,0), 0))}
-                               </td>
-                           </tr>
-                       </tfoot>
-                    </table>
-                 </div>
+                                          <td className="p-4 align-top">
+                                              {isEmpty ? (
+                                                  <span className="text-slate-400 text-xs italic">- Tidak ada transaksi -</span>
+                                              ) : (
+                                                  <div className="space-y-1">
+                                                      {reportData.expenses.map(exp => (
+                                                          <div key={exp.id} className="text-xs text-slate-600 flex justify-between gap-4">
+                                                              <span>{exp.description}</span>
+                                                              <span className="font-medium">{formatIDR(exp.amount)}</span>
+                                                          </div>
+                                                      ))}
+                                                      {reportData.installments.map(inst => (
+                                                          <div key={inst.id} className="text-xs text-slate-600 flex justify-between gap-4">
+                                                              <span>
+                                                                  {inst.name} 
+                                                                  <span className="text-indigo-500 text-[10px] ml-1 font-bold bg-indigo-50 px-1 rounded">
+                                                                      ({inst.currentMonthIndex}/{inst.totalMonths})
+                                                                  </span>
+                                                              </span>
+                                                              <span className="font-medium">{formatIDR(inst.monthlyAmount)}</span>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              )}
+                                          </td>
+                                          <td className="p-4 text-right align-top font-bold text-slate-800">
+                                              {reportData.totalBill > 0 ? formatIDR(reportData.totalBill) : '-'}
+                                          </td>
+                                          <td className="p-4 text-right align-top font-bold text-green-600">
+                                              {reportData.totalPaid > 0 ? formatIDR(reportData.totalPaid) : '-'}
+                                          </td>
+                                          <td className={`p-4 text-right align-top font-bold border-l border-slate-50 ${isCurrentMonth ? 'bg-blue-50/50' : 'bg-slate-50/50'} ${reportData.remaining <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {formatIDR(Math.max(0, reportData.remaining))}
+                                          </td>
+                                      </tr>
+                                  )
+                              })}
+                           </tbody>
+                           <tfoot>
+                               <tr className="bg-slate-100 font-bold text-slate-800 border-t border-slate-200">
+                                   <td colSpan={2} className="p-4 text-right">TOTAL TAHUNAN</td>
+                                   <td className="p-4 text-right">
+                                       {formatIDR(Array.from({length:12},(_,i)=>getMonthlyReportData(reportCardId,i,selectedYear).totalBill).reduce((a,b)=>a+b,0))}
+                                   </td>
+                                   <td className="p-4 text-right text-green-700">
+                                       {formatIDR(Array.from({length:12},(_,i)=>getMonthlyReportData(reportCardId,i,selectedYear).totalPaid).reduce((a,b)=>a+b,0))}
+                                   </td>
+                                   <td className="p-4 text-right text-red-700 bg-slate-200">
+                                       {formatIDR(Array.from({length:12},(_,i)=>Math.max(0, getMonthlyReportData(reportCardId,i,selectedYear).remaining)).reduce((a,b)=>a+b,0))}
+                                   </td>
+                               </tr>
+                           </tfoot>
+                        </table>
+                     </div>
+                 )}
+
+                 {/* MATRIX VIEW (All Cards Summary) */}
+                 {reportViewMode === 'matrix' && (
+                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
+                                    <th className="p-4 border-b font-bold sticky left-0 bg-slate-50 z-10 w-32 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Bulan</th>
+                                    {data.cards.map(c => (
+                                        <th key={c.id} className="p-4 border-b font-bold text-right min-w-[140px] whitespace-nowrap">{c.name}</th>
+                                    ))}
+                                    <th className="p-4 border-b font-bold text-right bg-slate-100 min-w-[140px]">Total Bulan</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {monthNames.map((month, idx) => {
+                                    const bills = data.cards.map(c => getMonthlyBill(c.id, idx, selectedYear));
+                                    const totalMonth = bills.reduce((a, b) => a + b, 0);
+                                    const isCurrent = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+
+                                    return (
+                                        <tr key={month} className={`hover:bg-slate-50/50 ${isCurrent ? 'bg-blue-50/20' : ''}`}>
+                                            <td className={`p-4 font-bold sticky left-0 z-10 w-32 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${isCurrent ? 'bg-blue-50/80 text-blue-600' : 'bg-white text-slate-700'}`}>
+                                                {month}
+                                            </td>
+                                            {bills.map((bill, i) => (
+                                                <td key={i} className="p-4 text-right text-sm text-slate-600 border-l border-slate-50">
+                                                    {bill > 0 ? formatIDR(bill) : '-'}
+                                                </td>
+                                            ))}
+                                            <td className="p-4 text-right font-bold text-slate-800 bg-slate-50 border-l border-slate-100">
+                                                {totalMonth > 0 ? formatIDR(totalMonth) : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot>
+                                <tr className="bg-slate-100 font-bold text-slate-800 border-t border-slate-200">
+                                    <td className="p-4 sticky left-0 bg-slate-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">TOTAL</td>
+                                    {data.cards.map(c => {
+                                        const totalYear = Array.from({length:12},(_,i)=>getMonthlyBill(c.id,i,selectedYear)).reduce((a,b)=>a+b,0);
+                                        return <td key={c.id} className="p-4 text-right">{formatIDR(totalYear)}</td>
+                                    })}
+                                    <td className="p-4 text-right text-blue-700">
+                                        {formatIDR(
+                                            data.cards.reduce((sum, c) => sum + Array.from({length:12},(_,i)=>getMonthlyBill(c.id,i,selectedYear)).reduce((a,b)=>a+b,0), 0)
+                                        )}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                     </div>
+                 )}
               </div>
            )}
 
@@ -1836,11 +1980,27 @@ const App: React.FC = () => {
                              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x">
                                 {upcomingBills.map(c => {
                                     const isUrgent = c.daysLeft <= 3;
+                                    const isCovered = c.shortfall <= 0;
                                     return (
-                                       <div key={c.id} className={`snap-center shrink-0 w-40 p-3 rounded-xl border ${isUrgent ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100'} shadow-sm`}>
+                                       <div key={c.id} className={`snap-center shrink-0 w-44 p-3 rounded-xl border ${isUrgent ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100'} shadow-sm`}>
                                           <p className="text-xs font-bold text-slate-800 truncate">{c.name}</p>
                                           <p className={`text-xs font-bold mt-1 ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>{c.daysLeft} Hari Lagi</p>
-                                          <p className="text-[10px] text-slate-500 mt-2">Sisa: {formatIDR(c.remainingBill)}</p>
+                                          <div className="text-[10px] text-slate-500 mt-2 space-y-0.5">
+                                             <div className="flex justify-between">
+                                                <span>Tagihan:</span>
+                                                <span className="font-medium text-slate-700">{formatIDR(c.remainingBill)}</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                <span>Tabungan:</span>
+                                                <span className="font-medium text-slate-700">{formatIDR(c.availableSavings)}</span>
+                                             </div>
+                                             <div className="border-t border-slate-200 mt-1 pt-1 flex justify-between font-bold">
+                                                <span>Kurang:</span>
+                                                <span className={isCovered ? 'text-green-600' : 'text-red-600'}>
+                                                   {isCovered ? 'Aman' : formatIDR(c.shortfall)}
+                                                </span>
+                                             </div>
+                                          </div>
                                        </div>
                                     )
                                 })}
@@ -1859,8 +2019,6 @@ const App: React.FC = () => {
                                    icon = <Banknote size={24}/>; label = "Cicilan"; action = openInstallmentModal; color = "bg-purple-100 text-purple-600"; break;
                                 case 'laporan':
                                    icon = <FileBarChart size={24}/>; label = "Laporan"; action = () => setMobileTab('report'); color = "bg-emerald-100 text-emerald-600"; break;
-                                case 'ai':
-                                   icon = <Sparkles size={24}/>; label = "Advisor"; action = handleGetAdvice; color = "bg-amber-100 text-amber-600"; break;
                                 case 'kartu':
                                    icon = <CreditCard size={24}/>; label = "Kartu"; action = () => setMobileTab('cards'); color = "bg-indigo-100 text-indigo-600"; break;
                                 case 'tabungan':
@@ -1927,48 +2085,110 @@ const App: React.FC = () => {
                     </>
                  )}
 
-                 {/* MOBILE REPORT TAB */}
+                 {/* MOBILE REPORT TAB (Redesigned) */}
                  {mobileTab === 'report' && (
                      <div className="space-y-4">
-                         <div className="flex items-center justify-between mb-2">
-                             <h2 className="text-lg font-bold text-slate-800">Laporan Bulanan</h2>
-                             <select 
-                                value={selectedYear} 
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                className="bg-white text-sm border border-slate-200 rounded-lg px-2 py-1"
-                             >
-                                {Array.from({length: 3}, (_, i) => new Date().getFullYear() - 1 + i).map(y => (
-                                    <option key={y} value={y}>{y}</option>
-                                ))}
-                             </select>
+                         {/* Toggle & Filter */}
+                         <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-100 flex flex-col gap-3">
+                             <div className="flex bg-slate-100 p-1 rounded-lg">
+                                <button onClick={() => setReportViewMode('detail')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${reportViewMode === 'detail' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Detail</button>
+                                <button onClick={() => setReportViewMode('matrix')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${reportViewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Ringkasan</button>
+                             </div>
+                             
+                             <div className="flex gap-2">
+                                {reportViewMode === 'detail' && (
+                                   <div className="flex-1 relative">
+                                        <select 
+                                            value={reportCardId} 
+                                            onChange={(e) => setReportCardId(e.target.value)}
+                                            className="w-full bg-slate-50 text-xs font-bold border border-slate-200 rounded-lg px-2 py-2 text-slate-700 outline-none"
+                                        >
+                                            {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                   </div>
+                                )}
+                                <div className={`${reportViewMode === 'detail' ? 'w-20' : 'w-full'} relative`}>
+                                    <select 
+                                        value={selectedYear} 
+                                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                        className="w-full bg-slate-50 text-xs font-bold border border-slate-200 rounded-lg px-2 py-2 outline-none"
+                                    >
+                                        {Array.from({length: 3}, (_, i) => new Date().getFullYear() - 1 + i).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                             </div>
                          </div>
 
-                         {/* Mobile Report Card List */}
-                         {monthNames.map((month, idx) => {
-                             const totalBill = data.cards.reduce((sum, c) => sum + getMonthlyBill(c.id, idx, selectedYear), 0);
+                         {/* Mobile Report Detailed List */}
+                         {reportViewMode === 'detail' && monthNames.map((month, idx) => {
+                             const reportData = getMonthlyReportData(reportCardId, idx, selectedYear);
                              const isCurrent = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
 
                              return (
                                  <div key={idx} className={`bg-white rounded-xl p-4 border ${isCurrent ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm'}`}>
-                                     <div className="flex justify-between items-center mb-3">
-                                         <h3 className={`font-bold ${isCurrent ? 'text-blue-700' : 'text-slate-700'}`}>{month} {selectedYear}</h3>
-                                         <span className="font-bold text-slate-800">{formatIDR(totalBill)}</span>
+                                     <h3 className={`font-bold text-sm mb-3 pb-2 border-b border-slate-50 ${isCurrent ? 'text-blue-700' : 'text-slate-700'}`}>
+                                         {month} {selectedYear}
+                                     </h3>
+
+                                     {/* Details Section */}
+                                     <div className="space-y-2 mb-3">
+                                         {reportData.expenses.length === 0 && reportData.installments.length === 0 && (
+                                             <p className="text-xs text-slate-400 italic text-center py-1">Tidak ada transaksi</p>
+                                         )}
+                                         {reportData.expenses.map(exp => (
+                                             <div key={exp.id} className="flex justify-between text-xs text-slate-600">
+                                                 <span>{exp.description}</span>
+                                                 <span className="font-medium">{formatIDR(exp.amount)}</span>
+                                             </div>
+                                         ))}
+                                         {reportData.installments.map(inst => (
+                                             <div key={inst.id} className="flex justify-between text-xs text-slate-600">
+                                                 <span>{inst.name} <span className="text-[9px] bg-slate-100 px-1 rounded text-slate-500">({inst.currentMonthIndex}/{inst.totalMonths})</span></span>
+                                                 <span className="font-medium">{formatIDR(inst.monthlyAmount)}</span>
+                                             </div>
+                                         ))}
                                      </div>
-                                     <div className="space-y-1">
-                                         {data.cards.map(c => {
-                                             const bill = getMonthlyBill(c.id, idx, selectedYear);
-                                             if (bill === 0) return null;
-                                             return (
-                                                 <div key={c.id} className="flex justify-between text-xs text-slate-500">
-                                                     <span>{c.name}</span>
-                                                     <span>{formatIDR(bill)}</span>
-                                                 </div>
-                                             )
-                                         })}
+
+                                     {/* Summary Footer */}
+                                     <div className="bg-slate-50 rounded-lg p-2.5 space-y-1">
+                                         <div className="flex justify-between text-xs text-slate-500">
+                                             <span>Tagihan</span>
+                                             <span className="font-bold text-slate-700">{formatIDR(reportData.totalBill)}</span>
+                                         </div>
+                                         <div className="flex justify-between text-xs text-slate-500">
+                                             <span>Bayar/Tabung</span>
+                                             <span className="font-bold text-green-600">{formatIDR(reportData.totalPaid)}</span>
+                                         </div>
+                                         <div className="flex justify-between text-xs font-bold pt-1 border-t border-slate-200">
+                                             <span className="text-slate-700">Sisa Tagihan</span>
+                                             <span className={reportData.remaining <= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                 {formatIDR(Math.max(0, reportData.remaining))}
+                                             </span>
+                                         </div>
                                      </div>
                                  </div>
                              )
                          })}
+
+                         {/* Mobile Matrix List (Simplified) */}
+                         {reportViewMode === 'matrix' && (
+                             <div className="space-y-3">
+                                 {monthNames.map((month, idx) => {
+                                     const bills = data.cards.map(c => getMonthlyBill(c.id, idx, selectedYear));
+                                     const totalMonth = bills.reduce((a, b) => a + b, 0);
+                                     const isCurrent = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+                                     
+                                     return (
+                                         <div key={month} className={`bg-white rounded-xl p-3 border shadow-sm flex justify-between items-center ${isCurrent ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100'}`}>
+                                             <span className={`text-sm font-bold ${isCurrent ? 'text-blue-600' : 'text-slate-700'}`}>{month}</span>
+                                             <span className="text-sm font-bold text-slate-800">{totalMonth > 0 ? formatIDR(totalMonth) : '-'}</span>
+                                         </div>
+                                     )
+                                 })}
+                             </div>
+                         )}
                      </div>
                  )}
                  
@@ -2110,6 +2330,8 @@ const App: React.FC = () => {
       {/* ========================================= */}
       {/* MODALS & OVERLAYS                         */}
       {/* ========================================= */}
+      
+      {/* ... (Existing Modals remain unchanged, except ensuring Transaction logic uses the improved logic) */}
 
       {/* TOAST NOTIFICATION */}
       {showToast && toastMessage && (
