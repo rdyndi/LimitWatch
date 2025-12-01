@@ -148,6 +148,7 @@ const App: React.FC = () => {
   const [instName, setInstName] = useState('');
   const [instTotal, setInstTotal] = useState('');
   const [instTenure, setInstTenure] = useState(3);
+  const [instMonthlyAmount, setInstMonthlyAmount] = useState(''); // NEW: Allow manual input
   const [instCardId, setInstCardId] = useState('');
   const [instStartDate, setInstStartDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -198,6 +199,15 @@ const App: React.FC = () => {
       if (!instCardId) setInstCardId(data.cards[0].id);
     }
   }, [data.cards, txCardId, savingCardId, instCardId]);
+
+  // Auto calculate monthly amount when Total or Tenure changes in Manual Installment Form
+  useEffect(() => {
+    const totalVal = getNumericValue(instTotal);
+    if (totalVal > 0 && instTenure > 0) {
+      const calculated = Math.ceil(totalVal / instTenure);
+      setInstMonthlyAmount(formatIDR(calculated));
+    }
+  }, [instTotal, instTenure]);
 
   // --- HISTORY & BACK BUTTON MANAGEMENT ---
   useEffect(() => {
@@ -394,6 +404,7 @@ const App: React.FC = () => {
     setInstName('');
     setInstTotal('');
     setInstTenure(3);
+    setInstMonthlyAmount('');
     setInstStartDate(new Date().toISOString().split('T')[0]);
     if (data.cards.length > 0) setInstCardId(data.cards[0].id);
     setInstallmentModalOpen(true);
@@ -409,17 +420,19 @@ const App: React.FC = () => {
 
   const handleSaveInstallmentManual = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!instName || !instTotal || !instCardId) return;
+    if (!instName || !instTotal || !instCardId || !instMonthlyAmount) return;
 
     const totalVal = getNumericValue(instTotal);
-    if (totalVal === 0) return;
+    const monthlyVal = getNumericValue(instMonthlyAmount);
+
+    if (totalVal === 0 || monthlyVal === 0) return;
 
     const newInstallment: Installment = {
         id: generateId(),
         cardId: instCardId,
         name: instName,
         totalAmount: totalVal,
-        monthlyAmount: Math.ceil(totalVal / instTenure), 
+        monthlyAmount: monthlyVal, 
         totalMonths: instTenure,
         monthsPaid: 0,
         startDate: new Date(instStartDate).toISOString()
@@ -818,6 +831,14 @@ const App: React.FC = () => {
   };
 
   const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
+     const activeInstallmentsThisMonth = data.installments.filter(i => {
+         const startDate = new Date(i.startDate);
+         const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
+         return (monthDiff >= 0 && monthDiff < i.totalMonths);
+     });
+
+     const installmentLoad = activeInstallmentsThisMonth.reduce((sum, i) => sum + i.monthlyAmount, 0);
+
      const expenses = data.transactions
        .filter(t => {
           const d = new Date(t.date);
@@ -828,18 +849,6 @@ const App: React.FC = () => {
                  d.getFullYear() === year;
        })
        .reduce((sum, t) => sum + t.amount, 0);
-
-     const installmentLoad = data.installments
-       .filter(i => i.cardId === cardId)
-       .reduce((sum, i) => {
-          const startDate = new Date(i.startDate);
-          const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
-          
-          if (monthDiff >= 0 && monthDiff < i.totalMonths) {
-             return sum + i.monthlyAmount;
-          }
-          return sum;
-       }, 0);
 
      return expenses + installmentLoad;
   };
@@ -936,6 +945,22 @@ const App: React.FC = () => {
       })
       .filter(c => c.remainingBill > 1000) 
       .sort((a, b) => a.daysLeft - b.daysLeft);
+  
+  // Logic for Active Installments Display
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const activeInstallmentsCount = data.installments.filter(i => {
+      const startDate = new Date(i.startDate);
+      const monthDiff = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
+      return (monthDiff >= 0 && monthDiff < i.totalMonths);
+  }).length;
+
+  const totalInstallmentBillThisMonth = data.installments.filter(i => {
+      const startDate = new Date(i.startDate);
+      const monthDiff = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
+      return (monthDiff >= 0 && monthDiff < i.totalMonths);
+  }).reduce((sum, i) => sum + i.monthlyAmount, 0);
+
 
   if (!user) {
     return (
@@ -1068,7 +1093,7 @@ const App: React.FC = () => {
       {/* ========================================= */}
       {/* DESKTOP VIEW (Redesigned & Functional)    */}
       {/* ========================================= */}
-      <div className="hidden md:flex min-h-screen bg-slate-50 font-sans">
+      <div className="hidden md:flex h-screen bg-slate-50 font-sans overflow-hidden">
         
         {/* SIDEBAR */}
         <aside className="w-72 bg-white border-r border-slate-200 flex flex-col fixed h-full z-20 shadow-sm">
@@ -1210,7 +1235,10 @@ const App: React.FC = () => {
                   <div className="col-span-1 bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white flex flex-col justify-between h-40">
                      <div>
                        <p className="text-blue-100 font-medium mb-1">Cicilan Aktif</p>
-                       <h3 className="text-2xl font-bold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length} Item</h3>
+                       <div className="flex items-baseline gap-2">
+                           <h3 className="text-2xl font-bold">{activeInstallmentsCount} Item</h3>
+                           <span className="text-sm text-blue-200">({formatIDR(totalInstallmentBillThisMonth)}/bln)</span>
+                       </div>
                      </div>
                      <div className="flex gap-2">
                          <button onClick={() => setInstallmentListModalOpen(true)} className="text-sm bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-3 rounded-lg w-fit transition-colors">
@@ -1421,7 +1449,7 @@ const App: React.FC = () => {
                                <div className="text-right">
                                   <p className="text-xs text-slate-400">Terkumpul</p>
                                   <p className="text-xl font-bold text-green-600">{formatIDR(cardSaved)}</p>
-                               </div>
+                                </div>
                             </div>
 
                             {/* Progress Bar */}
@@ -1689,7 +1717,10 @@ const App: React.FC = () => {
                               </div>
                               <div onClick={() => setInstallmentListModalOpen(true)} className="bg-white/10 rounded-xl p-3 flex-1 backdrop-blur-sm active:bg-white/20 transition cursor-pointer">
                                   <p className="text-xs text-blue-100 mb-1">Cicilan Aktif</p>
-                                  <p className="font-bold">{data.installments.filter(i => i.monthsPaid < i.totalMonths).length} Item</p>
+                                  <div className="flex items-center gap-1">
+                                      <p className="font-bold">{activeInstallmentsCount} Item</p>
+                                      <p className="text-[10px] opacity-80">({formatIDR(totalInstallmentBillThisMonth)})</p>
+                                  </div>
                               </div>
                            </div>
                        </div>
@@ -2193,11 +2224,18 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex justify-between items-center">
-                  <span className="text-xs text-indigo-600 font-bold">Estimasi Cicilan/Bulan</span>
-                  <span className="text-lg font-bold text-indigo-700">
-                      {formatIDR(getNumericValue(instTotal) / instTenure)}
-                  </span>
+              {/* NEW: Input Cicilan Per Bulan Manual */}
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                  <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase">Cicilan per Bulan</label>
+                  <input 
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={instMonthlyAmount}
+                    onChange={(e) => handleCurrencyInput(e.target.value, setInstMonthlyAmount)}
+                    className="w-full bg-white border border-indigo-200 rounded-xl px-4 py-2 font-bold text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-[10px] text-indigo-500 mt-1">*Otomatis dihitung dari Total/Tenor, tapi bisa diubah manual.</p>
               </div>
 
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold mt-2">
@@ -2396,7 +2434,15 @@ const App: React.FC = () => {
               <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[85vh]">
                   <div className="p-5 border-b border-slate-100 flex justify-between items-center">
                       <h2 className="text-lg font-bold text-slate-800">Daftar Cicilan Aktif</h2>
-                      <button onClick={() => setInstallmentListModalOpen(false)} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full"><X size={18}/></button>
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={() => { setInstallmentListModalOpen(false); openInstallmentModal(); }} 
+                            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700"
+                          >
+                            + Baru
+                          </button>
+                          <button onClick={() => setInstallmentListModalOpen(false)} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full"><X size={18}/></button>
+                      </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-5 space-y-3">
                       {data.installments.length === 0 ? (
