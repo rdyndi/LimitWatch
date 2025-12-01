@@ -1264,9 +1264,6 @@ const App: React.FC = () => {
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat Transaksi" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
               <DesktopNavItem icon={<Coins size={20}/>} label="Tabungan Pelunasan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
               <DesktopNavItem icon={<FileBarChart size={20}/>} label="Laporan Tahunan" active={mobileTab === 'report'} onClick={() => setMobileTab('report')} />
-              
-              <div className="px-4 pb-2 pt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">Akun</div>
-              <DesktopNavItem icon={<UserIcon size={20}/>} label="Profil Pengguna" active={mobileTab === 'profile'} onClick={() => setMobileTab('profile')} />
            </nav>
            
            <div className="p-4 border-t border-slate-100">
@@ -1369,9 +1366,6 @@ const App: React.FC = () => {
                               <p className="text-xs text-slate-500 truncate">{user.email}</p>
                            </div>
                            <div className="p-2">
-                              <button onClick={() => {setMobileTab('profile'); setShowProfileMenu(false)}} className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-2">
-                                 <Settings size={16} /> Pengaturan Akun
-                              </button>
                               <button onClick={() => {logout(); setShowProfileMenu(false);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 font-medium">
                                  <LogOut size={16} /> Keluar Aplikasi
                               </button>
@@ -1386,7 +1380,7 @@ const App: React.FC = () => {
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in duration-500">
                {/* Stats Grid */}
-               <div className="grid grid-cols-4 gap-6">
+               <div className="grid grid-cols-3 gap-6">
                   <div className="col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-40 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <TrendingDown size={64} className="text-red-600"/>
@@ -1430,52 +1424,59 @@ const App: React.FC = () => {
                          </button>
                      </div>
                   </div>
-                  
-                  {/* Bill Reminder Widget (Desktop) */}
-                  <div className="col-span-1 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 h-40 overflow-y-auto">
-                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100 sticky top-0 bg-white z-10">
-                          <Bell size={16} className="text-orange-500"/>
-                          <h3 className="text-sm font-bold text-slate-800">Pengingat Tagihan</h3>
-                      </div>
-                      <div className="space-y-2">
-                          {upcomingBills.length === 0 ? (
-                              <p className="text-xs text-slate-400 text-center py-4">Semua tagihan lunas!</p>
-                          ) : (
-                              upcomingBills.map(c => {
-                                  const isUrgent = c.daysLeft <= 3;
-                                  const isWarning = c.daysLeft <= 7;
-                                  const isCovered = c.shortfall <= 0;
+               </div>
 
-                                  return (
-                                      <div key={c.id} className={`p-2 rounded-lg text-xs border ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
-                                          <div className="flex justify-between font-bold">
-                                              <span className="truncate w-16">{c.name}</span>
-                                              <span className={isUrgent ? 'text-red-600' : isWarning ? 'text-orange-600' : 'text-slate-600'}>
-                                                  {c.daysLeft} Hari
-                                              </span>
-                                          </div>
-                                          <div className="flex justify-between items-center mt-1 text-[10px]">
-                                             <div className="text-slate-500">
-                                                {c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
-                                             </div>
-                                             <div className="font-bold text-slate-800">
-                                                Tagihan: {formatIDR(c.remainingBill)}
-                                             </div>
-                                          </div>
-                                          <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
-                                             <span>Tabungan:</span>
-                                             <span>{formatIDR(c.availableSavings)}</span>
-                                          </div>
-                                          <div className={`flex justify-between items-center text-[10px] mt-0.5 border-t border-slate-200/50 pt-1 font-bold ${isCovered ? 'text-green-600' : 'text-red-600'}`}>
-                                             <span>Kurang:</span>
-                                             <span>{isCovered ? 'Aman (Tertutup)' : formatIDR(c.shortfall)}</span>
-                                          </div>
-                                      </div>
-                                  )
-                              })
-                          )}
-                      </div>
+               {/* Bill Reminder Section (Horizontal) */}
+               <div>
+                  <div className="flex items-center gap-2 mb-4">
+                      <Bell size={20} className="text-orange-500"/>
+                      <h3 className="text-lg font-bold text-slate-800">Pengingat Tagihan</h3>
                   </div>
+                  
+                  {upcomingBills.length === 0 ? (
+                      <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center text-slate-400 flex flex-col items-center">
+                          <CheckCircle2 size={48} className="mb-2 opacity-20"/>
+                          <p>Semua tagihan aman! Tidak ada yang jatuh tempo dalam waktu dekat.</p>
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-3 gap-6">
+                          {upcomingBills.map(c => {
+                              const isUrgent = c.daysLeft <= 3;
+                              const isWarning = c.daysLeft <= 7;
+                              const isCovered = c.shortfall <= 0;
+
+                              return (
+                                  <div key={c.id} className={`p-4 rounded-xl border shadow-sm ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'}`}>
+                                      <div className="flex justify-between items-start mb-2">
+                                          <div>
+                                              <p className="font-bold text-slate-800 truncate">{c.name}</p>
+                                              <p className="text-xs text-slate-500">{c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
+                                          </div>
+                                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isUrgent ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                              {c.daysLeft} Hari
+                                          </span>
+                                      </div>
+                                      
+                                      <div className="space-y-1.5 mt-3 text-sm">
+                                         <div className="flex justify-between">
+                                            <span className="text-slate-500 text-xs">Tagihan</span>
+                                            <span className="font-bold text-slate-800">{formatIDR(c.remainingBill)}</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                            <span className="text-slate-500 text-xs">Tabungan</span>
+                                            <span className="font-bold text-slate-600">{formatIDR(c.availableSavings)}</span>
+                                         </div>
+                                         <div className="h-px bg-slate-200/50 my-1"></div>
+                                         <div className={`flex justify-between font-bold ${isCovered ? 'text-green-600' : 'text-red-600'}`}>
+                                            <span className="text-xs">Kekurangan</span>
+                                            <span>{isCovered ? 'Aman' : formatIDR(c.shortfall)}</span>
+                                         </div>
+                                      </div>
+                                  </div>
+                              )
+                          })}
+                      </div>
+                  )}
                </div>
 
                {/* Recent Transactions Table */}
@@ -2460,22 +2461,25 @@ const App: React.FC = () => {
          </div>
 
          {/* Fixed Bottom Navigation (Mobile) */}
-         <div className="bg-white border-t border-slate-200 pb-safe pt-2 px-6 flex justify-between items-center shrink-0 z-30">
-            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 p-2 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-                <span className="text-[10px] font-medium">Beranda</span>
+         <div 
+            className="bg-white border-t border-slate-200 px-6 pt-3 flex justify-between items-center shrink-0 z-30"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+         >
+            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
+                <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
+                <span className="text-[11px] font-medium">Beranda</span>
             </button>
-            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 p-2 ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-                <span className="text-[10px] font-medium">Kartu</span>
+            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}>
+                <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
+                <span className="text-[11px] font-medium">Kartu</span>
             </button>
-            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 p-2 ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <Coins size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
-                <span className="text-[10px] font-medium">Tabungan</span>
+            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}>
+                <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
+                <span className="text-[11px] font-medium">Tabungan</span>
             </button>
-            <button onClick={() => setMobileTab('profile')} className={`flex flex-col items-center gap-1 p-2 ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <UserIcon size={22} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
-                <span className="text-[10px] font-medium">Akun</span>
+            <button onClick={() => setMobileTab('profile')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}>
+                <UserIcon size={24} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
+                <span className="text-[11px] font-medium">Akun</span>
             </button>
          </div>
 
