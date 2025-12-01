@@ -72,6 +72,18 @@ const getNumericValue = (val: string) => {
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
+// Predefined Card Colors
+const CARD_COLORS = [
+  { id: 'slate', class: 'bg-gradient-to-br from-slate-700 to-slate-900', label: 'Hitam' },
+  { id: 'blue', class: 'bg-gradient-to-br from-blue-600 to-blue-800', label: 'Biru' },
+  { id: 'emerald', class: 'bg-gradient-to-br from-emerald-600 to-emerald-800', label: 'Hijau' },
+  { id: 'red', class: 'bg-gradient-to-br from-red-600 to-red-800', label: 'Merah' },
+  { id: 'purple', class: 'bg-gradient-to-br from-purple-600 to-purple-800', label: 'Ungu' },
+  { id: 'orange', class: 'bg-gradient-to-br from-orange-500 to-orange-700', label: 'Oranye' },
+  { id: 'pink', class: 'bg-gradient-to-br from-pink-600 to-pink-800', label: 'Pink' },
+  { id: 'cyan', class: 'bg-gradient-to-br from-cyan-600 to-cyan-800', label: 'Cyan' },
+];
+
 interface NotificationItem {
   id: string;
   type: 'urgent' | 'warning' | 'info';
@@ -112,6 +124,7 @@ const App: React.FC = () => {
   const [loadingAi, setLoadingAi] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
+  const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
 
   // Swipe Gesture States
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -156,6 +169,7 @@ const App: React.FC = () => {
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
   const [cardDue, setCardDue] = useState('');
+  const [cardColor, setCardColor] = useState(CARD_COLORS[0].class);
 
   // Saving Form State
   const [savingAmount, setSavingAmount] = useState('');
@@ -646,30 +660,80 @@ const App: React.FC = () => {
     setTransactionModalOpen(false);
   };
 
+  const openAddCardModal = () => {
+    setEditingCard(null);
+    setCardName('');
+    setCardLimit('');
+    setCardDue('');
+    setCardColor(CARD_COLORS[0].class);
+    setCardModalOpen(true);
+  }
+
+  const handleEditCard = (card: CreditCardType) => {
+    setEditingCard(card);
+    setCardName(card.name);
+    setCardLimit(formatIDR(card.limit));
+    setCardDue(card.dueDay ? card.dueDay.toString() : '');
+    setCardColor(card.color || CARD_COLORS[0].class);
+    setCardModalOpen(true);
+  }
+
+  const handleDeleteCard = (id: string) => {
+    if (window.confirm("Hapus kartu ini? Semua transaksi terkait akan tetap ada, namun nama kartu mungkin hilang.")) {
+      const updatedCards = data.cards.filter(c => c.id !== id);
+      saveData({ ...data, cards: updatedCards });
+    }
+  }
+
   const handleSaveCard = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cardName || !cardLimit) return;
+    if (!cardName) {
+        alert("Nama kartu wajib diisi");
+        return;
+    }
 
     const limitVal = getNumericValue(cardLimit);
-    if(limitVal === 0) return;
+    if(limitVal <= 0) {
+        alert("Limit kartu harus lebih dari 0");
+        return;
+    }
+    
+    // Ensure we always have a valid color class
+    const finalColor = cardColor && cardColor.trim() !== '' ? cardColor : CARD_COLORS[0].class;
 
-    const newCard: CreditCardType = {
-        id: generateId(),
-        name: cardName,
-        limit: limitVal,
-        color: 'bg-slate-800', 
-        dueDay: cardDue ? parseInt(cardDue) : undefined
-    };
-
-    saveData({
-        ...data,
-        cards: [...data.cards, newCard]
-    });
+    if (editingCard) {
+        // Edit Mode
+        const updatedCards = data.cards.map(c => {
+            if (c.id === editingCard.id) {
+                return {
+                    ...c,
+                    name: cardName,
+                    limit: limitVal,
+                    dueDay: cardDue ? parseInt(cardDue) : undefined,
+                    color: finalColor
+                };
+            }
+            return c;
+        });
+        saveData({ ...data, cards: updatedCards });
+    } else {
+        // Create Mode
+        const newCard: CreditCardType = {
+            id: generateId(),
+            name: cardName,
+            limit: limitVal,
+            color: finalColor, 
+            dueDay: cardDue ? parseInt(cardDue) : undefined
+        };
+        saveData({ ...data, cards: [...data.cards, newCard] });
+    }
 
     setCardName('');
     setCardLimit('');
     setCardDue('');
+    setCardColor(CARD_COLORS[0].class);
     setCardModalOpen(false);
+    setEditingCard(null);
   };
 
   const openAddSavingModal = () => {
@@ -1386,14 +1450,14 @@ const App: React.FC = () => {
              <div className="space-y-6">
                 <div className="flex justify-between items-center">
                    <h2 className="text-xl font-bold text-slate-700">Daftar Kartu Kredit</h2>
-                   <button onClick={() => setCardModalOpen(true)} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                   <button onClick={openAddCardModal} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
                       <PlusCircle size={16} /> Tambah Kartu
                    </button>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-6">
                    <button 
-                     onClick={() => setCardModalOpen(true)}
+                     onClick={openAddCardModal}
                      className="border-2 border-dashed border-slate-300 rounded-2xl h-48 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all"
                    >
                       <PlusCircle size={32} className="mb-2"/>
@@ -1401,14 +1465,14 @@ const App: React.FC = () => {
                    </button>
 
                    {data.cards.map(card => (
-                      <div key={card.id} className="bg-gradient-to-br from-slate-700 to-slate-900 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1">
+                      <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1`}>
                          <div className="absolute top-0 right-0 p-24 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                          
                          <div className="flex justify-between items-start z-10">
                             <span className="font-medium tracking-wider text-slate-300 uppercase text-xs">Credit Card</span>
                             <div className="flex gap-2">
-                               <div className="w-8 h-5 bg-white/20 rounded"></div>
-                               <div className="w-8 h-5 bg-white/20 rounded"></div>
+                               <button onClick={() => handleEditCard(card)} className="p-1 hover:bg-white/20 rounded text-slate-300 hover:text-white transition"><Pencil size={14} /></button>
+                               <button onClick={() => handleDeleteCard(card.id)} className="p-1 hover:bg-red-500/50 rounded text-slate-300 hover:text-red-200 transition"><Trash2 size={14} /></button>
                             </div>
                          </div>
                          
@@ -1903,14 +1967,17 @@ const App: React.FC = () => {
                      <div className="space-y-4">
                          <div className="flex justify-between items-center">
                             <h2 className="font-bold text-lg text-slate-800">Daftar Kartu</h2>
-                            <button onClick={() => setCardModalOpen(true)} className="text-blue-600 text-sm font-bold">+ Tambah</button>
+                            <button onClick={openAddCardModal} className="text-blue-600 text-sm font-bold">+ Tambah</button>
                          </div>
                          {data.cards.map(card => (
-                            <div key={card.id} className="bg-slate-800 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-40 flex flex-col justify-between">
+                            <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-40 flex flex-col justify-between`}>
                                 <div className="absolute top-0 right-0 p-20 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
                                 <div className="z-10 flex justify-between">
                                     <span className="text-xs tracking-wider opacity-70">CREDIT CARD</span>
-                                    <CreditCard size={20} />
+                                    <div className="flex gap-2">
+                                       <button onClick={() => handleEditCard(card)} className="bg-white/10 p-1.5 rounded-full hover:bg-white/20"><Pencil size={12} /></button>
+                                       <button onClick={() => handleDeleteCard(card.id)} className="bg-red-500/20 p-1.5 rounded-full hover:bg-red-500/30 text-red-200"><Trash2 size={12} /></button>
+                                    </div>
                                 </div>
                                 <div className="z-10">
                                     <h3 className="text-lg font-bold tracking-widest">{card.name}</h3>
@@ -2278,7 +2345,7 @@ const App: React.FC = () => {
       {cardModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
-            <h2 className="text-xl font-bold text-slate-800 mb-6">Tambah Kartu</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-6">{editingCard ? 'Edit Kartu' : 'Tambah Kartu'}</h2>
             <form onSubmit={handleSaveCard} className="space-y-4">
               <input 
                 type="text" 
@@ -2305,6 +2372,24 @@ const App: React.FC = () => {
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
                 placeholder="Tanggal Jatuh Tempo (1-31)"
               />
+              
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Warna Kartu</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {CARD_COLORS.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCardColor(c.class)}
+                        className={`w-full h-10 rounded-lg ${c.class} flex items-center justify-center transition-transform active:scale-95 ${cardColor === c.class ? 'ring-2 ring-offset-2 ring-slate-400 scale-95 shadow-inner' : ''}`}
+                        title={c.label}
+                      >
+                         {cardColor === c.class && <Check size={16} className="text-white drop-shadow-md" />}
+                      </button>
+                    ))}
+                  </div>
+              </div>
+
               <div className="flex gap-3 pt-2">
                  <button type="button" onClick={() => setCardModalOpen(false)} className="flex-1 py-3 text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl">Batal</button>
                  <button type="submit" className="flex-1 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900">Simpan</button>
