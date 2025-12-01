@@ -2461,23 +2461,20 @@ const App: React.FC = () => {
          </div>
 
          {/* Fixed Bottom Navigation (Mobile) */}
-         <div 
-            className="bg-white border-t border-slate-200 px-6 pt-3 flex justify-between items-center shrink-0 z-30"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
-         >
-            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
+         <div className="bg-white border-t border-slate-200 px-6 pt-2 pb-2 pb-safe flex justify-between items-center shrink-0 z-30">
+            <button onClick={() => setMobileTab('home')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
                 <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
                 <span className="text-[11px] font-medium">Beranda</span>
             </button>
-            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}>
+            <button onClick={() => setMobileTab('cards')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}>
                 <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
                 <span className="text-[11px] font-medium">Kartu</span>
             </button>
-            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}>
+            <button onClick={() => setMobileTab('savings')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}>
                 <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
                 <span className="text-[11px] font-medium">Tabungan</span>
             </button>
-            <button onClick={() => setMobileTab('profile')} className={`flex flex-col items-center gap-1.5 px-2 ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}>
+            <button onClick={() => setMobileTab('profile')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}>
                 <UserIcon size={24} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
                 <span className="text-[11px] font-medium">Akun</span>
             </button>
