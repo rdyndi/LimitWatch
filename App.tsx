@@ -160,7 +160,7 @@ const App: React.FC = () => {
   // Manual Installment Form State
   const [instName, setInstName] = useState('');
   const [instTotal, setInstTotal] = useState('');
-  const [instTenure, setInstTenure] = useState(3);
+  const [instTenure, setInstTenure] = useState<string>('3'); // Changed to string for input handling
   const [instMonthlyAmount, setInstMonthlyAmount] = useState(''); // NEW: Allow manual input
   const [instCardId, setInstCardId] = useState('');
   const [instStartDate, setInstStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -217,8 +217,10 @@ const App: React.FC = () => {
   // Auto calculate monthly amount when Total or Tenure changes in Manual Installment Form
   useEffect(() => {
     const totalVal = getNumericValue(instTotal);
-    if (totalVal > 0 && instTenure > 0) {
-      const calculated = Math.ceil(totalVal / instTenure);
+    const tenureVal = parseInt(instTenure) || 0;
+    
+    if (totalVal > 0 && tenureVal > 0) {
+      const calculated = Math.ceil(totalVal / tenureVal);
       setInstMonthlyAmount(formatIDR(calculated));
     }
   }, [instTotal, instTenure]);
@@ -417,7 +419,7 @@ const App: React.FC = () => {
   const openInstallmentModal = () => {
     setInstName('');
     setInstTotal('');
-    setInstTenure(3);
+    setInstTenure('3');
     setInstMonthlyAmount('');
     setInstStartDate(new Date().toISOString().split('T')[0]);
     if (data.cards.length > 0) setInstCardId(data.cards[0].id);
@@ -434,20 +436,21 @@ const App: React.FC = () => {
 
   const handleSaveInstallmentManual = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!instName || !instTotal || !instCardId || !instMonthlyAmount) return;
+    if (!instTotal || !instCardId || !instMonthlyAmount) return;
 
     const totalVal = getNumericValue(instTotal);
     const monthlyVal = getNumericValue(instMonthlyAmount);
+    const tenureVal = parseInt(instTenure) || 1;
 
     if (totalVal === 0 || monthlyVal === 0) return;
 
     const newInstallment: Installment = {
         id: generateId(),
         cardId: instCardId,
-        name: instName,
+        name: instName || 'Cicilan Manual', // Default if empty
         totalAmount: totalVal,
         monthlyAmount: monthlyVal, 
-        totalMonths: instTenure,
+        totalMonths: tenureVal,
         monthsPaid: 0,
         startDate: new Date(instStartDate).toISOString()
     };
@@ -553,7 +556,7 @@ const App: React.FC = () => {
 
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!txCardId || !txAmount || !txDesc) return;
+    if (!txCardId || !txAmount) return; // Removed !txDesc check
 
     let updatedInstallments = [...data.installments];
     let updatedSavings = [...data.savings];
@@ -562,12 +565,15 @@ const App: React.FC = () => {
 
     if (amountVal === 0) return;
 
+    // Default description if empty
+    const finalDesc = txDesc || (txType === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pembayaran');
+
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
        if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
           const newInstallment: Installment = {
               id: generateId(),
               cardId: txCardId,
-              name: txDesc,
+              name: finalDesc,
               totalAmount: amountVal,
               monthlyAmount: amountVal / txInstallmentMonths,
               totalMonths: txInstallmentMonths,
@@ -609,10 +615,8 @@ const App: React.FC = () => {
                   return { 
                       ...inst, 
                       cardId: txCardId, // Update Card ID
-                      name: txDesc, // Update Name
+                      name: finalDesc, // Update Name
                       startDate: new Date(txDate).toISOString(), // Update Date
-                      // We don't update amount/months automatically here to avoid complex recalc bugs, 
-                      // user should delete and recreate if structure changes significantly.
                   }; 
               }
               return inst;
@@ -626,7 +630,7 @@ const App: React.FC = () => {
             cardId: txCardId,
             amount: amountVal,
             date: new Date(txDate).toISOString(),
-            description: txDesc,
+            description: finalDesc,
             type: txType,
             isInstallment: finalIsInstallment 
           };
@@ -641,7 +645,7 @@ const App: React.FC = () => {
         cardId: txCardId,
         amount: amountVal,
         date: new Date(txDate).toISOString(),
-        description: txDesc,
+        description: finalDesc,
         type: txType,
         category: payFromSavings ? 'Payment from Savings' : 'General',
         isValidated: false,
@@ -2170,14 +2174,13 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Keterangan</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Keterangan (Opsional)</label>
                 <input 
                   type="text" 
-                  required 
                   value={txDesc}
                   onChange={(e) => setTxDesc(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Contoh: Makan Siang, Bayar Tagihan"
+                  placeholder="Contoh: Makan Siang (Opsional)"
                 />
               </div>
 
@@ -2269,10 +2272,9 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nama Barang/Cicilan</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nama Barang (Opsional)</label>
                 <input 
                   type="text" 
-                  required 
                   value={instName}
                   onChange={(e) => setInstName(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none"
@@ -2294,18 +2296,16 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tenor</label>
-                    <select 
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tenor (Bulan)</label>
+                    <input 
+                        type="number"
+                        min="1"
+                        required
                         value={instTenure}
-                        onChange={(e) => setInstTenure(parseInt(e.target.value))}
+                        onChange={(e) => setInstTenure(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none"
-                    >
-                        <option value={3}>3 Bulan</option>
-                        <option value={6}>6 Bulan</option>
-                        <option value={12}>12 Bulan</option>
-                        <option value={18}>18 Bulan</option>
-                        <option value={24}>24 Bulan</option>
-                    </select>
+                        placeholder="12"
+                    />
                  </div>
                  <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Mulai Tanggal</label>
@@ -2455,7 +2455,7 @@ const App: React.FC = () => {
                </div>
 
                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Catatan</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Catatan (Opsional)</label>
                   <input 
                     type="text" 
                     value={savingNote}
