@@ -569,6 +569,12 @@ const App: React.FC = () => {
     const finalDesc = txDesc || (txType === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pembayaran');
 
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
+       // Validasi Tenor Manual
+       if (txInstallmentMonths <= 0) {
+           alert("Lama cicilan minimal 1 bulan");
+           return;
+       }
+
        if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
           const newInstallment: Installment = {
               id: generateId(),
@@ -2207,20 +2213,18 @@ const App: React.FC = () => {
                      </div>
                      {txIsInstallment && (
                          <div className="mt-3 animate-in fade-in">
-                             <select 
+                             <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase">Lama Cicilan (Bulan)</label>
+                             <input 
+                                type="number"
+                                min="1"
                                 value={txInstallmentMonths}
-                                onChange={(e) => setTxInstallmentMonths(parseInt(e.target.value))}
-                                className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm font-medium text-indigo-800 mb-2"
-                             >
-                                <option value={3}>3 Bulan</option>
-                                <option value={6}>6 Bulan</option>
-                                <option value={12}>12 Bulan</option>
-                                <option value={18}>18 Bulan</option>
-                                <option value={24}>24 Bulan</option>
-                             </select>
+                                onChange={(e) => setTxInstallmentMonths(parseInt(e.target.value) || 0)}
+                                className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm font-bold text-indigo-800 mb-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Contoh: 3, 6, 12"
+                             />
                              <div className="flex justify-between text-xs text-indigo-600 font-bold px-1">
                                 <span>Per bulan:</span>
-                                <span>{formatIDR(getNumericValue(txAmount) / txInstallmentMonths)}</span>
+                                <span>{txInstallmentMonths > 0 ? formatIDR(getNumericValue(txAmount) / txInstallmentMonths) : 'Rp0'}</span>
                              </div>
                          </div>
                      )}
