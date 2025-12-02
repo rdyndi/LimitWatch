@@ -8,6 +8,14 @@ export interface CreditCard {
   dueDay?: number; // Tanggal jatuh tempo (1-31)
 }
 
+export interface Wallet {
+  id: string;
+  name: string;
+  type: 'BANK' | 'EWALLET' | 'CASH';
+  balance: number;
+  color: string;
+}
+
 export enum TransactionType {
   EXPENSE = 'EXPENSE', // Pemakaian Kartu
   PAYMENT = 'PAYMENT', // Pembayaran Tagihan (Mengurangi Hutang)
@@ -52,6 +60,7 @@ export interface AppState {
   transactions: Transaction[];
   installments: Installment[];
   savings: Saving[];
+  wallets: Wallet[];
 }
 
-export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT';
+export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT' | 'WALLETS';

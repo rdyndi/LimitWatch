@@ -5,7 +5,8 @@ import {
   Transaction, 
   TransactionType,
   CreditCard as CreditCardType,
-  Saving
+  Saving,
+  Wallet as WalletType
 } from "./types";
 import { 
   loginWithGoogle, 
@@ -60,7 +61,10 @@ import {
   List,
   Grid,
   Filter,
-  Columns
+  Columns,
+  WalletCards,
+  ArrowRightLeft,
+  Download
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -98,7 +102,8 @@ const App: React.FC = () => {
     cards: [],
     transactions: [],
     installments: [],
-    savings: []
+    savings: [],
+    wallets: []
   });
   
   // UI States
@@ -109,6 +114,9 @@ const App: React.FC = () => {
   const [savingModalOpen, setSavingModalOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [batchPayModalOpen, setBatchPayModalOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [walletIncomeModalOpen, setWalletIncomeModalOpen] = useState(false);
+  const [walletTransferModalOpen, setWalletTransferModalOpen] = useState(false);
   
   // Notification States
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -119,10 +127,11 @@ const App: React.FC = () => {
   // Profile Menu State (Mobile & Desktop)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
-  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile'>('home');
+  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile' | 'wallets'>('home');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
+  const [editingWallet, setEditingWallet] = useState<WalletType | null>(null);
 
   // Swipe Gesture States
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -132,7 +141,7 @@ const App: React.FC = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   // Drag & Drop Mobile Menu States
-  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'laporan', 'kartu', 'tabungan', 'history', 'profile']);
+  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'wallets', 'laporan', 'kartu', 'tabungan', 'history', 'profile']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
@@ -168,6 +177,18 @@ const App: React.FC = () => {
   const [cardLimit, setCardLimit] = useState('');
   const [cardDue, setCardDue] = useState('');
   const [cardColor, setCardColor] = useState(CARD_COLORS[0].class);
+
+  // Wallet Form State
+  const [walletName, setWalletName] = useState('');
+  const [walletType, setWalletType] = useState<'BANK' | 'EWALLET' | 'CASH'>('BANK');
+  const [walletBalance, setWalletBalance] = useState('');
+  const [walletColor, setWalletColor] = useState(CARD_COLORS[0].class);
+  const [activeWalletId, setActiveWalletId] = useState('');
+
+  // Wallet Transaction States
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferTargetCardId, setTransferTargetCardId] = useState('');
 
   // Saving Form State
   const [savingAmount, setSavingAmount] = useState('');
@@ -206,7 +227,7 @@ const App: React.FC = () => {
       const unsubscribe = subscribeToAppState(user.uid, setData);
       return () => unsubscribe();
     } else {
-      setData({ cards: [], transactions: [], installments: [], savings: [] });
+      setData({ cards: [], transactions: [], installments: [], savings: [], wallets: [] });
     }
   }, [user]);
 
@@ -217,8 +238,9 @@ const App: React.FC = () => {
       if (!savingCardId) setSavingCardId(data.cards[0].id);
       if (!instCardId) setInstCardId(data.cards[0].id);
       if (!reportCardId) setReportCardId(data.cards[0].id);
+      if (!transferTargetCardId) setTransferTargetCardId(data.cards[0].id);
     }
-  }, [data.cards, txCardId, savingCardId, instCardId, reportCardId]);
+  }, [data.cards, txCardId, savingCardId, instCardId, reportCardId, transferTargetCardId]);
 
   // Auto calculate monthly amount when Total or Tenure changes in Manual Installment Form
   useEffect(() => {
@@ -753,6 +775,129 @@ const App: React.FC = () => {
     setEditingCard(null);
   };
 
+  // --- WALLET FUNCTIONS ---
+  const openAddWalletModal = () => {
+    setEditingWallet(null);
+    setWalletName('');
+    setWalletType('BANK');
+    setWalletBalance('');
+    setWalletColor(CARD_COLORS[0].class);
+    setWalletModalOpen(true);
+  }
+
+  const handleEditWallet = (w: WalletType) => {
+    setEditingWallet(w);
+    setWalletName(w.name);
+    setWalletType(w.type);
+    setWalletBalance(formatIDR(w.balance));
+    setWalletColor(w.color || CARD_COLORS[0].class);
+    setWalletModalOpen(true);
+  }
+
+  const handleDeleteWallet = (id: string) => {
+     if(window.confirm("Hapus dompet ini?")) {
+         const updatedWallets = (data.wallets || []).filter(w => w.id !== id);
+         saveData({...data, wallets: updatedWallets});
+     }
+  }
+
+  const handleSaveWallet = (e: React.FormEvent) => {
+     e.preventDefault();
+     if(!walletName) return;
+
+     const balanceVal = getNumericValue(walletBalance);
+     const finalColor = walletColor || CARD_COLORS[0].class;
+
+     if(editingWallet) {
+         const updatedWallets = (data.wallets || []).map(w => {
+             if(w.id === editingWallet.id) {
+                 return { ...w, name: walletName, type: walletType, balance: balanceVal, color: finalColor };
+             }
+             return w;
+         });
+         saveData({...data, wallets: updatedWallets});
+     } else {
+         const newWallet: WalletType = {
+             id: generateId(),
+             name: walletName,
+             type: walletType,
+             balance: balanceVal,
+             color: finalColor
+         };
+         saveData({...data, wallets: [...(data.wallets || []), newWallet]});
+     }
+     setWalletModalOpen(false);
+     setEditingWallet(null);
+  }
+
+  const openWalletIncomeModal = (walletId: string) => {
+      setActiveWalletId(walletId);
+      setIncomeAmount('');
+      setWalletIncomeModalOpen(true);
+  }
+
+  const handleWalletIncome = (e: React.FormEvent) => {
+      e.preventDefault();
+      const amountVal = getNumericValue(incomeAmount);
+      if(amountVal <= 0 || !activeWalletId) return;
+
+      const updatedWallets = (data.wallets || []).map(w => {
+          if(w.id === activeWalletId) {
+              return { ...w, balance: w.balance + amountVal };
+          }
+          return w;
+      });
+      saveData({...data, wallets: updatedWallets});
+      setWalletIncomeModalOpen(false);
+  }
+
+  const openWalletTransferModal = (walletId: string) => {
+      setActiveWalletId(walletId);
+      setTransferAmount('');
+      if(data.cards.length > 0) setTransferTargetCardId(data.cards[0].id);
+      setWalletTransferModalOpen(true);
+  }
+
+  const handleWalletTransferToSaving = (e: React.FormEvent) => {
+      e.preventDefault();
+      const amountVal = getNumericValue(transferAmount);
+      const targetCardId = transferTargetCardId;
+      const walletId = activeWalletId;
+
+      if(amountVal <= 0 || !targetCardId || !walletId) return;
+
+      const wallet = data.wallets?.find(w => w.id === walletId);
+      if(wallet && wallet.balance < amountVal) {
+          alert("Saldo dompet tidak mencukupi!");
+          return;
+      }
+
+      // 1. Deduct from Wallet
+      const updatedWallets = (data.wallets || []).map(w => {
+          if(w.id === walletId) return { ...w, balance: w.balance - amountVal };
+          return w;
+      });
+
+      // 2. Add to Savings
+      const newSaving: Saving = {
+          id: generateId(),
+          cardId: targetCardId,
+          amount: amountVal,
+          date: new Date().toISOString(),
+          note: `Transfer dari ${wallet?.name || 'Dompet'}`,
+          targetPeriod: { month: new Date().getMonth(), year: new Date().getFullYear() },
+          isTransferred: false
+      };
+
+      saveData({
+          ...data, 
+          wallets: updatedWallets, 
+          savings: [newSaving, ...data.savings]
+      });
+
+      setWalletTransferModalOpen(false);
+  }
+
   const openAddSavingModal = () => {
     setEditingSaving(null);
     setSavingAmount('');
@@ -1261,6 +1406,7 @@ const App: React.FC = () => {
               <div className="px-4 pb-2 pt-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</div>
               <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
               <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu Saya" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
+              <DesktopNavItem icon={<WalletCards size={20}/>} label="Dompet" active={mobileTab === 'wallets'} onClick={() => setMobileTab('wallets')} />
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat Transaksi" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
               <DesktopNavItem icon={<Coins size={20}/>} label="Tabungan Pelunasan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
               <DesktopNavItem icon={<FileBarChart size={20}/>} label="Laporan Tahunan" active={mobileTab === 'report'} onClick={() => setMobileTab('report')} />
@@ -1282,6 +1428,7 @@ const App: React.FC = () => {
                  <h1 className="text-3xl font-bold text-slate-800 mb-1">
                     {mobileTab === 'home' && 'Ringkasan Keuangan'}
                     {mobileTab === 'cards' && 'Kelola Kartu Kredit'}
+                    {mobileTab === 'wallets' && 'Dompet & Pemasukan'}
                     {mobileTab === 'history' && 'Riwayat Transaksi'}
                     {mobileTab === 'savings' && 'Tabungan Pelunasan'}
                     {mobileTab === 'report' && 'Laporan Tagihan Tahunan'}
@@ -1531,6 +1678,59 @@ const App: React.FC = () => {
              </div>
            )}
 
+           {/* --- WALLETS VIEW (DESKTOP) --- */}
+           {mobileTab === 'wallets' && (
+              <div className="space-y-6">
+                 <div className="flex justify-between items-center">
+                    <div>
+                       <h2 className="text-xl font-bold text-slate-700">Manajemen Dompet</h2>
+                       <p className="text-slate-500 text-sm">Kelola sumber dana, terima gaji, dan transfer ke tabungan.</p>
+                    </div>
+                    <button onClick={openAddWalletModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
+                       <PlusCircle size={18} /> Tambah Dompet
+                    </button>
+                 </div>
+                 
+                 <div className="grid grid-cols-3 gap-6">
+                    {(data.wallets || []).map(w => (
+                       <div key={w.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between h-56 relative overflow-hidden group">
+                           <div className={`absolute top-0 left-0 w-2 h-full ${w.color}`}></div>
+                           <div className="flex justify-between items-start">
+                              <div>
+                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{w.type}</p>
+                                 <h3 className="text-lg font-bold text-slate-800">{w.name}</h3>
+                              </div>
+                              <div className="flex gap-1">
+                                  <button onClick={() => handleEditWallet(w)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600"><Pencil size={14}/></button>
+                                  <button onClick={() => handleDeleteWallet(w.id)} className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
+                              </div>
+                           </div>
+
+                           <div className="mt-4">
+                              <p className="text-sm text-slate-500">Saldo Saat Ini</p>
+                              <p className="text-2xl font-bold text-slate-800">{formatIDR(w.balance)}</p>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-3 mt-4">
+                               <button onClick={() => openWalletIncomeModal(w.id)} className="flex items-center justify-center gap-2 py-2 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100">
+                                   <Download size={14} /> Isi Saldo
+                               </button>
+                               <button onClick={() => openWalletTransferModal(w.id)} className="flex items-center justify-center gap-2 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100">
+                                   <ArrowRightLeft size={14} /> Transfer
+                               </button>
+                           </div>
+                       </div>
+                    ))}
+                    {(data.wallets || []).length === 0 && (
+                        <div className="col-span-3 text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                            <p className="text-slate-400 font-medium">Belum ada dompet.</p>
+                            <button onClick={openAddWalletModal} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Buat Dompet Pertama</button>
+                        </div>
+                    )}
+                 </div>
+              </div>
+           )}
+
            {/* --- CARDS VIEW --- */}
            {mobileTab === 'cards' && (
              <div className="space-y-6">
@@ -1550,7 +1750,17 @@ const App: React.FC = () => {
                       <span className="font-medium">Tambah Kartu Baru</span>
                    </button>
 
-                   {data.cards.map(card => (
+                   {data.cards.map(card => {
+                      // Calculate Remaining Limit
+                      const used = data.transactions
+                        .filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE)
+                        .reduce((sum, t) => sum + t.amount, 0) - 
+                        data.transactions
+                        .filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT)
+                        .reduce((sum, t) => sum + t.amount, 0);
+                      const remaining = card.limit - used;
+
+                      return (
                       <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1`}>
                          <div className="absolute top-0 right-0 p-24 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                          
@@ -1564,7 +1774,10 @@ const App: React.FC = () => {
                          
                          <div className="z-10">
                             <h3 className="text-xl font-bold tracking-widest mb-1">{card.name}</h3>
-                            <p className="text-xs text-slate-400">Limit: {formatIDR(card.limit)}</p>
+                            <div className="text-xs text-slate-200 space-y-0.5">
+                                <p>Limit: {formatIDR(card.limit)}</p>
+                                <p className="font-bold text-white">Sisa: {formatIDR(remaining)}</p>
+                            </div>
                          </div>
                          
                          <div className="flex justify-between items-end z-10">
@@ -1575,7 +1788,7 @@ const App: React.FC = () => {
                             <CreditCard className="opacity-50" size={24} />
                          </div>
                       </div>
-                   ))}
+                   )})}
                 </div>
              </div>
            )}
@@ -2121,6 +2334,8 @@ const App: React.FC = () => {
                                    icon = <FileBarChart size={24}/>; label = "Laporan"; action = () => setMobileTab('report'); color = "bg-emerald-100 text-emerald-600"; break;
                                 case 'kartu':
                                    icon = <CreditCard size={24}/>; label = "Kartu"; action = () => setMobileTab('cards'); color = "bg-indigo-100 text-indigo-600"; break;
+                                case 'wallets':
+                                   icon = <WalletCards size={24}/>; label = "Dompet"; action = () => setMobileTab('wallets'); color = "bg-sky-100 text-sky-600"; break;
                                 case 'tabungan':
                                    icon = <Coins size={24}/>; label = "Tabungan"; action = () => setMobileTab('savings'); color = "bg-green-100 text-green-600"; break;
                                 case 'history':
@@ -2296,6 +2511,50 @@ const App: React.FC = () => {
                          )}
                      </div>
                  )}
+
+                 {/* MOBILE WALLETS VIEW */}
+                 {mobileTab === 'wallets' && (
+                     <div className="space-y-4">
+                         <div className="flex justify-between items-center">
+                            <h2 className="font-bold text-lg text-slate-800">Dompet Saya</h2>
+                            <button onClick={openAddWalletModal} className="text-indigo-600 text-sm font-bold">+ Tambah</button>
+                         </div>
+                         {(data.wallets || []).length === 0 ? (
+                             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
+                                 <p className="text-slate-400 text-sm mb-2">Belum ada dompet.</p>
+                                 <button onClick={openAddWalletModal} className="text-indigo-600 font-bold text-xs">Buat Sekarang</button>
+                             </div>
+                         ) : (
+                             (data.wallets || []).map(w => (
+                                 <div key={w.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 relative overflow-hidden">
+                                     <div className={`absolute top-0 left-0 w-1.5 h-full ${w.color}`}></div>
+                                     <div className="flex justify-between items-start mb-3">
+                                         <div>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{w.type}</span>
+                                            <h3 className="font-bold text-lg text-slate-800">{w.name}</h3>
+                                         </div>
+                                         <div className="flex gap-2">
+                                            <button onClick={() => handleEditWallet(w)} className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-100"><Pencil size={14}/></button>
+                                            <button onClick={() => handleDeleteWallet(w.id)} className="p-1.5 bg-slate-50 text-red-400 rounded-lg hover:bg-red-50"><Trash2 size={14}/></button>
+                                         </div>
+                                     </div>
+                                     <div className="mb-4">
+                                         <p className="text-xs text-slate-500">Saldo</p>
+                                         <p className="text-xl font-bold text-slate-800">{formatIDR(w.balance)}</p>
+                                     </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => openWalletIncomeModal(w.id)} className="flex-1 py-2 bg-green-50 text-green-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                                             <Download size={14}/> Isi Saldo
+                                         </button>
+                                         <button onClick={() => openWalletTransferModal(w.id)} className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                                             <ArrowRightLeft size={14}/> Transfer
+                                         </button>
+                                     </div>
+                                 </div>
+                             ))
+                         )}
+                     </div>
+                 )}
                  
                  {/* MOBILE OTHER TABS (Simple Reuse Logic) */}
                  {mobileTab === 'cards' && (
@@ -2304,7 +2563,16 @@ const App: React.FC = () => {
                             <h2 className="font-bold text-lg text-slate-800">Daftar Kartu</h2>
                             <button onClick={openAddCardModal} className="text-blue-600 text-sm font-bold">+ Tambah</button>
                          </div>
-                         {data.cards.map(card => (
+                         {data.cards.map(card => {
+                            const used = data.transactions
+                                .filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE)
+                                .reduce((sum, t) => sum + t.amount, 0) - 
+                                data.transactions
+                                .filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT)
+                                .reduce((sum, t) => sum + t.amount, 0);
+                            const remaining = card.limit - used;
+
+                            return (
                             <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-40 flex flex-col justify-between`}>
                                 <div className="absolute top-0 right-0 p-20 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
                                 <div className="z-10 flex justify-between">
@@ -2316,13 +2584,20 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="z-10">
                                     <h3 className="text-lg font-bold tracking-widest">{card.name}</h3>
-                                    <p className="text-xs opacity-70">Limit: {formatIDR(card.limit)}</p>
+                                    <div className="text-xs opacity-90 mt-1 space-y-0.5">
+                                        <div className="flex justify-between">
+                                            <span>Limit:</span> <span>{formatIDR(card.limit)}</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold">
+                                            <span>Sisa:</span> <span>{formatIDR(remaining)}</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="z-10 text-right">
                                     <p className="text-[10px] opacity-70">Jatuh Tempo: Tgl {card.dueDay || '-'}</p>
                                 </div>
                             </div>
-                         ))}
+                         )})}
                      </div>
                  )}
 
@@ -2461,22 +2736,26 @@ const App: React.FC = () => {
          </div>
 
          {/* Fixed Bottom Navigation (Mobile) */}
-         <div className="bg-white border-t border-slate-200 px-6 pt-2 flex justify-between items-center shrink-0 z-30" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
+         <div className="bg-white border-t border-slate-200 px-4 pt-2 flex justify-between items-center shrink-0 z-30" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
             <button onClick={() => setMobileTab('home')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-                <span className="text-[11px] font-medium">Beranda</span>
+                <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">Beranda</span>
             </button>
             <button onClick={() => setMobileTab('cards')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-                <span className="text-[11px] font-medium">Kartu</span>
+                <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">Kartu</span>
+            </button>
+             <button onClick={() => setMobileTab('wallets')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'wallets' ? 'text-blue-600' : 'text-slate-400'}`}>
+                <WalletCards size={22} strokeWidth={mobileTab === 'wallets' ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">Dompet</span>
             </button>
             <button onClick={() => setMobileTab('savings')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
-                <span className="text-[11px] font-medium">Tabungan</span>
+                <Coins size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">Tabungan</span>
             </button>
             <button onClick={() => setMobileTab('profile')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}>
-                <UserIcon size={24} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
-                <span className="text-[11px] font-medium">Akun</span>
+                <UserIcon size={22} strokeWidth={mobileTab === 'profile' ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">Akun</span>
             </button>
          </div>
 
@@ -2788,6 +3067,147 @@ const App: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* WALLET MODAL */}
+      {walletModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in zoom-in-95">
+             <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-xl font-bold text-slate-800">{editingWallet ? 'Edit Dompet' : 'Tambah Dompet'}</h2>
+                 <button onClick={() => setWalletModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+             </div>
+             
+             <form onSubmit={handleSaveWallet} className="space-y-4">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nama Dompet</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={walletName}
+                      onChange={(e) => setWalletName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none"
+                      placeholder="Contoh: BCA Payroll, GoPay, Tunai"
+                    />
+                 </div>
+                 
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipe</label>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        {(['BANK', 'EWALLET', 'CASH'] as const).map(type => (
+                            <button
+                                key={type}
+                                type="button"
+                                onClick={() => setWalletType(type)}
+                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${walletType === type ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            >
+                                {type === 'BANK' ? 'Bank' : type === 'EWALLET' ? 'E-Wallet' : 'Tunai'}
+                            </button>
+                        ))}
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Saldo Awal (Rp)</label>
+                    <input 
+                      type="text"
+                      inputMode="numeric"
+                      required 
+                      value={walletBalance}
+                      onChange={(e) => handleCurrencyInput(e.target.value, setWalletBalance)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold outline-none"
+                    />
+                 </div>
+
+                 <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Warna Kartu</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {CARD_COLORS.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setWalletColor(c.class)}
+                        className={`w-full h-10 rounded-lg ${c.class} flex items-center justify-center transition-transform active:scale-95 ${walletColor === c.class ? 'ring-2 ring-offset-2 ring-slate-400 scale-95 shadow-inner' : ''}`}
+                      >
+                         {walletColor === c.class && <Check size={16} className="text-white drop-shadow-md" />}
+                      </button>
+                    ))}
+                  </div>
+                 </div>
+
+                 <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold mt-2">Simpan Dompet</button>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* WALLET INCOME MODAL */}
+      {walletIncomeModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95">
+                  <h2 className="text-xl font-bold text-green-700 mb-1">Isi Saldo</h2>
+                  <p className="text-slate-500 text-sm mb-4">Tambah pemasukan (Gaji/Transfer Masuk).</p>
+                  
+                  <form onSubmit={handleWalletIncome} className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nominal Masuk (Rp)</label>
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            required
+                            autoFocus
+                            value={incomeAmount}
+                            onChange={(e) => handleCurrencyInput(e.target.value, setIncomeAmount)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-green-700 outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                      </div>
+                      <div className="flex gap-3">
+                          <button type="button" onClick={() => setWalletIncomeModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">Batal</button>
+                          <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-200">Simpan</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* WALLET TRANSFER MODAL */}
+      {walletTransferModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-in zoom-in-95">
+                  <h2 className="text-xl font-bold text-blue-700 mb-1">Transfer ke Tabungan</h2>
+                  <p className="text-slate-500 text-sm mb-4">Pindahkan dana ke pos tabungan kartu kredit.</p>
+                  
+                  <form onSubmit={handleWalletTransferToSaving} className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Pilih Kartu Tujuan</label>
+                          <select 
+                            value={transferTargetCardId}
+                            onChange={(e) => setTransferTargetCardId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none"
+                          >
+                             {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Nominal Transfer (Rp)</label>
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            required
+                            value={transferAmount}
+                            onChange={(e) => handleCurrencyInput(e.target.value, setTransferAmount)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                      </div>
+
+                      <div className="flex gap-3">
+                          <button type="button" onClick={() => setWalletTransferModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">Batal</button>
+                          <button type="submit" className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200">Transfer</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
       )}
 
       {/* SAVING MODAL */}
