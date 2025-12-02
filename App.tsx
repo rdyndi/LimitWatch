@@ -1992,7 +1992,7 @@ const App: React.FC = () => {
       {/* ========================================= */}
       {/* MOBILE SUPER APP VIEW (Fixed Layout)      */}
       {/* ========================================= */}
-      <div className="md:hidden flex flex-col h-screen bg-slate-50 overflow-hidden">
+      <div className="md:hidden flex flex-col fixed inset-0 bg-slate-50 overflow-hidden">
          {/* Fixed Header */}
          <div className="bg-white px-6 pt-safe pb-4 border-b border-slate-100 flex justify-between items-center z-20 shrink-0">
              <div>
@@ -2461,7 +2461,7 @@ const App: React.FC = () => {
          </div>
 
          {/* Fixed Bottom Navigation (Mobile) */}
-         <div className="bg-white border-t border-slate-200 px-6 pt-2 pb-2 pb-safe flex justify-between items-center shrink-0 z-30">
+         <div className="bg-white border-t border-slate-200 px-6 pt-2 flex justify-between items-center shrink-0 z-30" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
             <button onClick={() => setMobileTab('home')} className={`flex-1 flex flex-col items-center gap-1 ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
                 <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
                 <span className="text-[11px] font-medium">Beranda</span>
