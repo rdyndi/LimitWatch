@@ -64,7 +64,8 @@ import {
   Columns,
   WalletCards,
   ArrowRightLeft,
-  Download
+  Download,
+  CheckSquare
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -530,6 +531,14 @@ const App: React.FC = () => {
     setTxIsInstallment(!!t.isInstallment);
     setPayFromSavings(false); 
     setTransactionModalOpen(true);
+  };
+
+  const handleToggleValidation = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const updatedTransactions = data.transactions.map(t => 
+      t.id === id ? { ...t, isValidated: !t.isValidated } : t
+    );
+    saveData({ ...data, transactions: updatedTransactions });
   };
 
   const handleDeleteClick = (id: string) => {
@@ -1191,12 +1200,27 @@ const App: React.FC = () => {
          const currentMonth = today.getMonth();
          const currentYear = today.getFullYear();
          
+         // Logic Perbaikan: Cek status bulan berjalan dulu
+         // 1. Ambil laporan bulan ini
+         const currentMonthReport = getMonthlyReportData(c.id, currentMonth, currentYear);
+         const currentMonthRemaining = currentMonthReport.remaining;
+         const isCurrentMonthUnpaid = currentMonthRemaining > 1000;
+
          let targetMonth = currentMonth;
          let targetYear = currentYear;
          
          if (c.dueDay! < currentDay) {
-            targetMonth++;
-            if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+            // Tanggal jatuh tempo bulan ini sudah lewat.
+            // Cek apakah bulan ini masih ada sisa tagihan?
+            if (isCurrentMonthUnpaid) {
+                // Jika masih ada sisa, target tetap bulan ini (Status: Telat)
+                targetMonth = currentMonth;
+                targetYear = currentYear;
+            } else {
+                // Jika sudah lunas, baru pindah ke bulan depan
+                targetMonth++;
+                if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+            }
          }
          
          const dueDate = new Date(targetYear, targetMonth, c.dueDay!);
@@ -1588,19 +1612,20 @@ const App: React.FC = () => {
                   ) : (
                       <div className="grid grid-cols-3 gap-6">
                           {upcomingBills.map(c => {
-                              const isUrgent = c.daysLeft <= 3;
-                              const isWarning = c.daysLeft <= 7;
+                              const isUrgent = c.daysLeft <= 3 && c.daysLeft >= 0;
+                              const isOverdue = c.daysLeft < 0;
+                              const isWarning = c.daysLeft <= 7 && c.daysLeft > 3;
                               const isCovered = c.shortfall <= 0;
 
                               return (
-                                  <div key={c.id} className={`p-4 rounded-xl border shadow-sm ${isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'}`}>
+                                  <div key={c.id} className={`p-4 rounded-xl border shadow-sm ${isOverdue ? 'bg-red-100 border-red-300' : isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'}`}>
                                       <div className="flex justify-between items-start mb-2">
                                           <div>
                                               <p className="font-bold text-slate-800 truncate">{c.name}</p>
                                               <p className="text-xs text-slate-500">{c.nextDueDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
                                           </div>
-                                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isUrgent ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                                              {c.daysLeft} Hari
+                                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isOverdue ? 'bg-red-600 text-white' : isUrgent ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                              {isOverdue ? `Telat ${Math.abs(c.daysLeft)} Hari` : `${c.daysLeft} Hari Lagi`}
                                           </span>
                                       </div>
                                       
@@ -1836,7 +1861,7 @@ const App: React.FC = () => {
                                      <h3 className="font-bold text-slate-800">{card.name}</h3>
                                      <p className="text-xs text-slate-500">Hutang: {formatIDR(cardDebt)}</p>
                                   </div>
-                               </div>
+                                </div>
                                <div className="text-right">
                                   <p className="text-xs text-slate-400">Terkumpul</p>
                                   <p className="text-xl font-bold text-green-600">{formatIDR(cardSaved)}</p>
@@ -2153,6 +2178,7 @@ const App: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
+                                <th className="p-4 font-semibold w-12 text-center">Status</th>
                                 <th className="p-4 font-semibold">Tanggal</th>
                                 <th className="p-4 font-semibold">Kartu</th>
                                 <th className="p-4 font-semibold">Deskripsi</th>
@@ -2161,7 +2187,7 @@ const App: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredTransactions.length === 0 ? (
-                                <tr><td colSpan={4} className="p-8 text-center text-slate-400">Tidak ada transaksi yang cocok dengan filter.</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-slate-400">Tidak ada transaksi yang cocok dengan filter.</td></tr>
                             ) : (
                                 filteredTransactions.map(t => {
                                     const card = data.cards.find(c => c.id === t.cardId);
@@ -2173,6 +2199,15 @@ const App: React.FC = () => {
                                             className="hover:bg-slate-50 transition cursor-pointer"
                                             title="Klik untuk edit"
                                         >
+                                            <td className="p-4 text-center">
+                                                <button 
+                                                    onClick={(e) => handleToggleValidation(e, t.id)}
+                                                    className="p-1 rounded-full hover:bg-slate-200 transition"
+                                                    title={t.isValidated ? "Sudah Dicek (Valid)" : "Tandai sudah dicek"}
+                                                >
+                                                    <CheckCircle2 size={18} className={t.isValidated ? "text-green-500 fill-green-100" : "text-slate-300"} />
+                                                </button>
+                                            </td>
                                             <td className="p-4 text-slate-500 text-sm">{new Date(t.date).toLocaleDateString('id-ID')}</td>
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">
@@ -2292,12 +2327,17 @@ const App: React.FC = () => {
                              </h3>
                              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x">
                                 {upcomingBills.map(c => {
-                                    const isUrgent = c.daysLeft <= 3;
+                                    const isUrgent = c.daysLeft <= 3 && c.daysLeft >= 0;
+                                    const isOverdue = c.daysLeft < 0;
+                                    const isWarning = c.daysLeft <= 7 && c.daysLeft > 3;
                                     const isCovered = c.shortfall <= 0;
+
                                     return (
-                                       <div key={c.id} className={`snap-center shrink-0 w-44 p-3 rounded-xl border ${isUrgent ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100'} shadow-sm`}>
+                                       <div key={c.id} className={`snap-center shrink-0 w-44 p-3 rounded-xl border ${isOverdue ? 'bg-red-100 border-red-300' : isUrgent ? 'bg-red-50 border-red-100' : isWarning ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'} shadow-sm`}>
                                           <p className="text-xs font-bold text-slate-800 truncate">{c.name}</p>
-                                          <p className={`text-xs font-bold mt-1 ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>{c.daysLeft} Hari Lagi</p>
+                                          <p className={`text-xs font-bold mt-1 ${isOverdue ? 'text-red-600' : isUrgent ? 'text-red-500' : 'text-orange-600'}`}>
+                                              {isOverdue ? `Telat ${Math.abs(c.daysLeft)} Hari` : `${c.daysLeft} Hari Lagi`}
+                                          </p>
                                           <div className="text-[10px] text-slate-500 mt-2 space-y-0.5">
                                              <div className="flex justify-between">
                                                 <span>Tagihan:</span>
@@ -2708,10 +2748,16 @@ const App: React.FC = () => {
                                                 </div>
                                                 <p className="text-[10px] text-slate-500">{card?.name}</p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="flex flex-col items-end gap-2">
                                                 <p className={`font-bold text-sm ${t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'}`}>
                                                     {formatIDR(t.amount)}
                                                 </p>
+                                                <button 
+                                                    onClick={(e) => handleToggleValidation(e, t.id)}
+                                                    className={`p-1 rounded-full border ${t.isValidated ? 'bg-green-100 border-green-300 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-300'}`}
+                                                >
+                                                    <Check size={14} strokeWidth={3} />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
