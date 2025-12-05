@@ -66,7 +66,8 @@ import {
   ArrowRightLeft,
   Download,
   CheckSquare,
-  Calculator
+  Calculator,
+  Receipt
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -134,6 +135,11 @@ const App: React.FC = () => {
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
   const [editingWallet, setEditingWallet] = useState<WalletType | null>(null);
+
+  // Card History Modal State
+  const [selectedCardForHistory, setSelectedCardForHistory] = useState<CreditCardType | null>(null);
+  const [cardHistoryMonth, setCardHistoryMonth] = useState(new Date().getMonth());
+  const [cardHistoryYear, setCardHistoryYear] = useState(new Date().getFullYear());
 
   // Swipe Gesture States
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -820,6 +826,17 @@ const App: React.FC = () => {
     }
   }
 
+  // Helper to open specific card history modal
+  const openCardHistory = (card: CreditCardType) => {
+      setSelectedCardForHistory(card);
+      setCardHistoryMonth(new Date().getMonth());
+      setCardHistoryYear(new Date().getFullYear());
+  };
+
+  const closeCardHistory = () => {
+      setSelectedCardForHistory(null);
+  };
+
   const handleSaveCard = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cardName) {
@@ -1326,6 +1343,8 @@ const App: React.FC = () => {
   const filteredPayment = filteredTransactions
       .filter(t => t.type === TransactionType.PAYMENT)
       .reduce((sum, t) => sum + t.amount, 0);
+    
+  // --- OLD Filter Logic replaced by getMonthlyReportData usage inside modal ---
 
 
   if (!user) {
@@ -1862,14 +1881,28 @@ const App: React.FC = () => {
                       const remaining = card.limit - used;
 
                       return (
-                      <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1`}>
+                      <div 
+                        key={card.id} 
+                        onClick={() => openCardHistory(card)}
+                        className={`${card.color || 'bg-slate-800'} text-white p-6 rounded-2xl shadow-xl relative overflow-hidden h-48 flex flex-col justify-between group transition-transform hover:-translate-y-1 cursor-pointer hover:shadow-2xl`}
+                      >
                          <div className="absolute top-0 right-0 p-24 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                          
                          <div className="flex justify-between items-start z-10">
                             <span className="font-medium tracking-wider text-slate-300 uppercase text-xs">Credit Card</span>
                             <div className="flex gap-2">
-                               <button onClick={() => handleEditCard(card)} className="p-1 hover:bg-white/20 rounded text-slate-300 hover:text-white transition"><Pencil size={14} /></button>
-                               <button onClick={() => handleDeleteCard(card.id)} className="p-1 hover:bg-red-500/50 rounded text-slate-300 hover:text-red-200 transition"><Trash2 size={14} /></button>
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); handleEditCard(card); }} 
+                                 className="p-1 hover:bg-white/20 rounded text-slate-300 hover:text-white transition"
+                               >
+                                 <Pencil size={14} />
+                               </button>
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); handleDeleteCard(card.id); }} 
+                                 className="p-1 hover:bg-red-500/50 rounded text-slate-300 hover:text-red-200 transition"
+                               >
+                                 <Trash2 size={14} />
+                               </button>
                             </div>
                          </div>
                          
@@ -2715,13 +2748,27 @@ const App: React.FC = () => {
                             const remaining = card.limit - used;
 
                             return (
-                            <div key={card.id} className={`${card.color || 'bg-slate-800'} text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-40 flex flex-col justify-between`}>
-                                <div className="absolute top-0 right-0 p-20 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                            <div 
+                              key={card.id} 
+                              onClick={() => openCardHistory(card)}
+                              className={`${card.color || 'bg-slate-800'} text-white p-5 rounded-2xl shadow-lg relative overflow-hidden h-40 flex flex-col justify-between active:scale-95 transition-transform cursor-pointer`}
+                            >
+                                <div className="absolute top-0 right-0 p-20 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                                 <div className="z-10 flex justify-between">
                                     <span className="text-xs tracking-wider opacity-70">CREDIT CARD</span>
                                     <div className="flex gap-2">
-                                       <button onClick={() => handleEditCard(card)} className="bg-white/10 p-1.5 rounded-full hover:bg-white/20"><Pencil size={12} /></button>
-                                       <button onClick={() => handleDeleteCard(card.id)} className="bg-red-500/20 p-1.5 rounded-full hover:bg-red-500/30 text-red-200"><Trash2 size={12} /></button>
+                                       <button 
+                                          onClick={(e) => {e.stopPropagation(); handleEditCard(card);}} 
+                                          className="bg-white/10 p-1.5 rounded-full hover:bg-white/20"
+                                       >
+                                          <Pencil size={12} />
+                                       </button>
+                                       <button 
+                                          onClick={(e) => {e.stopPropagation(); handleDeleteCard(card.id);}} 
+                                          className="bg-red-500/20 p-1.5 rounded-full hover:bg-red-500/30 text-red-200"
+                                       >
+                                          <Trash2 size={12} />
+                                       </button>
                                     </div>
                                 </div>
                                 <div className="z-10">
@@ -2913,7 +2960,150 @@ const App: React.FC = () => {
       {/* MODALS & OVERLAYS                         */}
       {/* ========================================= */}
       
-      {/* ... (Existing Modals remain unchanged, except ensuring Transaction logic uses the improved logic) */}
+      {/* CARD HISTORY MODAL (Specific per Card) */}
+      {selectedCardForHistory && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+                  {/* Header */}
+                  <div className={`${selectedCardForHistory.color || 'bg-slate-800'} text-white p-6 relative`}>
+                      <button onClick={closeCardHistory} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition">
+                          <X size={18} />
+                      </button>
+                      <h2 className="text-xl font-bold">{selectedCardForHistory.name}</h2>
+                      <div className="flex items-center gap-2 text-xs opacity-90 mt-1">
+                          <Receipt size={14} />
+                          <span>Rincian Tagihan & Pembayaran</span>
+                      </div>
+                      
+                      {/* Summary Cards inside Header - Uses report data calculation */}
+                      {(() => {
+                           const reportData = getMonthlyReportData(selectedCardForHistory.id, cardHistoryMonth, cardHistoryYear);
+                           return (
+                               <div className="grid grid-cols-3 gap-3 mt-5">
+                                   <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 text-center">
+                                       <p className="text-[9px] uppercase font-bold opacity-70 mb-0.5">Total Tagihan</p>
+                                       <p className="text-sm font-bold truncate">{formatIDR(reportData.totalBill)}</p>
+                                   </div>
+                                   <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 text-center">
+                                       <p className="text-[9px] uppercase font-bold opacity-70 mb-0.5">Dibayar</p>
+                                       <p className="text-sm font-bold truncate text-green-300">{formatIDR(reportData.totalPaid)}</p>
+                                   </div>
+                                   <div className={`backdrop-blur-md rounded-xl p-2.5 text-center ${reportData.remaining <= 0 ? 'bg-green-500/20 text-green-200' : 'bg-red-500/20 text-red-100'}`}>
+                                       <p className="text-[9px] uppercase font-bold opacity-70 mb-0.5">Sisa</p>
+                                       <p className="text-sm font-bold truncate">{formatIDR(Math.max(0, reportData.remaining))}</p>
+                                   </div>
+                               </div>
+                           )
+                      })()}
+                  </div>
+
+                  {/* Filter Bar */}
+                  <div className="p-4 bg-slate-50 border-b border-slate-100 flex gap-3">
+                      <select 
+                          value={cardHistoryMonth}
+                          onChange={(e) => setCardHistoryMonth(parseInt(e.target.value))}
+                          className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-lg px-3 py-2 outline-none flex-1 shadow-sm"
+                      >
+                          {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                      </select>
+                      <select 
+                          value={cardHistoryYear}
+                          onChange={(e) => setCardHistoryYear(parseInt(e.target.value))}
+                          className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-lg px-3 py-2 outline-none w-24 shadow-sm"
+                      >
+                          {Array.from({length: 3}, (_, i) => new Date().getFullYear() - 1 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                          ))}
+                      </select>
+                  </div>
+
+                  {/* Billing Details List */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                      {(() => {
+                          const reportData = getMonthlyReportData(selectedCardForHistory.id, cardHistoryMonth, cardHistoryYear);
+                          const isEmpty = reportData.expenses.length === 0 && reportData.installments.length === 0 && reportData.payments.length === 0;
+
+                          if (isEmpty) {
+                              return (
+                                  <div className="text-center py-12 text-slate-400">
+                                      <Calendar size={32} className="mx-auto mb-2 opacity-30" />
+                                      <p className="text-sm">Tidak ada tagihan atau transaksi di periode ini.</p>
+                                  </div>
+                              );
+                          }
+
+                          return (
+                              <>
+                                  {/* Section: New Expenses */}
+                                  {reportData.expenses.length > 0 && (
+                                      <div>
+                                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Transaksi Baru</h3>
+                                          <div className="bg-white rounded-xl border border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden">
+                                              {reportData.expenses.map(t => (
+                                                  <div key={t.id} onClick={() => handleEditClick(t)} className="p-3 flex justify-between items-center hover:bg-slate-50 cursor-pointer">
+                                                      <div>
+                                                          <p className="font-bold text-sm text-slate-800">{t.description}</p>
+                                                          <p className="text-[10px] text-slate-400">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                                                      </div>
+                                                      <span className="font-bold text-sm text-slate-800">{formatIDR(t.amount)}</span>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {/* Section: Installments */}
+                                  {reportData.installments.length > 0 && (
+                                      <div>
+                                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Cicilan Berjalan</h3>
+                                          <div className="bg-white rounded-xl border border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden">
+                                              {reportData.installments.map(inst => (
+                                                  <div key={inst.id} className="p-3 flex justify-between items-center">
+                                                      <div>
+                                                          <p className="font-bold text-sm text-slate-800">{inst.name}</p>
+                                                          <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
+                                                              Angsuran ke-{inst.currentMonthIndex} dari {inst.totalMonths}
+                                                          </span>
+                                                      </div>
+                                                      <span className="font-bold text-sm text-indigo-700">{formatIDR(inst.monthlyAmount)}</span>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {/* Section: Payments */}
+                                  {reportData.payments.length > 0 && (
+                                      <div>
+                                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Pembayaran Diterima</h3>
+                                          <div className="bg-white rounded-xl border border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden">
+                                              {reportData.payments.map(t => (
+                                                  <div key={t.id} onClick={() => handleEditClick(t)} className="p-3 flex justify-between items-center hover:bg-slate-50 cursor-pointer">
+                                                      <div>
+                                                          <p className="font-bold text-sm text-slate-800">{t.description}</p>
+                                                          <p className="text-[10px] text-slate-400">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                                                      </div>
+                                                      <div className="flex flex-col items-end">
+                                                          <span className="font-bold text-sm text-green-600">+{formatIDR(t.amount)}</span>
+                                                          <button 
+                                                              onClick={(e) => handleToggleValidation(e, t.id)}
+                                                              className={`mt-1 p-0.5 rounded-full border ${t.isValidated ? 'bg-green-100 border-green-300 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-300'}`}
+                                                          >
+                                                              <Check size={12} strokeWidth={3} />
+                                                          </button>
+                                                      </div>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                              </>
+                          );
+                      })()}
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* TOAST NOTIFICATION */}
       {showToast && toastMessage && (
