@@ -2405,16 +2405,16 @@ const App: React.FC = () => {
                            </div>
                            <div className="grid grid-cols-3 gap-2 text-center divide-x divide-slate-100">
                                <div>
-                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Tagihan</p>
-                                   <p className="text-sm font-bold text-slate-800 truncate">{formatIDR(totalGlobalBillThisMonth)}</p>
+                                   <p className="text-[9px] font-bold text-slate-400 uppercase">Tagihan</p>
+                                   <p className="text-xs font-bold text-slate-800 truncate">{formatIDR(totalGlobalBillThisMonth)}</p>
                                </div>
                                <div>
-                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Tabungan</p>
-                                   <p className="text-sm font-bold text-green-600 truncate">{formatIDR(totalGlobalSavingsThisMonth)}</p>
+                                   <p className="text-[9px] font-bold text-slate-400 uppercase">Tabungan</p>
+                                   <p className="text-xs font-bold text-green-600 truncate">{formatIDR(totalGlobalSavingsThisMonth)}</p>
                                </div>
                                <div>
-                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
-                                   <p className={`text-sm font-bold truncate ${isGlobalSafe ? 'text-green-600' : 'text-red-600'}`}>
+                                   <p className="text-[9px] font-bold text-slate-400 uppercase">Status</p>
+                                   <p className={`text-xs font-bold truncate ${isGlobalSafe ? 'text-green-600' : 'text-red-600'}`}>
                                        {isGlobalSafe ? 'Aman' : `-${formatIDR(Math.abs(globalMonthStatus))}`}
                                    </p>
                                </div>
