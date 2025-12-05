@@ -65,7 +65,8 @@ import {
   WalletCards,
   ArrowRightLeft,
   Download,
-  CheckSquare
+  CheckSquare,
+  Calculator
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -294,6 +295,63 @@ const App: React.FC = () => {
     }
     setter(formatIDR(numericVal));
   };
+
+  // Improved calculation logic for report
+  const getMonthlyReportData = (cardId: string, monthIndex: number, year: number) => {
+    // 1. Expenses
+    const monthlyExpenses = data.transactions.filter(t => {
+        const d = new Date(t.date);
+        return t.cardId === cardId &&
+               t.type === TransactionType.EXPENSE &&
+               !t.isInstallment && // Don't double count if it was converted
+               d.getMonth() === monthIndex &&
+               d.getFullYear() === year;
+    });
+
+    // 2. Installments
+    const monthlyInstallments = data.installments.filter(i => {
+         if (i.cardId !== cardId) return false;
+         const startDate = new Date(i.startDate);
+         const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
+         return (monthDiff >= 0 && monthDiff < i.totalMonths);
+    }).map(i => {
+        const startDate = new Date(i.startDate);
+        const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
+        return {
+            ...i,
+            currentMonthIndex: monthDiff + 1
+        };
+    });
+
+    // 3. Payments
+    const monthlyPayments = data.transactions.filter(t => {
+        if (t.cardId !== cardId || t.type !== TransactionType.PAYMENT) return false;
+        
+        // Prioritize targetPeriod if set (e.g. from Batch Pay or Savings Pay)
+        if (t.targetPeriod) {
+            return t.targetPeriod.month === monthIndex && t.targetPeriod.year === year;
+        }
+        
+        // Fallback to transaction date
+        const d = new Date(t.date);
+        return d.getMonth() === monthIndex && d.getFullYear() === year;
+    });
+
+    const totalExpense = monthlyExpenses.reduce((sum, t) => sum + t.amount, 0);
+    const totalInstallment = monthlyInstallments.reduce((sum, i) => sum + i.monthlyAmount, 0);
+    const totalBill = totalExpense + totalInstallment;
+    const totalPaid = monthlyPayments.reduce((sum, t) => sum + t.amount, 0);
+    const remaining = totalBill - totalPaid;
+
+    return {
+        expenses: monthlyExpenses,
+        installments: monthlyInstallments,
+        payments: monthlyPayments,
+        totalBill,
+        totalPaid,
+        remaining
+    };
+  }
 
   // --- NOTIFICATION LOGIC ---
   useEffect(() => {
@@ -1119,63 +1177,6 @@ const App: React.FC = () => {
      }));
   };
 
-  // Improved calculation logic for report
-  const getMonthlyReportData = (cardId: string, monthIndex: number, year: number) => {
-    // 1. Expenses
-    const monthlyExpenses = data.transactions.filter(t => {
-        const d = new Date(t.date);
-        return t.cardId === cardId &&
-               t.type === TransactionType.EXPENSE &&
-               !t.isInstallment && // Don't double count if it was converted
-               d.getMonth() === monthIndex &&
-               d.getFullYear() === year;
-    });
-
-    // 2. Installments
-    const monthlyInstallments = data.installments.filter(i => {
-         if (i.cardId !== cardId) return false;
-         const startDate = new Date(i.startDate);
-         const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
-         return (monthDiff >= 0 && monthDiff < i.totalMonths);
-    }).map(i => {
-        const startDate = new Date(i.startDate);
-        const monthDiff = (year - startDate.getFullYear()) * 12 + (monthIndex - startDate.getMonth());
-        return {
-            ...i,
-            currentMonthIndex: monthDiff + 1
-        };
-    });
-
-    // 3. Payments
-    const monthlyPayments = data.transactions.filter(t => {
-        if (t.cardId !== cardId || t.type !== TransactionType.PAYMENT) return false;
-        
-        // Prioritize targetPeriod if set (e.g. from Batch Pay or Savings Pay)
-        if (t.targetPeriod) {
-            return t.targetPeriod.month === monthIndex && t.targetPeriod.year === year;
-        }
-        
-        // Fallback to transaction date
-        const d = new Date(t.date);
-        return d.getMonth() === monthIndex && d.getFullYear() === year;
-    });
-
-    const totalExpense = monthlyExpenses.reduce((sum, t) => sum + t.amount, 0);
-    const totalInstallment = monthlyInstallments.reduce((sum, i) => sum + i.monthlyAmount, 0);
-    const totalBill = totalExpense + totalInstallment;
-    const totalPaid = monthlyPayments.reduce((sum, t) => sum + t.amount, 0);
-    const remaining = totalBill - totalPaid;
-
-    return {
-        expenses: monthlyExpenses,
-        installments: monthlyInstallments,
-        payments: monthlyPayments,
-        totalBill,
-        totalPaid,
-        remaining
-    };
-  }
-
   // Used for bill reminder
   const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
      const reportData = getMonthlyReportData(cardId, monthIndex, year);
@@ -1293,6 +1294,21 @@ const App: React.FC = () => {
       const monthDiff = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
       return (monthDiff >= 0 && monthDiff < i.totalMonths);
   }).reduce((sum, i) => sum + i.monthlyAmount, 0);
+
+  // --- NEW LOGIC: GLOBAL MONTHLY SUMMARY ---
+  // Calculate Total Global Bill for THIS specific month (All Cards)
+  const totalGlobalBillThisMonth = data.cards.reduce((sum, card) => {
+      const report = getMonthlyReportData(card.id, currentMonth, currentYear);
+      return sum + Math.max(0, report.remaining);
+  }, 0);
+
+  // Calculate Total Savings TARGETED for THIS specific month (All Cards)
+  const totalGlobalSavingsThisMonth = data.savings
+      .filter(s => !s.isTransferred && s.targetPeriod?.month === currentMonth && s.targetPeriod?.year === currentYear)
+      .reduce((sum, s) => sum + s.amount, 0);
+
+  const globalMonthStatus = totalGlobalBillThisMonth - totalGlobalSavingsThisMonth;
+  const isGlobalSafe = globalMonthStatus <= 0;
 
   // Filter Logic for History View
   const filteredTransactions = data.transactions.filter(t => {
@@ -1626,11 +1642,42 @@ const App: React.FC = () => {
                   </div>
                </div>
 
+               {/* GLOBAL MONTH SUMMARY (New Widget) */}
+               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
+                  <div className={`absolute top-0 right-0 p-6 opacity-5 ${isGlobalSafe ? 'text-green-600' : 'text-red-600'}`}>
+                      <Calculator size={80} />
+                  </div>
+                  <div className="relative z-10">
+                      <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
+                          <Target size={20} className="text-indigo-600" /> 
+                          Status {monthNames[currentMonth]} {currentYear}
+                      </h3>
+                      <div className="flex items-center gap-8">
+                           <div>
+                               <p className="text-xs font-bold text-slate-500 uppercase">Sisa Tagihan (Semua Kartu)</p>
+                               <p className="text-xl font-bold text-slate-800">{formatIDR(totalGlobalBillThisMonth)}</p>
+                           </div>
+                           <div className="h-10 w-px bg-slate-300"></div>
+                           <div>
+                               <p className="text-xs font-bold text-slate-500 uppercase">Tabungan Bulan Ini</p>
+                               <p className="text-xl font-bold text-green-600">{formatIDR(totalGlobalSavingsThisMonth)}</p>
+                           </div>
+                           <div className="h-10 w-px bg-slate-300"></div>
+                           <div>
+                               <p className="text-xs font-bold text-slate-500 uppercase">Status Dana</p>
+                               <p className={`text-xl font-bold ${isGlobalSafe ? 'text-green-600' : 'text-red-600'}`}>
+                                   {isGlobalSafe ? 'Dana Siap / Surplus' : `Kurang ${formatIDR(Math.abs(globalMonthStatus))}`}
+                               </p>
+                           </div>
+                      </div>
+                  </div>
+               </div>
+
                {/* Bill Reminder Section (Horizontal) */}
                <div>
                   <div className="flex items-center gap-2 mb-4">
                       <Bell size={20} className="text-orange-500"/>
-                      <h3 className="text-lg font-bold text-slate-800">Pengingat Tagihan</h3>
+                      <h3 className="text-lg font-bold text-slate-800">Rincian Pengingat Tagihan</h3>
                   </div>
                   
                   {upcomingBills.length === 0 ? (
@@ -2345,6 +2392,32 @@ const App: React.FC = () => {
                                       <p className="text-[10px] opacity-80">({formatIDR(totalInstallmentBillThisMonth)})</p>
                                   </div>
                               </div>
+                           </div>
+                       </div>
+
+                       {/* GLOBAL MONTH SUMMARY (New Widget - Mobile) */}
+                       <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-6 relative overflow-hidden shadow-sm">
+                           <div className="flex justify-between items-center mb-4">
+                               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                  <Target size={16} className="text-indigo-600" />
+                                  Status {monthNames[currentMonth]}
+                               </h3>
+                           </div>
+                           <div className="grid grid-cols-3 gap-2 text-center divide-x divide-slate-100">
+                               <div>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Tagihan</p>
+                                   <p className="text-sm font-bold text-slate-800 truncate">{formatIDR(totalGlobalBillThisMonth)}</p>
+                               </div>
+                               <div>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Tabungan</p>
+                                   <p className="text-sm font-bold text-green-600 truncate">{formatIDR(totalGlobalSavingsThisMonth)}</p>
+                               </div>
+                               <div>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
+                                   <p className={`text-sm font-bold truncate ${isGlobalSafe ? 'text-green-600' : 'text-red-600'}`}>
+                                       {isGlobalSafe ? 'Aman' : `-${formatIDR(Math.abs(globalMonthStatus))}`}
+                                   </p>
+                               </div>
                            </div>
                        </div>
 
