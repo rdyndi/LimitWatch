@@ -542,13 +542,27 @@ const App: React.FC = () => {
   };
 
   const handleDeleteClick = (id: string) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini? Data laporan akan disesuaikan.")) {
-      const txToDelete = data.transactions.find(t => t.id === id);
+    const txToDelete = data.transactions.find(t => t.id === id);
+    if (!txToDelete) return;
+
+    let confirmMsg = "Apakah Anda yakin ingin menghapus transaksi ini? Laporan akan disesuaikan otomatis.";
+
+    // Check if this is a Payment made from Savings (using category tag or any logic you use to mark it)
+    const isSavingsPayment = txToDelete.type === TransactionType.PAYMENT &&
+                             (txToDelete.category === 'Payment from Savings' || txToDelete.category === 'Savings Payment');
+
+    if (isSavingsPayment) {
+        confirmMsg += "\n\nDana sebesar " + formatIDR(txToDelete.amount) + " akan DIKEMBALIKAN ke Tabungan (Refund).";
+    }
+
+    if (window.confirm(confirmMsg)) {
       const updatedTransactions = data.transactions.filter(t => t.id !== id);
       
       let updatedInstallments = data.installments;
+      let updatedSavings = data.savings;
 
-      if (txToDelete && txToDelete.isInstallment) {
+      // 1. Handle Installment Deletion (Existing Logic)
+      if (txToDelete.isInstallment) {
           updatedInstallments = data.installments.filter(i => {
               const isMatch = (
                   i.cardId === txToDelete.cardId &&
@@ -560,10 +574,25 @@ const App: React.FC = () => {
           });
       }
 
+      // 2. Handle Savings Refund (New Logic)
+      if (isSavingsPayment) {
+          const refundSaving: Saving = {
+              id: generateId(),
+              cardId: txToDelete.cardId,
+              amount: txToDelete.amount,
+              date: new Date().toISOString(),
+              note: `Refund: ${txToDelete.description || 'Hapus Transaksi'}`,
+              targetPeriod: txToDelete.targetPeriod || { month: new Date().getMonth(), year: new Date().getFullYear() },
+              isTransferred: false // Mark as available again
+          };
+          updatedSavings = [refundSaving, ...updatedSavings];
+      }
+
       saveData({ 
           ...data, 
           transactions: updatedTransactions,
-          installments: updatedInstallments
+          installments: updatedInstallments,
+          savings: updatedSavings
       });
       setTransactionModalOpen(false); // Close modal if delete called from there
     }
