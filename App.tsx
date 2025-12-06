@@ -3277,17 +3277,29 @@ const App: React.FC = () => {
                     </div>
                  </div>
                  <div className="p-4 overflow-y-auto space-y-3 flex-1">
-                    {data.installments.length === 0 ? (
+                    {data.installments.filter(i => {
+                        const startDate = new Date(i.startDate);
+                        const now = new Date();
+                        const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
+                        return diffMonths < i.totalMonths;
+                    }).length === 0 ? (
                         <p className="text-center text-slate-400 py-8">Tidak ada cicilan aktif.</p>
                     ) : (
-                        data.installments.map(inst => {
+                        data.installments
+                        .filter(i => {
+                            const startDate = new Date(i.startDate);
+                            const now = new Date();
+                            const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
+                            return diffMonths < i.totalMonths; // Only show strictly active ones
+                        })
+                        .map(inst => {
                             const card = data.cards.find(c => c.id === inst.cardId);
                             // Simple calculation based on start date
                             const startDate = new Date(inst.startDate);
                             const now = new Date();
                             const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
                             // Current installment number (1-based)
-                            const currentN = Math.min(inst.totalMonths, Math.max(1, diffMonths + 1));
+                            const currentN = Math.max(1, diffMonths + 1);
                             
                             return (
                                 <div key={inst.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50 relative group">
