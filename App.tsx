@@ -70,7 +70,9 @@ import {
   CheckSquare,
   Calculator,
   Receipt,
-  Share2
+  Share2,
+  ReceiptText,
+  Info
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -133,7 +135,7 @@ const App: React.FC = () => {
   // Profile Menu State (Mobile & Desktop)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
-  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile' | 'wallets'>('home');
+  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile' | 'wallets' | 'bills'>('home');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
@@ -144,6 +146,9 @@ const App: React.FC = () => {
   const [cardHistoryMonth, setCardHistoryMonth] = useState(new Date().getMonth());
   const [cardHistoryYear, setCardHistoryYear] = useState(new Date().getFullYear());
 
+  // Bills View State
+  const [billsYear, setBillsYear] = useState(new Date().getFullYear());
+
   // Swipe Gesture States
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -152,7 +157,7 @@ const App: React.FC = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   // Drag & Drop Mobile Menu States
-  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'wallets', 'laporan', 'kartu', 'tabungan', 'history', 'profile']);
+  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'wallets', 'laporan', 'kartu', 'tabungan', 'history', 'bills', 'profile']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
@@ -169,6 +174,8 @@ const App: React.FC = () => {
   const [txDesc, setTxDesc] = useState('');
   const [txCardId, setTxCardId] = useState('');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txTargetMonth, setTxTargetMonth] = useState(new Date().getMonth());
+  const [txTargetYear, setTxTargetYear] = useState(new Date().getFullYear());
   const [payFromSavings, setPayFromSavings] = useState(false);
   
   // Installment Conversion State (Transaction)
@@ -178,8 +185,8 @@ const App: React.FC = () => {
   // Manual Installment Form State
   const [instName, setInstName] = useState('');
   const [instTotal, setInstTotal] = useState('');
-  const [instTenure, setInstTenure] = useState<string>('3'); // Changed to string for input handling
-  const [instMonthlyAmount, setInstMonthlyAmount] = useState(''); // NEW: Allow manual input
+  const [instTenure, setInstTenure] = useState<string>('3'); 
+  const [instMonthlyAmount, setInstMonthlyAmount] = useState(''); 
   const [instCardId, setInstCardId] = useState('');
   const [instStartDate, setInstStartDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -242,7 +249,6 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // Set default card selection when cards are loaded
   useEffect(() => {
     if (data.cards.length > 0) {
       if (!txCardId) setTxCardId(data.cards[0].id);
@@ -253,7 +259,6 @@ const App: React.FC = () => {
     }
   }, [data.cards, txCardId, savingCardId, instCardId, reportCardId, transferTargetCardId]);
 
-  // Auto calculate monthly amount when Total or Tenure changes in Manual Installment Form
   useEffect(() => {
     const totalVal = getNumericValue(instTotal);
     const tenureVal = parseInt(instTenure) || 0;
@@ -264,10 +269,8 @@ const App: React.FC = () => {
     }
   }, [instTotal, instTenure]);
 
-  // --- HISTORY & BACK BUTTON MANAGEMENT ---
   useEffect(() => {
     const handlePopState = () => {
-      // Saat tombol back ditekan
       isBackNavigationRef.current = true;
       setMobileTab('home');
     };
@@ -295,7 +298,6 @@ const App: React.FC = () => {
     prevTabRef.current = mobileTab;
   }, [mobileTab]);
 
-  // Helper for Input Currency Formatting
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
     const numericVal = getNumericValue(val);
     if(numericVal === 0 && val.replace(/\D/g, '') === '') {
@@ -305,11 +307,8 @@ const App: React.FC = () => {
     setter(formatIDR(numericVal));
   };
 
-  // Improved calculation logic for report with Cutoff Date Logic
   const getMonthlyReportData = (cardId: string, monthIndex: number, year: number) => {
-    // Find the card to check dueDay
     const card = data.cards.find(c => c.id === cardId);
-    // Default cutoff is end of month if not set (meaning transaction stays in current month)
     const cutoffDay = card?.dueDay || 31; 
 
     // 1. Expenses
@@ -320,7 +319,6 @@ const App: React.FC = () => {
         let billingMonth = tDate.getMonth();
         let billingYear = tDate.getFullYear();
 
-        // LOGIC: If transaction date is AFTER due date, it belongs to the NEXT month's bill
         if (tDate.getDate() > cutoffDay) {
             billingMonth++;
             if (billingMonth > 11) {
@@ -333,8 +331,6 @@ const App: React.FC = () => {
     });
 
     // 2. Installments
-    // Note: Installments are typically fixed schedule. We assume startDate determines the first month.
-    // Logic updated in handleSaveTransaction to shift startDate if transacting after due date.
     const monthlyInstallments = data.installments.filter(i => {
          if (i.cardId !== cardId) return false;
          const startDate = new Date(i.startDate);
@@ -352,13 +348,9 @@ const App: React.FC = () => {
     // 3. Payments
     const monthlyPayments = data.transactions.filter(t => {
         if (t.cardId !== cardId || t.type !== TransactionType.PAYMENT) return false;
-        
-        // Prioritize targetPeriod if set (e.g. from Batch Pay or Savings Pay)
         if (t.targetPeriod) {
             return t.targetPeriod.month === monthIndex && t.targetPeriod.year === year;
         }
-        
-        // Fallback to transaction date
         const d = new Date(t.date);
         return d.getMonth() === monthIndex && d.getFullYear() === year;
     });
@@ -379,7 +371,6 @@ const App: React.FC = () => {
     };
   }
 
-  // --- NOTIFICATION LOGIC ---
   useEffect(() => {
     if (data.cards.length === 0) return;
 
@@ -392,12 +383,20 @@ const App: React.FC = () => {
             const currentMonth = today.getMonth();
             const currentYear = today.getFullYear();
             
+            const currentMonthReport = getMonthlyReportData(card.id, currentMonth, currentYear);
+            const isCurrentMonthUnpaid = currentMonthReport.remaining > 1000;
+
             let targetMonth = currentMonth;
             let targetYear = currentYear;
             
             if (card.dueDay < currentDay) {
-                targetMonth++;
-                if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+                if (isCurrentMonthUnpaid) {
+                    targetMonth = currentMonth;
+                    targetYear = currentYear;
+                } else {
+                    targetMonth++;
+                    if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+                }
             }
             
             const dueDate = new Date(targetYear, targetMonth, card.dueDay);
@@ -420,6 +419,14 @@ const App: React.FC = () => {
                     message: `Tagihan ${card.name} jatuh tempo dalam ${diffDays} hari lagi.`,
                     date: new Date().toISOString()
                 });
+            } else if (diffDays < 0 && isCurrentMonthUnpaid) {
+                 newNotifications.push({
+                    id: `late-${card.id}`,
+                    type: 'urgent',
+                    title: 'Tagihan Telat!',
+                    message: `Tagihan ${card.name} sudah telat ${Math.abs(diffDays)} hari.`,
+                    date: new Date().toISOString()
+                });
             }
         }
     });
@@ -436,7 +443,6 @@ const App: React.FC = () => {
 
   }, [data.cards]);
 
-  // --- SWIPE HANDLERS ---
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -473,14 +479,11 @@ const App: React.FC = () => {
     setTouchStartY(null);
   };
 
-  // --- DRAG & DROP HANDLERS (Mobile Menu) ---
   const onMenuTouchStart = (e: React.TouchEvent, itemId: string) => {
-    // Start long press timer
     longPressTimerRef.current = setTimeout(() => {
         setDraggingItem(itemId);
-        // Haptic feedback if available
         if (navigator.vibrate) navigator.vibrate(50);
-    }, 500); // 500ms long press to activate drag
+    }, 500); 
   };
 
   const onMenuTouchEnd = () => {
@@ -493,14 +496,12 @@ const App: React.FC = () => {
 
   const onMenuTouchMove = (e: React.TouchEvent) => {
     if (longPressTimerRef.current) {
-         // If user moves finger before long press triggers, cancel it
          clearTimeout(longPressTimerRef.current);
          longPressTimerRef.current = null;
     }
 
     if (!draggingItem) return;
     
-    // Logic to find which item is being hovered
     const touch = e.touches[0];
     const target = document.elementFromPoint(touch.clientX, touch.clientY);
     const targetItem = target?.closest('[data-menu-id]') as HTMLElement;
@@ -508,7 +509,6 @@ const App: React.FC = () => {
     if (targetItem) {
         const targetId = targetItem.getAttribute('data-menu-id');
         if (targetId && targetId !== draggingItem) {
-            // Swap items
             const newOrder = [...menuOrder];
             const dragIdx = newOrder.indexOf(draggingItem);
             const targetIdx = newOrder.indexOf(targetId);
@@ -528,7 +528,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to open Manual Installment Modal
   const openInstallmentModal = () => {
     setInstName('');
     setInstTotal('');
@@ -539,7 +538,6 @@ const App: React.FC = () => {
     setInstallmentModalOpen(true);
   };
 
-  // Direct Delete for Ghost Installments
   const handleDeleteInstallmentDirectly = (id: string) => {
       if(window.confirm("Hapus data cicilan ini secara permanen?")) {
           const updatedInstallments = data.installments.filter(i => i.id !== id);
@@ -560,7 +558,7 @@ const App: React.FC = () => {
     const newInstallment: Installment = {
         id: generateId(),
         cardId: instCardId,
-        name: instName || 'Cicilan Manual', // Default if empty
+        name: instName || 'Cicilan Manual', 
         totalAmount: totalVal,
         monthlyAmount: monthlyVal, 
         totalMonths: tenureVal,
@@ -580,7 +578,7 @@ const App: React.FC = () => {
           description: inst.name,
           type: TransactionType.EXPENSE,
           isInstallment: true,
-          installmentId: inst.id, // Link to installment ID
+          installmentId: inst.id, 
           category: 'Cicilan Manual',
           isValidated: false
       };
@@ -598,6 +596,8 @@ const App: React.FC = () => {
     setTxAmount('');
     setTxDesc('');
     setTxDate(new Date().toISOString().split('T')[0]);
+    setTxTargetMonth(new Date().getMonth());
+    setTxTargetYear(new Date().getFullYear());
     setTxType(TransactionType.EXPENSE);
     setTxIsInstallment(false);
     setTxInstallmentMonths(3);
@@ -613,6 +613,16 @@ const App: React.FC = () => {
     setTxDesc(t.description);
     setTxCardId(t.cardId);
     setTxDate(new Date(t.date).toISOString().split('T')[0]);
+    
+    if (t.targetPeriod) {
+        setTxTargetMonth(t.targetPeriod.month);
+        setTxTargetYear(t.targetPeriod.year);
+    } else {
+        const d = new Date(t.date);
+        setTxTargetMonth(d.getMonth());
+        setTxTargetYear(d.getFullYear());
+    }
+
     setTxIsInstallment(!!t.isInstallment);
     setPayFromSavings(false); 
     setTransactionModalOpen(true);
@@ -631,8 +641,6 @@ const App: React.FC = () => {
     if (!txToDelete) return;
 
     let confirmMsg = "Apakah Anda yakin ingin menghapus transaksi ini? Laporan akan disesuaikan otomatis.";
-
-    // Check if this is a Payment made from Savings
     const isSavingsPayment = txToDelete.type === TransactionType.PAYMENT &&
                              (txToDelete.category === 'Payment from Savings' || txToDelete.category === 'Savings Payment');
 
@@ -642,18 +650,13 @@ const App: React.FC = () => {
 
     if (window.confirm(confirmMsg)) {
       const updatedTransactions = data.transactions.filter(t => t.id !== id);
-      
       let updatedInstallments = data.installments;
       let updatedSavings = data.savings;
 
-      // 1. Handle Installment Deletion
       if (txToDelete.isInstallment) {
           if (txToDelete.installmentId) {
-              // Delete by ID (Strong link)
               updatedInstallments = data.installments.filter(i => i.id !== txToDelete.installmentId);
           } else {
-              // Fallback: Delete by matching content (Weak link/Legacy)
-              // Note: We deliberately ignore the date to catch "ghost" installments shifted to next month
               updatedInstallments = data.installments.filter(i => {
                   const isMatch = (
                       i.cardId === txToDelete.cardId &&
@@ -665,7 +668,6 @@ const App: React.FC = () => {
           }
       }
 
-      // 2. Handle Savings Refund (New Logic)
       if (isSavingsPayment) {
           const refundSaving: Saving = {
               id: generateId(),
@@ -674,7 +676,7 @@ const App: React.FC = () => {
               date: new Date().toISOString(),
               note: `Refund: ${txToDelete.description || 'Hapus Transaksi'}`,
               targetPeriod: txToDelete.targetPeriod || { month: new Date().getMonth(), year: new Date().getFullYear() },
-              isTransferred: false // Mark as available again
+              isTransferred: false 
           };
           updatedSavings = [refundSaving, ...updatedSavings];
       }
@@ -685,7 +687,7 @@ const App: React.FC = () => {
           installments: updatedInstallments,
           savings: updatedSavings
       });
-      setTransactionModalOpen(false); // Close modal if delete called from there
+      setTransactionModalOpen(false); 
     }
   };
 
@@ -714,7 +716,6 @@ const App: React.FC = () => {
 
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    // Improved Validation Logic
     if (data.cards.length === 0) {
         alert("Mohon tambah kartu kredit terlebih dahulu di menu Kartu.");
         return;
@@ -738,28 +739,21 @@ const App: React.FC = () => {
         return;
     }
 
-    // Default description if empty
     const finalDesc = txDesc || (txType === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pembayaran');
-
-    // Variable to hold the generated Installment ID if created
     let generatedInstallmentId: string | undefined = undefined;
 
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
-       // Validasi Tenor Manual
        if (txInstallmentMonths <= 0) {
            alert("Lama cicilan minimal 1 bulan");
            return;
        }
 
        if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
-          // --- LOGIC: Shift Installment Date if past Due Date ---
           const selectedCard = data.cards.find(c => c.id === txCardId);
           let instStartDateObj = new Date(txDate);
           
           if (selectedCard && selectedCard.dueDay) {
-              // If transaction happens after due day, billing moves to next month
               if (instStartDateObj.getDate() > selectedCard.dueDay) {
-                  // Move to next month (Javascript handles year rollover automatically)
                   instStartDateObj.setMonth(instStartDateObj.getMonth() + 1);
               }
           }
@@ -775,7 +769,7 @@ const App: React.FC = () => {
               monthlyAmount: amountVal / txInstallmentMonths,
               totalMonths: txInstallmentMonths,
               monthsPaid: 0,
-              startDate: instStartDateObj.toISOString() // Use adjusted date
+              startDate: instStartDateObj.toISOString() 
           };
           updatedInstallments = [newInstallment, ...updatedInstallments];
        }
@@ -797,25 +791,21 @@ const App: React.FC = () => {
     }
 
     if (editingTransaction) {
-      // Check if this transaction was an installment and if we need to update the installment record too
       if (editingTransaction.isInstallment) {
           updatedInstallments = updatedInstallments.map(inst => {
-              // Priority 1: Find by ID
               if (editingTransaction.installmentId && inst.id === editingTransaction.installmentId) {
                    return { 
                       ...inst, 
-                      cardId: txCardId, // Update Card ID
-                      name: finalDesc, // Update Name
-                      startDate: new Date(txDate).toISOString(), // Update Date
+                      cardId: txCardId, 
+                      name: finalDesc, 
+                      startDate: new Date(txDate).toISOString(), 
                   };
               }
 
-              // Priority 2: Fallback (Legacy) - Match by content
               const isMatch = (
                   inst.cardId === editingTransaction.cardId &&
                   inst.totalAmount === editingTransaction.amount &&
                   inst.name === editingTransaction.description
-                  // Ignore date check to find shifted installments
               );
               
               if (isMatch && !editingTransaction.installmentId) {
@@ -840,8 +830,8 @@ const App: React.FC = () => {
             description: finalDesc,
             type: txType,
             isInstallment: finalIsInstallment,
-            // Keep existing installmentId unless new one generated (unlikely in edit unless toggled on)
-            installmentId: generatedInstallmentId || t.installmentId 
+            installmentId: generatedInstallmentId || t.installmentId,
+            targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined
           };
         }
         return t;
@@ -859,7 +849,8 @@ const App: React.FC = () => {
         category: payFromSavings ? 'Payment from Savings' : 'General',
         isValidated: false,
         isInstallment: finalIsInstallment,
-        installmentId: generatedInstallmentId // Link if created
+        installmentId: generatedInstallmentId,
+        targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined
       };
       saveData({
         ...data,
@@ -899,7 +890,6 @@ const App: React.FC = () => {
     }
   }
 
-  // Helper to open specific card history modal
   const openCardHistory = (card: CreditCardType) => {
       setSelectedCardForHistory(card);
       setCardHistoryMonth(new Date().getMonth());
@@ -910,13 +900,9 @@ const App: React.FC = () => {
       setSelectedCardForHistory(null);
   };
 
-  // --- SHARE INVOICE PDF HANDLER ---
   const handleShareInvoice = async () => {
     const target = document.querySelector('.invoice-container') as HTMLElement;
     if (!target) return;
-
-    // Loading indicator on button if needed, but we'll use a simple alert or toast if it fails
-    // Wait a bit to ensure everything is rendered
     await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
@@ -957,11 +943,9 @@ const App: React.FC = () => {
         return;
     }
     
-    // Ensure we always have a valid color class
     const finalColor = cardColor && cardColor.trim() !== '' ? cardColor : CARD_COLORS[0].class;
 
     if (editingCard) {
-        // Edit Mode
         const updatedCards = data.cards.map(c => {
             if (c.id === editingCard.id) {
                 return {
@@ -976,7 +960,6 @@ const App: React.FC = () => {
         });
         saveData({ ...data, cards: updatedCards });
     } else {
-        // Create Mode
         const newCard: CreditCardType = {
             id: generateId(),
             name: cardName,
@@ -995,7 +978,6 @@ const App: React.FC = () => {
     setEditingCard(null);
   };
 
-  // --- WALLET FUNCTIONS ---
   const openAddWalletModal = () => {
     setEditingWallet(null);
     setWalletName('');
@@ -1092,13 +1074,11 @@ const App: React.FC = () => {
           return;
       }
 
-      // 1. Deduct from Wallet
       const updatedWallets = (data.wallets || []).map(w => {
           if(w.id === walletId) return { ...w, balance: w.balance - amountVal };
           return w;
       });
 
-      // 2. Add to Savings
       const newSaving: Saving = {
           id: generateId(),
           cardId: targetCardId,
@@ -1301,7 +1281,6 @@ const App: React.FC = () => {
      }));
   };
 
-  // Used for bill reminder
   const getMonthlyBill = (cardId: string, monthIndex: number, year: number) => {
      const reportData = getMonthlyReportData(cardId, monthIndex, year);
      return reportData.totalBill;
@@ -1354,24 +1333,17 @@ const App: React.FC = () => {
          const currentMonth = today.getMonth();
          const currentYear = today.getFullYear();
          
-         // Logic Perbaikan: Cek status bulan berjalan dulu
-         // 1. Ambil laporan bulan ini
          const currentMonthReport = getMonthlyReportData(c.id, currentMonth, currentYear);
-         const currentMonthRemaining = currentMonthReport.remaining;
-         const isCurrentMonthUnpaid = currentMonthRemaining > 1000;
+         const isCurrentMonthUnpaid = currentMonthReport.remaining > 1000;
 
          let targetMonth = currentMonth;
          let targetYear = currentYear;
          
          if (c.dueDay! < currentDay) {
-            // Tanggal jatuh tempo bulan ini sudah lewat.
-            // Cek apakah bulan ini masih ada sisa tagihan?
             if (isCurrentMonthUnpaid) {
-                // Jika masih ada sisa, target tetap bulan ini (Status: Telat)
                 targetMonth = currentMonth;
                 targetYear = currentYear;
             } else {
-                // Jika sudah lunas, baru pindah ke bulan depan
                 targetMonth++;
                 if (targetMonth > 11) { targetMonth = 0; targetYear++; }
             }
@@ -1384,12 +1356,10 @@ const App: React.FC = () => {
          const reportData = getMonthlyReportData(c.id, targetMonth, targetYear);
          const remaining = Math.max(0, reportData.remaining);
 
-         // Calculate available savings for this card (Not specific to period, just total card savings available)
          const availableSavings = data.savings
             .filter(s => s.cardId === c.id && !s.isTransferred)
             .reduce((sum, s) => sum + s.amount, 0);
          
-         // Calculate Shortfall
          const shortfall = remaining - availableSavings;
          
          return { 
@@ -1404,29 +1374,53 @@ const App: React.FC = () => {
       .filter(c => c.remainingBill > 1000) 
       .sort((a, b) => a.daysLeft - b.daysLeft);
   
-  // Logic for Active Installments Display
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-  const activeInstallmentsCount = data.installments.filter(i => {
-      const startDate = new Date(i.startDate);
-      const monthDiff = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
-      return (monthDiff >= 0 && monthDiff < i.totalMonths);
-  }).length;
 
-  const totalInstallmentBillThisMonth = data.installments.filter(i => {
+  // --- CHANGED LOGIC: CALCULATE ALL ONGOING INSTALLMENTS GLOBALLY ---
+  // Calculates all installments that are not finished (currentMonthIndex < totalMonths)
+  // This includes future starts (committed) and currently running ones.
+  const allOngoingInstallments = data.installments.filter(i => {
       const startDate = new Date(i.startDate);
-      const monthDiff = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
-      return (monthDiff >= 0 && monthDiff < i.totalMonths);
-  }).reduce((sum, i) => sum + i.monthlyAmount, 0);
+      const monthsSinceStart = (currentYear - startDate.getFullYear()) * 12 + (currentMonth - startDate.getMonth());
+      return monthsSinceStart < i.totalMonths;
+  });
+
+  // Filter for Dashboard Widget: Only show installments if the bill for that card in the CURRENT MONTH is NOT paid yet.
+  // "Jika tagihan bulan tertentu status lunas maka kurangi cicilan aktif"
+  const unpaidOngoingInstallments = allOngoingInstallments.filter(inst => {
+      // Get bill report for the card of this installment for the CURRENT month
+      const report = getMonthlyReportData(inst.cardId, currentMonth, currentYear);
+      
+      // If remaining bill is <= 0, it means it is LUNAS (Paid). 
+      // So we exclude it from the "Active Burden" widget count.
+      const isPaidOff = report.remaining <= 0;
+      
+      return !isPaidOff;
+  });
+
+  const activeInstallmentsCount = unpaidOngoingInstallments.length;
+  const totalInstallmentBillThisMonth = unpaidOngoingInstallments.reduce((sum, i) => sum + i.monthlyAmount, 0);
+
+  // Logic to help list modal (show all running installments for visibility)
+  const isInstallmentActiveInMonth = (inst: Installment, month: number, year: number) => {
+      const startDate = new Date(inst.startDate);
+      const monthDiff = (year - startDate.getFullYear()) * 12 + (month - startDate.getMonth());
+      return (monthDiff >= 0 && monthDiff < inst.totalMonths);
+  }
+  
+  const isInstallmentFuture = (inst: Installment, month: number, year: number) => {
+      const startDate = new Date(inst.startDate);
+      const monthDiff = (year - startDate.getFullYear()) * 12 + (month - startDate.getMonth());
+      return monthDiff < 0;
+  }
 
   // --- NEW LOGIC: GLOBAL MONTHLY SUMMARY ---
-  // Calculate Total Global Bill for THIS specific month (All Cards)
   const totalGlobalBillThisMonth = data.cards.reduce((sum, card) => {
       const report = getMonthlyReportData(card.id, currentMonth, currentYear);
       return sum + Math.max(0, report.remaining);
   }, 0);
 
-  // Calculate Total Savings TARGETED for THIS specific month (All Cards)
   const totalGlobalSavingsThisMonth = data.savings
       .filter(s => !s.isTransferred && s.targetPeriod?.month === currentMonth && s.targetPeriod?.year === currentYear)
       .reduce((sum, s) => sum + s.amount, 0);
@@ -1434,7 +1428,6 @@ const App: React.FC = () => {
   const globalMonthStatus = totalGlobalBillThisMonth - totalGlobalSavingsThisMonth;
   const isGlobalSafe = globalMonthStatus <= 0;
 
-  // Filter Logic for History View
   const filteredTransactions = data.transactions.filter(t => {
       const d = new Date(t.date);
       const matchCard = historyFilterCard === 'all' || t.cardId === historyFilterCard;
@@ -1598,6 +1591,7 @@ const App: React.FC = () => {
               <div className="px-4 pb-2 pt-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</div>
               <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
               <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu Saya" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
+              <DesktopNavItem icon={<ReceiptText size={20}/>} label="Tagihan Bulanan" active={mobileTab === 'bills'} onClick={() => setMobileTab('bills')} />
               <DesktopNavItem icon={<WalletCards size={20}/>} label="Dompet" active={mobileTab === 'wallets'} onClick={() => setMobileTab('wallets')} />
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat Transaksi" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
               <DesktopNavItem icon={<Coins size={20}/>} label="Tabungan Pelunasan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
@@ -1620,6 +1614,7 @@ const App: React.FC = () => {
                  <h1 className="text-3xl font-bold text-slate-800 mb-1">
                     {mobileTab === 'home' && 'Ringkasan Keuangan'}
                     {mobileTab === 'cards' && 'Kelola Kartu Kredit'}
+                    {mobileTab === 'bills' && 'Tagihan Bulanan'}
                     {mobileTab === 'wallets' && 'Dompet & Pemasukan'}
                     {mobileTab === 'history' && 'Riwayat Transaksi'}
                     {mobileTab === 'savings' && 'Tabungan Pelunasan'}
@@ -1681,7 +1676,6 @@ const App: React.FC = () => {
                     >
                        <PlusCircle size={18} /> 
                        <span>Catat Transaksi</span>
-                       {/* The "Tail" of the bubble pointing to the profile */}
                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-l-[12px] border-l-blue-600 border-b-8 border-b-transparent group-hover:border-l-blue-700 transition-colors"></div>
                     </button>
                  </div>
@@ -2273,6 +2267,99 @@ const App: React.FC = () => {
                   )}
               </div>
            )}
+
+           {/* --- BILLS VIEW (DESKTOP) --- */}
+           {mobileTab === 'bills' && (
+              <div className="space-y-6 animate-in fade-in">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-slate-800">Tagihan Bulanan</h2>
+                      <select value={billsYear} onChange={(e) => setBillsYear(parseInt(e.target.value))} className="bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm font-semibold outline-none">
+                          {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                          ))}
+                      </select>
+                  </div>
+                  
+                  <div className="space-y-8">
+                     {monthNames.map((month, i) => {
+                        const billsInMonth = data.cards.map(card => {
+                            const report = getMonthlyReportData(card.id, i, billsYear);
+                            // Only include if there is activity or a remaining bill
+                            if (report.totalBill === 0 && report.totalPaid === 0 && report.remaining === 0) return null;
+                            
+                            // Determine status
+                            let status: 'PAID' | 'UNPAID' | 'LATE' = 'UNPAID';
+                            if (report.remaining <= 0) status = 'PAID';
+                            else {
+                                // Check if late
+                                const dueDate = new Date(billsYear, i, card.dueDay || 25);
+                                const today = new Date();
+                                if (today > dueDate) status = 'LATE';
+                            }
+                            
+                            return { card, report, status };
+                        }).filter(item => item !== null) as {card: CreditCardType, report: ReturnType<typeof getMonthlyReportData>, status: 'PAID'|'UNPAID'|'LATE'}[];
+
+                        if (billsInMonth.length === 0) return null;
+
+                        return (
+                           <div key={month} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                               <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 font-bold text-slate-700 flex justify-between">
+                                  <span>{month} {billsYear}</span>
+                                  <span className="text-slate-400 text-sm font-normal">Total Tagihan: {formatIDR(billsInMonth.reduce((sum, item) => sum + item.report.totalBill, 0))}</span>
+                               </div>
+                               <div className="p-6 grid grid-cols-3 gap-6">
+                                  {billsInMonth.map(({card, report, status}) => (
+                                      <div 
+                                          key={card.id} 
+                                          onClick={() => { setSelectedCardForHistory(card); setCardHistoryMonth(i); setCardHistoryYear(billsYear); }}
+                                          className={`border rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow bg-white ${status === 'LATE' ? 'border-red-200 bg-red-50/20' : status === 'PAID' ? 'border-green-200 bg-green-50/20' : 'border-orange-200 bg-orange-50/20'}`}
+                                      >
+                                          <div className="flex justify-between items-start mb-3">
+                                              <div className="flex items-center gap-2">
+                                                  <div className={`w-3 h-3 rounded-full ${card.color}`}></div>
+                                                  <span className="font-bold text-slate-800">{card.name}</span>
+                                              </div>
+                                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status === 'LATE' ? 'bg-red-100 text-red-600' : status === 'PAID' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                  {status === 'LATE' ? 'TELAT' : status === 'PAID' ? 'LUNAS' : 'BELUM LUNAS'}
+                                              </span>
+                                          </div>
+                                          <div className="space-y-1 text-sm">
+                                              <div className="flex justify-between text-slate-500">
+                                                  <span>Total</span>
+                                                  <span className="font-medium text-slate-700">{formatIDR(report.totalBill)}</span>
+                                              </div>
+                                              <div className="flex justify-between text-slate-500">
+                                                  <span>Dibayar</span>
+                                                  <span className="font-medium text-green-600">{formatIDR(report.totalPaid)}</span>
+                                              </div>
+                                              <div className="border-t border-slate-100 my-1 pt-1 flex justify-between font-bold">
+                                                  <span className="text-slate-600">Sisa</span>
+                                                  <span className={report.remaining > 0 ? 'text-red-600' : 'text-slate-400'}>{formatIDR(Math.max(0, report.remaining))}</span>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ))}
+                               </div>
+                           </div>
+                        )
+                     })}
+                     {/* Empty State */}
+                     {data.cards.length > 0 && monthNames.every((_, i) => {
+                         const hasBills = data.cards.some(c => {
+                             const r = getMonthlyReportData(c.id, i, billsYear);
+                             return r.totalBill > 0 || r.totalPaid > 0;
+                         });
+                         return !hasBills;
+                     }) && (
+                         <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-slate-400">
+                             <ReceiptText size={48} className="mx-auto mb-3 opacity-50"/>
+                             <p>Tidak ada tagihan untuk tahun {billsYear}.</p>
+                         </div>
+                     )}
+                  </div>
+              </div>
+           )}
         </main>
       </div>
 
@@ -2389,6 +2476,7 @@ const App: React.FC = () => {
                           if (item === 'wallets') { label = 'Dompet'; icon = <WalletCards size={24} className="text-emerald-600"/>; action = () => setMobileTab('wallets'); }
                           if (item === 'laporan') { label = 'Laporan'; icon = <FileBarChart size={24} className="text-orange-600"/>; action = () => setMobileTab('report'); }
                           if (item === 'kartu') { label = 'Kartu'; icon = <CreditCard size={24} className="text-purple-600"/>; action = () => setMobileTab('cards'); }
+                          if (item === 'bills') { label = 'Tagihan'; icon = <ReceiptText size={24} className="text-red-600"/>; action = () => setMobileTab('bills'); }
                           if (item === 'tabungan') { label = 'Tabungan'; icon = <Coins size={24} className="text-teal-600"/>; action = () => setMobileTab('savings'); }
                           if (item === 'history') { label = 'Riwayat'; icon = <History size={24} className="text-slate-600"/>; action = () => setMobileTab('history'); }
                           if (item === 'profile') { label = 'Akun'; icon = <UserIcon size={24} className="text-pink-600"/>; action = () => setMobileTab('profile'); }
@@ -2527,6 +2615,82 @@ const App: React.FC = () => {
                      )
                  })}
                  {data.cards.length === 0 && <p className="text-center text-slate-400 py-10">Belum ada kartu kredit.</p>}
+             </div>
+          )}
+
+          {mobileTab === 'bills' && (
+             <div className="p-4 space-y-4 animate-in fade-in">
+                 <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-lg font-bold text-slate-800">Tagihan Bulanan</h2>
+                    <select value={billsYear} onChange={(e) => setBillsYear(parseInt(e.target.value))} className="bg-white border border-slate-200 rounded-lg py-1.5 px-3 text-xs font-semibold outline-none">
+                          {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                          ))}
+                    </select>
+                 </div>
+                 
+                 <div className="space-y-4">
+                     {monthNames.map((month, i) => {
+                         const billsInMonth = data.cards.map(card => {
+                            const report = getMonthlyReportData(card.id, i, billsYear);
+                            if (report.totalBill === 0 && report.totalPaid === 0 && report.remaining === 0) return null;
+                            let status: 'PAID' | 'UNPAID' | 'LATE' = 'UNPAID';
+                            if (report.remaining <= 0) status = 'PAID';
+                            else {
+                                const dueDate = new Date(billsYear, i, card.dueDay || 25);
+                                const today = new Date();
+                                if (today > dueDate) status = 'LATE';
+                            }
+                            return { card, report, status };
+                        }).filter(item => item !== null) as {card: CreditCardType, report: ReturnType<typeof getMonthlyReportData>, status: 'PAID'|'UNPAID'|'LATE'}[];
+
+                        if (billsInMonth.length === 0) return null;
+
+                        return (
+                            <div key={month} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
+                                    <span className="font-bold text-slate-700 text-sm">{month}</span>
+                                    <span className="text-[10px] text-slate-500">Total: {formatIDR(billsInMonth.reduce((sum, item) => sum + item.report.totalBill, 0))}</span>
+                                </div>
+                                <div className="p-3 space-y-3">
+                                    {billsInMonth.map(({card, report, status}) => (
+                                        <div 
+                                            key={card.id}
+                                            onClick={() => { setSelectedCardForHistory(card); setCardHistoryMonth(i); setCardHistoryYear(billsYear); }}
+                                            className={`rounded-lg p-3 border text-xs ${status === 'LATE' ? 'border-red-100 bg-red-50/30' : status === 'PAID' ? 'border-green-100 bg-green-50/30' : 'border-orange-100 bg-orange-50/30'}`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="font-bold text-slate-800">{card.name}</span>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${status === 'LATE' ? 'bg-red-100 text-red-600' : status === 'PAID' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                    {status === 'LATE' ? 'TELAT' : status === 'PAID' ? 'LUNAS' : 'BELUM'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-slate-500 mb-1">
+                                                <span>Total Tagihan</span>
+                                                <span>{formatIDR(report.totalBill)}</span>
+                                            </div>
+                                            <div className="flex justify-between font-bold">
+                                                <span className="text-slate-600">Sisa Bayar</span>
+                                                <span className={report.remaining > 0 ? 'text-red-600' : 'text-slate-400'}>{formatIDR(Math.max(0, report.remaining))}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )
+                     })}
+                 </div>
+                 {data.cards.length > 0 && monthNames.every((_, i) => {
+                         const hasBills = data.cards.some(c => {
+                             const r = getMonthlyReportData(c.id, i, billsYear);
+                             return r.totalBill > 0 || r.totalPaid > 0;
+                         });
+                         return !hasBills;
+                  }) && (
+                     <div className="text-center py-10 text-slate-400 text-xs">
+                         <p>Tidak ada tagihan tahun {billsYear}</p>
+                     </div>
+                  )}
              </div>
           )}
 
@@ -2968,6 +3132,31 @@ const App: React.FC = () => {
                      </div>
                  </div>
 
+                 {/* NEW: Payment Target Month & Year Selection (Only for Payments) */}
+                 {txType === TransactionType.PAYMENT && (
+                     <div>
+                         <label className="block text-xs font-bold text-slate-500 mb-1">Target Pembayaran Tagihan</label>
+                         <div className="grid grid-cols-2 gap-4">
+                             <select 
+                                value={txTargetMonth} 
+                                onChange={(e) => setTxTargetMonth(parseInt(e.target.value))}
+                                className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                             >
+                                 {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                             </select>
+                             <select 
+                                value={txTargetYear} 
+                                onChange={(e) => setTxTargetYear(parseInt(e.target.value))}
+                                className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                             >
+                                 {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                                     <option key={y} value={y}>{y}</option>
+                                 ))}
+                             </select>
+                         </div>
+                     </div>
+                 )}
+
                  {/* Options based on Type */}
                  {txType === TransactionType.EXPENSE && (
                      <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
@@ -3007,18 +3196,64 @@ const App: React.FC = () => {
                  )}
 
                  {txType === TransactionType.PAYMENT && !editingTransaction && (
-                     <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <Coins size={18} className="text-green-600"/>
-                            <span className="font-bold text-sm text-green-800">Ambil dari Tabungan?</span>
+                     <div className="space-y-3">
+                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                                <Coins size={18} className="text-green-600"/>
+                                <span className="font-bold text-sm text-green-800">Ambil dari Tabungan?</span>
+                             </div>
+                             <button 
+                                type="button"
+                                onClick={() => setPayFromSavings(!payFromSavings)}
+                                className={`w-10 h-6 rounded-full transition-colors relative ${payFromSavings ? 'bg-green-600' : 'bg-slate-300'}`}
+                             >
+                                <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${payFromSavings ? 'translate-x-4' : ''}`}></div>
+                             </button>
                          </div>
-                         <button 
-                            type="button"
-                            onClick={() => setPayFromSavings(!payFromSavings)}
-                            className={`w-10 h-6 rounded-full transition-colors relative ${payFromSavings ? 'bg-green-600' : 'bg-slate-300'}`}
-                         >
-                            <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${payFromSavings ? 'translate-x-4' : ''}`}></div>
-                         </button>
+                         
+                         {/* NEW: Payment Calculation Info Box */}
+                         {payFromSavings && (
+                             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm space-y-2 animate-in slide-in-from-top-2">
+                                 <div className="flex items-start gap-2 text-blue-800 font-bold mb-1">
+                                     <Info size={16} className="mt-0.5"/>
+                                     <span>Simulasi Pembayaran</span>
+                                 </div>
+                                 {(() => {
+                                     // Calculate on the fly for display
+                                     const report = getMonthlyReportData(txCardId, txTargetMonth, txTargetYear);
+                                     const totalAvailableSavings = data.savings
+                                        .filter(s => s.cardId === txCardId && !s.isTransferred)
+                                        .reduce((sum, s) => sum + s.amount, 0);
+                                     
+                                     const inputAmount = getNumericValue(txAmount);
+                                     const remainingBill = Math.max(0, report.remaining);
+                                     // Projected remaining after this payment
+                                     const projectedRemaining = Math.max(0, remainingBill - inputAmount);
+
+                                     return (
+                                         <div className="space-y-1 text-slate-600">
+                                             <div className="flex justify-between">
+                                                 <span>Tabungan Tersedia:</span>
+                                                 <span className="font-bold text-green-600">{formatIDR(totalAvailableSavings)}</span>
+                                             </div>
+                                             <div className="h-px bg-blue-200/50 my-1"></div>
+                                             <div className="flex justify-between">
+                                                 <span>Total Tagihan ({monthNames[txTargetMonth]}):</span>
+                                                 <span className="font-bold">{formatIDR(report.totalBill)}</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                 <span>Sisa Tagihan (Saat ini):</span>
+                                                 <span className="font-bold text-red-500">{formatIDR(remainingBill)}</span>
+                                             </div>
+                                             <div className="flex justify-between border-t border-blue-200/50 pt-1 mt-1">
+                                                 <span className="font-bold text-blue-700">Sisa Setelah Bayar:</span>
+                                                 <span className="font-bold text-blue-700">{formatIDR(projectedRemaining)}</span>
+                                             </div>
+                                         </div>
+                                     );
+                                 })()}
+                             </div>
+                         )}
                      </div>
                  )}
 
@@ -3278,31 +3513,26 @@ const App: React.FC = () => {
                  </div>
                  <div className="p-4 overflow-y-auto space-y-3 flex-1">
                     {data.installments.filter(i => {
-                        const startDate = new Date(i.startDate);
-                        const now = new Date();
-                        const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
-                        return diffMonths < i.totalMonths;
+                        return isInstallmentActiveInMonth(i, currentMonth, currentYear) || isInstallmentFuture(i, currentMonth, currentYear);
                     }).length === 0 ? (
-                        <p className="text-center text-slate-400 py-8">Tidak ada cicilan aktif.</p>
+                        <p className="text-center text-slate-400 py-8">Tidak ada cicilan aktif bulan ini.</p>
                     ) : (
                         data.installments
                         .filter(i => {
-                            const startDate = new Date(i.startDate);
-                            const now = new Date();
-                            const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
-                            return diffMonths < i.totalMonths; // Only show strictly active ones
+                            return isInstallmentActiveInMonth(i, currentMonth, currentYear) || isInstallmentFuture(i, currentMonth, currentYear);
                         })
+                        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                         .map(inst => {
                             const card = data.cards.find(c => c.id === inst.cardId);
-                            // Simple calculation based on start date
                             const startDate = new Date(inst.startDate);
                             const now = new Date();
                             const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
-                            // Current installment number (1-based)
-                            const currentN = Math.max(1, diffMonths + 1);
+                            const currentN = diffMonths + 1;
                             
+                            const isFuture = diffMonths < 0;
+
                             return (
-                                <div key={inst.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50 relative group">
+                                <div key={inst.id} className={`border border-slate-100 rounded-xl p-4 relative group ${isFuture ? 'bg-slate-50 opacity-70 border-dashed' : 'bg-slate-50'}`}>
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
                                             <p className="font-bold text-slate-800">{inst.name}</p>
@@ -3313,14 +3543,22 @@ const App: React.FC = () => {
                                             <p className="text-xs text-slate-400">/ bulan</p>
                                         </div>
                                     </div>
-                                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mb-2">
-                                        <div 
-                                            className="bg-indigo-500 h-full rounded-full" 
-                                            style={{ width: `${(currentN / inst.totalMonths) * 100}%` }}
-                                        ></div>
-                                    </div>
+                                    
+                                    {isFuture ? (
+                                        <div className="w-full bg-orange-100 text-orange-600 text-[10px] font-bold py-1 px-2 rounded text-center mb-2">
+                                            Mulai Tagihan Bulan Depan
+                                        </div>
+                                    ) : (
+                                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mb-2">
+                                            <div 
+                                                className="bg-indigo-500 h-full rounded-full" 
+                                                style={{ width: `${Math.min(100, (currentN / inst.totalMonths) * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between text-xs text-slate-500">
-                                        <span>Ke {currentN} dari {inst.totalMonths}</span>
+                                        <span>{isFuture ? 'Menunggu' : `Ke ${Math.max(1, currentN)} dari ${inst.totalMonths}`}</span>
                                         <span>Total: {formatIDR(inst.totalAmount)}</span>
                                     </div>
                                     <button 
