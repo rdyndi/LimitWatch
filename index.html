@@ -48,19 +48,18 @@
       }
 
       html, body {
+        overscroll-behavior-y: none; /* Mencegah efek bounce */
         height: 100%;
         width: 100%;
-        overflow-x: hidden;
-        overflow-y: auto; /* Mengaktifkan scroll vertikal */
-        -webkit-overflow-scrolling: touch; /* Smooth scroll di iOS */
-        -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent; /* Hilangkan highlight biru saat tap */
+        -webkit-touch-callout: none; /* Hilangkan menu konteks saat tahan lama */
       }
       
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
-        user-select: none;
+        user-select: none; /* Mencegah seleksi teks UI */
         -webkit-user-select: none;
       }
 
