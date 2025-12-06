@@ -1,4 +1,3 @@
-// Fix: Suppress type error for firebase/app import issues in some environments
 // @ts-ignore
 import { initializeApp } from "firebase/app";
 import { 
@@ -16,10 +15,8 @@ import {
   getFirestore, 
   doc, 
   onSnapshot, 
-  setDoc,
-  collection 
+  setDoc
 } from "firebase/firestore";
-// Fix: Removed analytics import to resolve "no exported member" error
 import { AppState } from "../types";
 
 // Your web app's Firebase configuration
@@ -37,14 +34,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// Fix: Removed analytics initialization due to import errors
-// let analytics = null;
-// try {
-//   analytics = getAnalytics(app);
-// } catch (error) {
-//   console.warn("Firebase Analytics initialization failed (this is optional):", error);
-// }
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -110,7 +99,6 @@ export const subscribeToAuth = (callback: (user: User | null) => void) => {
 export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
   if (!userId) return () => {};
 
-  // Data is now stored under "users/{userId}" document
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -118,7 +106,6 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
       onUpdate(docSnap.data() as AppState);
     } else {
       console.log("No user data found, creating new empty state.");
-      // Send empty state so the app stops loading
       onUpdate({
         cards: [],
         transactions: [],
@@ -137,10 +124,7 @@ export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
-    // Firestore throws error on 'undefined' values.
-    // We sanitize data by stringifying and parsing back to JSON, which removes undefined keys.
     const sanitizedData = JSON.parse(JSON.stringify(data));
-
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
   } catch (error) {

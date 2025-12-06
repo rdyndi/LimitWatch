@@ -1596,8 +1596,8 @@ const App: React.FC = () => {
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
         active 
-          ? 'bg-white/40 text-blue-700 shadow-sm border border-white/30 backdrop-blur-sm' 
-          : 'text-slate-600 hover:bg-white/20 hover:text-slate-900'
+          ? 'bg-white/60 text-blue-700 shadow-sm border border-white/50 backdrop-blur-md' 
+          : 'text-slate-600 hover:bg-white/30 hover:text-slate-900'
       }`}
     >
       <span className={active ? 'text-blue-600' : 'text-slate-500'}>{icon}</span>
@@ -2408,9 +2408,9 @@ const App: React.FC = () => {
       {/* ========================================= */}
       {/* MOBILE SUPER APP VIEW (Fixed Layout)      */}
       {/* ========================================= */}
-      <div className="md:hidden fixed inset-0 font-sans flex flex-col bg-white/20 backdrop-blur-3xl">
+      <div className="md:hidden fixed inset-0 font-sans flex flex-col bg-transparent">
         {/* HEADER MOBILE */}
-        <header className="glass-heavy pt-safe px-4 pb-4 shadow-sm z-30 flex-shrink-0">
+        <header className="glass-nav pt-safe px-4 pb-4 shadow-sm z-30 flex-shrink-0">
           <div className="flex justify-between items-center py-2">
              <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-md shadow-blue-500/30">
@@ -3064,7 +3064,7 @@ const App: React.FC = () => {
 
         {/* BOTTOM NAVIGATION MOBILE */}
         <nav 
-            className="glass-heavy border-t border-white/30 fixed bottom-0 w-full z-40 flex justify-around items-start text-[10px] font-medium text-slate-400/80"
+            className="glass-nav fixed bottom-0 w-full z-40 flex justify-around items-start text-[10px] font-medium text-slate-400/80"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', paddingTop: '12px' }}
         >
             <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'home' ? 'text-blue-600' : ''}`}>
