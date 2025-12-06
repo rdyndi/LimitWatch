@@ -302,19 +302,36 @@ const App: React.FC = () => {
     setter(formatIDR(numericVal));
   };
 
-  // Improved calculation logic for report
+  // Improved calculation logic for report with Cutoff Date Logic
   const getMonthlyReportData = (cardId: string, monthIndex: number, year: number) => {
+    // Find the card to check dueDay
+    const card = data.cards.find(c => c.id === cardId);
+    // Default cutoff is end of month if not set (meaning transaction stays in current month)
+    const cutoffDay = card?.dueDay || 31; 
+
     // 1. Expenses
     const monthlyExpenses = data.transactions.filter(t => {
-        const d = new Date(t.date);
-        return t.cardId === cardId &&
-               t.type === TransactionType.EXPENSE &&
-               !t.isInstallment && // Don't double count if it was converted
-               d.getMonth() === monthIndex &&
-               d.getFullYear() === year;
+        if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
+        
+        const tDate = new Date(t.date);
+        let billingMonth = tDate.getMonth();
+        let billingYear = tDate.getFullYear();
+
+        // LOGIC: If transaction date is AFTER due date, it belongs to the NEXT month's bill
+        if (tDate.getDate() > cutoffDay) {
+            billingMonth++;
+            if (billingMonth > 11) {
+                billingMonth = 0;
+                billingYear++;
+            }
+        }
+
+        return billingMonth === monthIndex && billingYear === year;
     });
 
     // 2. Installments
+    // Note: Installments are typically fixed schedule. We assume startDate determines the first month.
+    // Logic updated in handleSaveTransaction to shift startDate if transacting after due date.
     const monthlyInstallments = data.installments.filter(i => {
          if (i.cardId !== cardId) return false;
          const startDate = new Date(i.startDate);
@@ -707,6 +724,18 @@ const App: React.FC = () => {
        }
 
        if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
+          // --- LOGIC: Shift Installment Date if past Due Date ---
+          const selectedCard = data.cards.find(c => c.id === txCardId);
+          let instStartDateObj = new Date(txDate);
+          
+          if (selectedCard && selectedCard.dueDay) {
+              // If transaction happens after due day, billing moves to next month
+              if (instStartDateObj.getDate() > selectedCard.dueDay) {
+                  // Move to next month (Javascript handles year rollover automatically)
+                  instStartDateObj.setMonth(instStartDateObj.getMonth() + 1);
+              }
+          }
+
           const newInstallment: Installment = {
               id: generateId(),
               cardId: txCardId,
@@ -715,7 +744,7 @@ const App: React.FC = () => {
               monthlyAmount: amountVal / txInstallmentMonths,
               totalMonths: txInstallmentMonths,
               monthsPaid: 0,
-              startDate: new Date(txDate).toISOString()
+              startDate: instStartDateObj.toISOString() // Use adjusted date
           };
           updatedInstallments = [newInstallment, ...updatedInstallments];
        }
@@ -2108,13 +2137,13 @@ const App: React.FC = () => {
                            <tbody className="divide-y divide-slate-100">
                               {monthNames.map((month, idx) => {
                                   const reportData = getMonthlyReportData(reportCardId, idx, selectedYear);
-                                  const isCurrentMonth = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
+                                  const isCurrent = idx === new Date().getMonth() && selectedYear === new Date().getFullYear();
                                   
                                   const isEmpty = reportData.expenses.length === 0 && reportData.installments.length === 0 && reportData.totalBill === 0;
 
                                   return (
-                                      <tr key={month} className={`hover:bg-slate-50/50 transition ${isCurrentMonth ? 'bg-blue-50/30' : ''}`}>
-                                          <td className={`p-4 font-bold text-slate-700 align-top ${isCurrentMonth ? 'text-blue-600' : ''}`}>
+                                      <tr key={month} className={`hover:bg-slate-50/50 transition ${isCurrent ? 'bg-blue-50/30' : ''}`}>
+                                          <td className={`p-4 font-bold text-slate-700 align-top ${isCurrent ? 'text-blue-600' : ''}`}>
                                               {month}
                                           </td>
                                           <td className="p-4 align-top">
@@ -2148,7 +2177,7 @@ const App: React.FC = () => {
                                           <td className="p-4 text-right align-top font-bold text-green-600">
                                               {reportData.totalPaid > 0 ? formatIDR(reportData.totalPaid) : '-'}
                                           </td>
-                                          <td className={`p-4 text-right align-top font-bold border-l border-slate-50 ${isCurrentMonth ? 'bg-blue-50/50' : 'bg-slate-50/50'} ${reportData.remaining <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          <td className={`p-4 text-right align-top font-bold border-l border-slate-50 ${isCurrent ? 'bg-blue-50/50' : 'bg-slate-50/50'} ${reportData.remaining <= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                               {formatIDR(Math.max(0, reportData.remaining))}
                                           </td>
                                       </tr>
