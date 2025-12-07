@@ -1,4 +1,3 @@
-
 // @ts-ignore
 import { initializeApp } from "firebase/app";
 import { 
@@ -37,8 +36,7 @@ const messaging = getMessaging(app);
 
 const googleProvider = new GoogleAuthProvider();
 
-// VAPID Key Anda (Key Pair dari Firebase Console)
-// Kunci ini harus sama dengan yang ada di Project Settings > Cloud Messaging > Web Push Certificates
+// VAPID Key Anda
 const VAPID_KEY = "BAF-rI8LoPk1Ga5ryX-P2lXpM8zsidXWfFFFvWB2zqS1OIWV6Nl6lCr8wDvT2ZO9xx5YoN2e98yJXlx3HlaSazE";
 
 // --- Messaging Functions ---
@@ -47,9 +45,14 @@ export const requestFcmToken = async () => {
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
+      // PENTING: Register SW secara eksplisit untuk memastikan file ditemukan di root public
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      
       const currentToken = await getToken(messaging, {
-        vapidKey: VAPID_KEY
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration // Pass registration agar SDK tidak mencari path default yang mungkin 404
       });
+
       if (currentToken) {
         console.log('FCM Token:', currentToken);
         return currentToken;

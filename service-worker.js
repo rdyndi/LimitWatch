@@ -1,9 +1,9 @@
 
 const CACHE_NAME = "limitwatch-cache-v1";
 const urlsToCache = [
-  "./",
-  "./index.html",
-  "./manifest.json"
+  "/",
+  "/index.html",
+  "/manifest.json"
 ];
 
 // Install Service Worker
@@ -12,7 +12,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       // Pre-cache critical assets
-      return cache.addAll(urlsToCache);
+      return cache.addAll(urlsToCache).catch((err) => {
+        console.warn("Cache pre-fetch failed:", err);
+      });
     })
   );
 });
@@ -39,36 +41,23 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   // 1. Network Only for Firebase/Google APIs
-  // Kita tidak ingin me-cache request database/auth karena harus real-time
   if (
     url.hostname.includes("firebase") ||
     url.hostname.includes("googleapis.com") ||
     url.hostname.includes("googleusercontent.com") ||
     url.hostname.includes("identitytoolkit")
   ) {
-    return; // Biarkan browser menangani request ini secara normal (network)
+    return; 
   }
 
   // 2. Cache First / Stale-While-Revalidate for Assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // Jika ada di cache, kembalikan segera
       if (cachedResponse) {
-        // (Optional) Background update: fetch new version and update cache
-        // fetch(event.request).then((networkResponse) => {
-        //   if(networkResponse && networkResponse.status === 200) {
-        //      caches.open(CACHE_NAME).then((cache) => {
-        //          cache.put(event.request, networkResponse.clone());
-        //      });
-        //   }
-        // }).catch(() => {});
-        
         return cachedResponse;
       }
 
-      // Jika tidak ada di cache, ambil dari network
       return fetch(event.request).then((response) => {
-        // Cek jika response valid
         if (
           !response ||
           response.status !== 200 ||
@@ -77,14 +66,14 @@ self.addEventListener("fetch", (event) => {
           return response;
         }
 
-        // Clone response karena stream hanya bisa dikonsumsi sekali
         const responseToCache = response.clone();
-
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
 
         return response;
+      }).catch(() => {
+        // Fallback jika offline dan aset tidak ada di cache (bisa return custom offline page)
       });
     })
   );
