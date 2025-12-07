@@ -3138,8 +3138,8 @@ const App: React.FC = () => {
       {/* TRANSACTION MODAL */}
       {transactionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
-           <div className="glass-panel w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 bg-white/80">
-              <div className="flex justify-between items-center p-4 border-b border-white/40">
+           <div className="glass-panel w-full max-w-md rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-300 bg-white/80">
+              <div className="flex justify-between items-center p-4 border-b border-white/40 shrink-0">
                  <h3 className="font-bold text-lg text-slate-800">
                      {editingTransaction ? 'Edit Transaksi' : 'Catat Transaksi'}
                  </h3>
@@ -3148,7 +3148,7 @@ const App: React.FC = () => {
                  </button>
               </div>
               
-              <form onSubmit={handleSaveTransaction} className="p-5 space-y-5">
+              <form onSubmit={handleSaveTransaction} className="p-5 space-y-5 overflow-y-auto">
                  {/* Type Toggle */}
                  <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-white/50">
                     <button 
