@@ -104,6 +104,86 @@ interface NotificationItem {
   date: string;
 }
 
+// --- REUSABLE PROFILE COMPONENT ---
+const ProfileDropdown = ({ user, onLogout }: { user: User, onLogout: () => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscKey = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            setIsOpen(false);
+        }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+      document.addEventListener("keydown", handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleEscKey);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={menuRef}>
+        <button 
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel p-0.5 overflow-hidden hover:scale-105 transition-transform cursor-pointer shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            aria-label="User Menu"
+            aria-expanded={isOpen}
+        >
+            {user.photoURL ? (
+            <img src={user.photoURL} alt="User" className="w-full h-full rounded-full object-cover"/>
+            ) : (
+            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                <UserIcon className="text-slate-500 w-5 h-5 md:w-6 md:h-6"/>
+            </div>
+            )}
+        </button>
+
+        {isOpen && (
+            <div className="absolute right-0 mt-3 w-64 glass-panel rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 ring-1 ring-white/60">
+                <div className="p-5 border-b border-white/30 bg-white/30 backdrop-blur-xl">
+                    <p className="font-bold text-slate-800 text-base truncate">{user.displayName || 'Pengguna'}</p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{user.email}</p>
+                </div>
+                <div className="p-3 bg-white/40 backdrop-blur-lg">
+                    <button 
+                        onClick={() => {
+                            setIsOpen(false);
+                            // Navigate to profile if needed, or just close
+                        }} 
+                        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-white/60 rounded-xl flex items-center gap-3 font-medium transition-colors mb-1"
+                    >
+                        <Settings size={18} className="text-slate-500" /> Pengaturan Akun
+                    </button>
+                    <button 
+                        onClick={() => {
+                            onLogout();
+                            setIsOpen(false);
+                        }} 
+                        className="w-full text-left px-4 py-3 text-sm text-red-600 bg-red-50/50 hover:bg-red-100/80 rounded-xl flex items-center gap-3 font-bold transition-colors border border-red-100/30"
+                    >
+                        <LogOut size={18} /> Keluar Aplikasi
+                    </button>
+                </div>
+            </div>
+        )}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [data, setData] = useState<AppState>({
@@ -131,9 +211,6 @@ const App: React.FC = () => {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState<NotificationItem | null>(null);
-  
-  // Profile Menu State (Mobile & Desktop)
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'report' | 'profile' | 'wallets' | 'bills'>('home');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -1713,32 +1790,8 @@ const App: React.FC = () => {
                     </button>
                  </div>
 
-                 {/* Profile Dropdown */}
-                 <div className="relative">
-                     <button 
-                       onClick={() => setShowProfileMenu(!showProfileMenu)}
-                       className="w-12 h-12 rounded-full glass-panel p-0.5 overflow-hidden hover:scale-105 transition-transform cursor-pointer"
-                     >
-                         {user.photoURL ? (
-                           <img src={user.photoURL} alt="User" className="w-full h-full rounded-full object-cover"/>
-                         ) : (
-                           <UserIcon className="m-3 text-slate-500"/>
-                         )}
-                     </button>
-                     {showProfileMenu && (
-                        <div className="absolute right-0 top-14 w-64 glass-panel rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                           <div className="p-4 border-b border-white/30 bg-white/20">
-                              <p className="font-bold text-slate-800 text-sm truncate">{user.displayName || 'Pengguna'}</p>
-                              <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                           </div>
-                           <div className="p-2">
-                              <button onClick={() => {logout(); setShowProfileMenu(false);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50/50 rounded-xl flex items-center gap-2 font-medium transition-colors">
-                                 <LogOut size={16} /> Keluar Aplikasi
-                              </button>
-                           </div>
-                        </div>
-                     )}
-                 </div>
+                 {/* Profile Dropdown Component */}
+                 <ProfileDropdown user={user} onLogout={logout} />
               </div>
            </header>
 
@@ -2423,23 +2476,11 @@ const App: React.FC = () => {
                      <Bell size={20} className="text-slate-600" />
                      {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
                  </button>
-                 <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-8 h-8 rounded-full border border-white/50 overflow-hidden shadow-sm">
-                     {user.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full object-cover"/> : <UserIcon className="p-1.5 text-slate-500 bg-slate-100"/>}
-                 </button>
+                 
+                 {/* Mobile Profile Dropdown */}
+                 <ProfileDropdown user={user} onLogout={logout} />
              </div>
           </div>
-          {/* Mobile Profile Dropdown */}
-          {showProfileMenu && (
-              <div className="absolute top-16 right-4 w-56 glass-panel rounded-2xl shadow-xl z-50 text-slate-800 animate-in fade-in slide-in-from-top-2">
-                  <div className="p-4 border-b border-white/30 bg-white/30">
-                      <p className="font-bold text-sm truncate">{user.displayName || 'Pengguna'}</p>
-                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                  </div>
-                  <button onClick={() => {logout(); setShowProfileMenu(false);}} className="w-full text-left p-4 text-sm text-red-600 flex items-center gap-2 font-medium hover:bg-red-50/50">
-                      <LogOut size={16}/> Keluar
-                  </button>
-              </div>
-          )}
         </header>
 
         {/* CONTENT MOBILE (Scrollable Area) */}
