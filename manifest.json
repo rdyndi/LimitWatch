@@ -1,3 +1,4 @@
+
 {
   "short_name": "LimitWatch",
   "name": "LimitWatch - Keuangan Cerdas",
@@ -14,7 +15,8 @@
       "type": "image/svg+xml"
     }
   ],
-  "start_url": ".",
+  "start_url": "./",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#4F46E5",
   "background_color": "#f8fafc",
