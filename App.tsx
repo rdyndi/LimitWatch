@@ -105,7 +105,7 @@ interface NotificationItem {
 }
 
 // --- REUSABLE PROFILE COMPONENT ---
-const ProfileDropdown = ({ user, onLogout }: { user: User, onLogout: () => void }) => {
+const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout: () => void, onNavigate: () => void }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -162,11 +162,11 @@ const ProfileDropdown = ({ user, onLogout }: { user: User, onLogout: () => void 
                     <button 
                         onClick={() => {
                             setIsOpen(false);
-                            // Navigate to profile if needed, or just close
+                            onNavigate();
                         }} 
                         className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-white/60 rounded-xl flex items-center gap-3 font-medium transition-colors mb-1"
                     >
-                        <Settings size={18} className="text-slate-500" /> Pengaturan Akun
+                        <Settings size={18} className="text-slate-500" /> Akun & Pengaturan
                     </button>
                     <button 
                         onClick={() => {
@@ -233,8 +233,8 @@ const App: React.FC = () => {
   const maxVerticalDistance = 30; // Maximum allowed vertical scroll during swipe
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-  // Drag & Drop Mobile Menu States
-  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'wallets', 'laporan', 'kartu', 'tabungan', 'history', 'bills', 'profile']);
+  // Drag & Drop Mobile Menu States - REMOVED redundant items and 'profile' (moved to dropdown)
+  const [menuOrder, setMenuOrder] = useState<string[]>(['cicilan', 'wallets', 'laporan', 'bills']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
@@ -1791,7 +1791,7 @@ const App: React.FC = () => {
                  </div>
 
                  {/* Profile Dropdown Component */}
-                 <ProfileDropdown user={user} onLogout={logout} />
+                 <ProfileDropdown user={user} onLogout={logout} onNavigate={() => setMobileTab('profile')} />
               </div>
            </header>
 
@@ -2199,7 +2199,7 @@ const App: React.FC = () => {
                  </button>
                  
                  {/* Mobile Profile Dropdown */}
-                 <ProfileDropdown user={user} onLogout={logout} />
+                 <ProfileDropdown user={user} onLogout={logout} onNavigate={() => setMobileTab('profile')} />
              </div>
           </div>
         </header>
