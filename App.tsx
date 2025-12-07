@@ -2045,7 +2045,7 @@ const App: React.FC = () => {
                             {filteredTransactions.map(t => {
                                 const card = data.cards.find(c => c.id === t.cardId);
                                 return (
-                                    <tr onClick={() => handleEditClick(t)} key={t.id} className="border-b border-white/20 hover:bg-white/40 cursor-pointer transition-colors last:border-0">
+                                    <tr onClick={() => handleEditClick(t)} key={t.id} className="border-b border-white/20 hover:bg-white/40 cursor-pointer transition-colors transition-colors last:border-0">
                                         <td className="p-5 text-center" onClick={(e) => handleToggleValidation(e, t.id)}>
                                             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-all ${t.isValidated ? 'bg-green-500 border-green-500 text-white shadow-md' : 'border-slate-300 text-transparent hover:border-green-400 bg-white/50'}`}>
                                                 <Check size={14} strokeWidth={3} />
@@ -2813,21 +2813,11 @@ const App: React.FC = () => {
              </div>
           )}
         </div>
-        
-        {/* Floating Action Button (Mobile) */}
-        {mobileTab === 'home' && (
-            <button 
-                onClick={openAddTransactionModal}
-                className="absolute bottom-24 right-4 btn-liquid text-white w-14 h-14 rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center z-40 active:scale-90 transition-transform"
-            >
-                <PlusCircle size={28} />
-            </button>
-        )}
 
         {/* BOTTOM NAVIGATION MOBILE */}
         <nav 
-            className="glass-nav fixed bottom-0 w-full z-40 flex justify-around items-start text-[10px] font-medium text-slate-400/80"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', paddingTop: '12px' }}
+            className="glass-nav fixed bottom-0 w-full z-40 flex justify-around items-center text-[10px] font-medium text-slate-400/80"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', paddingTop: '12px', height: 'calc(70px + env(safe-area-inset-bottom))' }}
         >
             <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'home' ? 'text-indigo-600' : ''}`}>
                 <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
@@ -2837,10 +2827,17 @@ const App: React.FC = () => {
                 <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
                 <span>Kartu</span>
             </button>
-            <button onClick={() => setMobileTab('wallets')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'wallets' ? 'text-indigo-600' : ''}`}>
-                <WalletCards size={24} strokeWidth={mobileTab === 'wallets' ? 2.5 : 2} />
-                <span>Dompet</span>
-            </button>
+            
+            {/* CENTER ADD BUTTON */}
+            <div className="relative -top-5">
+                <button 
+                    onClick={openAddTransactionModal}
+                    className="btn-liquid text-white w-14 h-14 rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-white/50"
+                >
+                    <PlusCircle size={28} />
+                </button>
+            </div>
+
             <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'savings' ? 'text-indigo-600' : ''}`}>
                 <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
                 <span>Tabungan</span>
