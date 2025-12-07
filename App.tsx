@@ -2206,7 +2206,7 @@ const App: React.FC = () => {
 
         {/* CONTENT MOBILE (Scrollable Area) */}
         <div 
-          className="flex-1 overflow-y-auto pb-24"
+          className="flex-1 overflow-y-auto pb-32"
           onTouchStart={mobileTab === 'savings' ? onTouchStart : undefined}
           onTouchMove={mobileTab === 'savings' ? onTouchMove : undefined}
           onTouchEnd={mobileTab === 'savings' ? onTouchEnd : undefined}
@@ -2814,37 +2814,36 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* BOTTOM NAVIGATION MOBILE */}
+        {/* BOTTOM NAVIGATION MOBILE (Floating Pill) */}
         <nav 
-            className="glass-nav fixed bottom-0 w-full z-40 flex justify-around items-center text-[10px] font-medium text-slate-400/80"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', paddingTop: '12px', height: 'calc(70px + env(safe-area-inset-bottom))' }}
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/65 backdrop-blur-xl saturate-150 rounded-[40px] shadow-[0_8px_32px_rgba(99,102,241,0.15)] border border-white/50 z-50 flex justify-between items-center px-6"
         >
-            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'home' ? 'text-indigo-600' : ''}`}>
-                <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-                <span>Beranda</span>
+            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
+                <span className="text-[9px] font-bold">Beranda</span>
             </button>
-            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'cards' ? 'text-indigo-600' : ''}`}>
-                <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-                <span>Kartu</span>
+            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'cards' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
+                <span className="text-[9px] font-bold">Kartu</span>
             </button>
             
-            {/* CENTER ADD BUTTON */}
-            <div className="relative -top-5">
+            {/* CENTER ADD BUTTON (Floating Out) */}
+            <div className="relative -mt-10">
                 <button 
                     onClick={openAddTransactionModal}
-                    className="btn-liquid text-white w-14 h-14 rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-white/50"
+                    className="btn-liquid w-16 h-16 rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-white/50"
                 >
-                    <PlusCircle size={28} />
+                    <PlusCircle size={32} strokeWidth={2.5} className="text-white" />
                 </button>
             </div>
 
-            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'savings' ? 'text-indigo-600' : ''}`}>
-                <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
-                <span>Tabungan</span>
+            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'savings' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <Coins size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
+                <span className="text-[9px] font-bold">Tabungan</span>
             </button>
-            <button onClick={() => setMobileTab('history')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'history' ? 'text-indigo-600' : ''}`}>
-                <History size={24} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
-                <span>Riwayat</span>
+            <button onClick={() => setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'history' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <History size={22} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
+                <span className="text-[9px] font-bold">Riwayat</span>
             </button>
         </nav>
       </div>
