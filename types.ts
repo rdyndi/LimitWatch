@@ -57,8 +57,6 @@ export interface Saving {
 }
 
 export interface AppState {
-  username?: string; // Optional karena user lama mungkin belum punya
-  email?: string; // Untuk keperluan lookup username
   cards: CreditCard[];
   transactions: Transaction[];
   installments: Installment[];
