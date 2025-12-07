@@ -45,9 +45,9 @@ export const requestFcmToken = async () => {
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      // PENTING: Register SW secara eksplisit di root
-      // Gunakan scope '/' untuk memastikan SW mengontrol seluruh aplikasi
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
+      // Tunggu hingga Service Worker utama benar-benar aktif (ready)
+      // Ini menjamin kita menggunakan SW yang sama dengan PWA cache dan menghindari race condition
+      const registration = await navigator.serviceWorker.ready;
       
       const currentToken = await getToken(messaging, {
         vapidKey: VAPID_KEY,

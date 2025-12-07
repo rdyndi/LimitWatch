@@ -1,9 +1,42 @@
-const CACHE_NAME = "limitwatch-cache-v1";
-// Menggunakan path relatif atau root yang pasti ada
+importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
+
+// Inisialisasi Firebase di dalam Service Worker
+const firebaseConfig = {
+  apiKey: "AIzaSyALzhraAqiH0_50nOOIQUY1WZd9tStajB8",
+  authDomain: "dompetcerdas-4490e.firebaseapp.com",
+  projectId: "dompetcerdas-4490e",
+  storageBucket: "dompetcerdas-4490e.firebasestorage.app",
+  messagingSenderId: "720070434008",
+  appId: "1:720070434008:web:f5b001e1455374e0798bad",
+  measurementId: "G-Z6MRN5Z18X"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const messaging = firebase.messaging();
+
+// Handler notifikasi background
+messaging.onBackgroundMessage((payload) => {
+  console.log('[service-worker.js] Received background message ', payload);
+  
+  const notificationTitle = payload.notification ? payload.notification.title : 'Notifikasi LimitWatch';
+  const notificationOptions = {
+    body: payload.notification ? payload.notification.body : 'Pesan baru masuk.',
+    icon: '/favicon.ico', // Pastikan icon tersedia
+    badge: '/favicon.ico'
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// --- Logika PWA Caching ---
+
+const CACHE_NAME = "limitwatch-cache-v2"; // Increment version
 const urlsToCache = [
-  "./",
-  "./index.html",
-  "./manifest.json"
+  "/",
+  "/index.html",
+  "/manifest.json"
 ];
 
 // Install Service Worker
@@ -12,13 +45,13 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(urlsToCache).catch((err) => {
-        // Abaikan error cache pre-fetch agar tidak memblokir instalasi
         console.warn("Pre-fetch cache failed, continuing...", err);
       });
     })
   );
 });
 
+// Activate Service Worker
 self.addEventListener("activate", (event) => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -35,6 +68,7 @@ self.addEventListener("activate", (event) => {
   self.clients.claim(); 
 });
 
+// Fetch Strategy
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
