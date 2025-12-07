@@ -36,7 +36,7 @@ const messaging = getMessaging(app);
 
 const googleProvider = new GoogleAuthProvider();
 
-// VAPID Key Anda
+// VAPID Key Anda (Pastikan tidak ada spasi)
 const VAPID_KEY = "BAF-rI8LoPk1Ga5ryX-P2lXpM8zsidXWfFFFvWB2zqS1OIWV6Nl6lCr8wDvT2ZO9xx5YoN2e98yJXlx3HlaSazE";
 
 // --- Messaging Functions ---
@@ -45,12 +45,13 @@ export const requestFcmToken = async () => {
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      // PENTING: Register SW secara eksplisit untuk memastikan file ditemukan di root public
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      // PENTING: Register SW secara eksplisit di root
+      // Gunakan scope '/' untuk memastikan SW mengontrol seluruh aplikasi
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
       
       const currentToken = await getToken(messaging, {
         vapidKey: VAPID_KEY,
-        serviceWorkerRegistration: registration // Pass registration agar SDK tidak mencari path default yang mungkin 404
+        serviceWorkerRegistration: registration 
       });
 
       if (currentToken) {
@@ -65,7 +66,7 @@ export const requestFcmToken = async () => {
       return null;
     }
   } catch (err) {
-    console.log('An error occurred while retrieving token. ', err);
+    console.error('An error occurred while retrieving token: ', err);
     return null;
   }
 };

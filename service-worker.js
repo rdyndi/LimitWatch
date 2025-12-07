@@ -1,25 +1,24 @@
-
 const CACHE_NAME = "limitwatch-cache-v1";
+// Menggunakan path relatif atau root yang pasti ada
 const urlsToCache = [
-  "/",
-  "/index.html",
-  "/manifest.json"
+  "./",
+  "./index.html",
+  "./manifest.json"
 ];
 
 // Install Service Worker
 self.addEventListener("install", (event) => {
-  self.skipWaiting(); // Force waiting service worker to become active
+  self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Pre-cache critical assets
       return cache.addAll(urlsToCache).catch((err) => {
-        console.warn("Cache pre-fetch failed:", err);
+        // Abaikan error cache pre-fetch agar tidak memblokir instalasi
+        console.warn("Pre-fetch cache failed, continuing...", err);
       });
     })
   );
 });
 
-// Activate Service Worker
 self.addEventListener("activate", (event) => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -33,14 +32,13 @@ self.addEventListener("activate", (event) => {
       );
     })
   );
-  self.clients.claim(); // Take control of all clients immediately
+  self.clients.claim(); 
 });
 
-// Fetch Strategy: Stale-While-Revalidate for assets, Network Only for APIs
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Network Only for Firebase/Google APIs
+  // Network Only untuk API
   if (
     url.hostname.includes("firebase") ||
     url.hostname.includes("googleapis.com") ||
@@ -50,31 +48,26 @@ self.addEventListener("fetch", (event) => {
     return; 
   }
 
-  // 2. Cache First / Stale-While-Revalidate for Assets
+  // Stale-While-Revalidate untuk aset
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((response) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
         if (
-          !response ||
-          response.status !== 200 ||
-          (response.type !== "basic" && response.type !== "cors")
+          networkResponse &&
+          networkResponse.status === 200 &&
+          (networkResponse.type === "basic" || networkResponse.type === "cors")
         ) {
-          return response;
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
-        return response;
+        return networkResponse;
       }).catch(() => {
-        // Fallback jika offline dan aset tidak ada di cache (bisa return custom offline page)
+         // Network failed
       });
+
+      return cachedResponse || fetchPromise;
     })
   );
 });

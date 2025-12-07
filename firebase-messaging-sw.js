@@ -1,9 +1,6 @@
-
-// Mengimpor script Firebase versi Compat agar bisa berjalan di Worker Context via CDN
 importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
 
-// Konfigurasi Firebase Anda
 const firebaseConfig = {
   apiKey: "AIzaSyALzhraAqiH0_50nOOIQUY1WZd9tStajB8",
   authDomain: "dompetcerdas-4490e.firebaseapp.com",
@@ -14,21 +11,18 @@ const firebaseConfig = {
   measurementId: "G-Z6MRN5Z18X"
 };
 
-// Initialize Firebase dalam Service Worker
 firebase.initializeApp(firebaseConfig);
 
-// Initialize Messaging
 const messaging = firebase.messaging();
 
-// Handler untuk pesan yang diterima saat aplikasi sedang di background atau tertutup
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const notificationTitle = payload.notification ? payload.notification.title : 'Notifikasi LimitWatch';
   const notificationOptions = {
     body: payload.notification ? payload.notification.body : 'Anda memiliki pesan baru.',
-    // Hapus icon jika file tidak ada untuk menghindari 404, atau gunakan icon default browser
-    // icon: '/icon-192x192.png' 
+    // Menghapus referensi icon yang mungkin 404
+    icon: '/favicon.ico' 
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
