@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { 
   AppState, 
@@ -17,7 +18,9 @@ import {
   subscribeToAuth, 
   subscribeToAppState, 
   saveAppState,
-  getEmailByUsername
+  getEmailByUsername,
+  requestFcmToken,
+  onMessageListener
 } from "./services/firebase";
 import { User } from "firebase/auth";
 import html2canvas from "html2canvas";
@@ -319,11 +322,31 @@ const App: React.FC = () => {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Meminta Izin Notifikasi & Token saat aplikasi dimuat
+    requestFcmToken();
+    
+    // Listener untuk notifikasi saat aplikasi sedang dibuka (Foreground)
+    const unsubscribeMessage = onMessageListener().then((payload: any) => {
+        if (payload && payload.notification) {
+            setToastMessage({
+                id: generateId(),
+                type: 'info',
+                title: payload.notification.title || 'Info',
+                message: payload.notification.body || 'Pesan baru masuk',
+                date: new Date().toISOString()
+            });
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 5000);
+        }
+    });
+
     const unsubscribe = subscribeToAuth((u) => {
         setUser(u);
         setAuthChecking(false);
     });
-    return () => unsubscribe();
+    return () => {
+        unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -2276,8 +2299,8 @@ const App: React.FC = () => {
         >
           {/* TOAST NOTIFICATION */}
           {showToast && toastMessage && (
-            <div className="mx-4 mt-4 glass-panel border-l-4 border-red-500 px-4 py-3 rounded-xl shadow-xl flex items-start gap-3 animate-in slide-in-from-top-5 fade-in duration-300 z-50 bg-white/90">
-                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+            <div className="mx-4 mt-4 glass-panel border-l-4 border-indigo-500 px-4 py-3 rounded-xl shadow-xl flex items-start gap-3 animate-in slide-in-from-top-5 fade-in duration-300 z-50 bg-white/90">
+                <BellRing className="text-indigo-500 shrink-0 mt-0.5" size={18} />
                 <div>
                     <p className="font-bold text-sm text-slate-800">{toastMessage.title}</p>
                     <p className="text-xs text-slate-500">{toastMessage.message}</p>

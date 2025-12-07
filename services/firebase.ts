@@ -1,3 +1,4 @@
+
 // @ts-ignore
 import { initializeApp } from "firebase/app";
 import { 
@@ -13,6 +14,8 @@ import {
 } from "firebase/auth";
 // @ts-ignore
 import { getFirestore, doc, onSnapshot, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+// @ts-ignore
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { AppState } from "../types";
 
 // Your web app's Firebase configuration
@@ -30,8 +33,47 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
 
 const googleProvider = new GoogleAuthProvider();
+
+// VAPID Key Anda (Key Pair dari Firebase Console)
+// Kunci ini harus sama dengan yang ada di Project Settings > Cloud Messaging > Web Push Certificates
+const VAPID_KEY = "BAF-rI8LoPk1Ga5ryX-P2lXpM8zsidXWfFFFvWB2zqS1OIWV6Nl6lCr8wDvT2ZO9xx5YoN2e98yJXlx3HlaSazE";
+
+// --- Messaging Functions ---
+
+export const requestFcmToken = async () => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      const currentToken = await getToken(messaging, {
+        vapidKey: VAPID_KEY
+      });
+      if (currentToken) {
+        console.log('FCM Token:', currentToken);
+        return currentToken;
+      } else {
+        console.log('No registration token available. Request permission to generate one.');
+        return null;
+      }
+    } else {
+      console.log('Unable to get permission to notify.');
+      return null;
+    }
+  } catch (err) {
+    console.log('An error occurred while retrieving token. ', err);
+    return null;
+  }
+};
+
+export const onMessageListener = () => {
+  return new Promise((resolve) => {
+    onMessage(messaging, (payload: any) => {
+      resolve(payload);
+    });
+  });
+};
 
 // --- Auth Functions ---
 
@@ -146,4 +188,4 @@ export const saveAppState = async (userId: string, data: AppState) => {
   }
 };
 
-export { app, db, auth };
+export { app, db, auth, messaging };
