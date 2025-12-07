@@ -57,6 +57,8 @@ export interface Saving {
 }
 
 export interface AppState {
+  username?: string; // New field for login
+  email?: string; // New field for lookup
   cards: CreditCard[];
   transactions: Transaction[];
   installments: Installment[];

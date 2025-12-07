@@ -12,12 +12,7 @@ import {
   User 
 } from "firebase/auth";
 // @ts-ignore
-import { 
-  getFirestore, 
-  doc, 
-  onSnapshot, 
-  setDoc
-} from "firebase/firestore";
+import { getFirestore, doc, onSnapshot, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { AppState } from "../types";
 
 // Your web app's Firebase configuration
@@ -96,6 +91,24 @@ export const subscribeToAuth = (callback: (user: User | null) => void) => {
 };
 
 // --- Database Functions ---
+
+export const getEmailByUsername = async (username: string): Promise<string | null> => {
+  try {
+    const usersRef = collection(db, "users");
+    // Query users where username matches
+    const q = query(usersRef, where("username", "==", username));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const userData = querySnapshot.docs[0].data() as AppState;
+      return userData.email || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error finding username:", error);
+    return null;
+  }
+};
 
 export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
   if (!userId) return () => {};

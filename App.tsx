@@ -16,7 +16,8 @@ import {
   logout, 
   subscribeToAuth, 
   subscribeToAppState, 
-  saveAppState 
+  saveAppState,
+  getEmailByUsername
 } from "./services/firebase";
 import { User } from "firebase/auth";
 import html2canvas from "html2canvas";
@@ -72,7 +73,8 @@ import {
   Receipt,
   Share2,
   ReceiptText,
-  Info
+  Info,
+  AtSign
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -239,12 +241,15 @@ const App: React.FC = () => {
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
-  const [email, setEmail] = useState('');
+  const [authInput, setAuthInput] = useState(''); // Email or Username
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Profile Settings State
+  const [newUsername, setNewUsername] = useState('');
 
   // Transaction Form State
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
@@ -323,7 +328,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToAppState(user.uid, setData);
+      const unsubscribe = subscribeToAppState(user.uid, (fetchedData) => {
+          // Check if we need to sync email or if data is empty
+          if (fetchedData && !fetchedData.email && user.email) {
+               saveAppState(user.uid, { ...fetchedData, email: user.email });
+          }
+          setData(fetchedData);
+          if (fetchedData.username) setNewUsername(fetchedData.username);
+      });
       return () => unsubscribe();
     } else {
       setData({ cards: [], transactions: [], installments: [], savings: [], wallets: [] });
@@ -607,6 +619,17 @@ const App: React.FC = () => {
     if (user) {
       saveAppState(user.uid, newData);
     }
+  };
+
+  const handleUpdateUsername = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newUsername || newUsername.length < 3) {
+          alert("Username minimal 3 karakter");
+          return;
+      }
+      // Simple check to ensure we don't save empty
+      saveData({ ...data, username: newUsername });
+      alert("Username berhasil diperbarui!");
   };
 
   const openInstallmentModal = () => {
@@ -1406,20 +1429,36 @@ const App: React.FC = () => {
     setAuthLoading(true);
     try {
       if (isRegistering) {
-        await registerWithEmail(email, password);
+        // Registration is strictly Email for now, Username can be set in profile
+        if (!authInput.includes('@')) {
+             throw new Error("Pendaftaran wajib menggunakan Email.");
+        }
+        await registerWithEmail(authInput, password);
         if (displayName) {
              await updateUserProfile(displayName);
         }
       } else {
-        await loginWithEmail(email, password);
+        // LOGIN LOGIC: Check if input is Email or Username
+        let loginEmail = authInput;
+        
+        if (!authInput.includes('@')) {
+             // Treat as Username
+             const foundEmail = await getEmailByUsername(authInput);
+             if (!foundEmail) {
+                 throw new Error("Username tidak ditemukan.");
+             }
+             loginEmail = foundEmail;
+        }
+
+        await loginWithEmail(loginEmail, password);
       }
     } catch (err: any) {
       console.error(err);
-      let msg = "Terjadi kesalahan.";
+      let msg = err.message || "Terjadi kesalahan.";
       if (err.code === 'auth/invalid-email') msg = "Format email tidak valid.";
-      if (err.code === 'auth/user-not-found') msg = "Akun tidak ditemukan. Silakan daftar.";
+      if (err.code === 'auth/user-not-found') msg = "Akun tidak ditemukan.";
       if (err.code === 'auth/wrong-password') msg = "Password salah.";
-      if (err.code === 'auth/invalid-credential') msg = "Email atau password salah.";
+      if (err.code === 'auth/invalid-credential') msg = "Email/Username atau password salah.";
       if (err.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar.";
       if (err.code === 'auth/weak-password') msg = "Password terlalu lemah (min 6 karakter).";
       setAuthError(msg);
@@ -1609,15 +1648,16 @@ const App: React.FC = () => {
             
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                <Mail size={18} />
+                {/* Change icon based on registering state */}
+                {isRegistering ? <Mail size={18} /> : <UserIcon size={18} />}
               </div>
               <input 
-                type="email" 
+                type={isRegistering ? "email" : "text"}
                 required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={authInput}
+                onChange={(e) => setAuthInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 glass-input rounded-xl outline-none text-sm placeholder:text-slate-400 text-slate-800"
-                placeholder="Alamat Email"
+                placeholder={isRegistering ? "Alamat Email" : "Email atau Username"}
               />
             </div>
 
@@ -1677,7 +1717,7 @@ const App: React.FC = () => {
                 onClick={() => {
                   setIsRegistering(!isRegistering);
                   setAuthError('');
-                  setEmail('');
+                  setAuthInput('');
                   setPassword('');
                 }}
                 className="text-indigo-600 font-bold hover:text-indigo-700 transition"
@@ -2806,11 +2846,29 @@ const App: React.FC = () => {
                      </div>
                      <h3 className="font-bold text-xl text-slate-800">{user.displayName || 'Pengguna'}</h3>
                      <p className="text-slate-500 text-sm mb-6 font-medium">{user.email}</p>
+
+                     {/* Username Settings */}
+                     <form onSubmit={handleUpdateUsername} className="mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 text-left space-y-3">
+                        <div>
+                             <label className="text-xs font-bold text-slate-500 block mb-1">Username Login</label>
+                             <div className="relative">
+                                 <AtSign size={16} className="absolute left-3 top-3 text-slate-400"/>
+                                 <input 
+                                    type="text" 
+                                    value={newUsername}
+                                    onChange={(e) => setNewUsername(e.target.value.trim())}
+                                    placeholder="Buat username..."
+                                    className="w-full glass-input rounded-xl py-2 pl-9 pr-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-200"
+                                 />
+                             </div>
+                             <p className="text-[10px] text-slate-400 mt-1">*Gunakan username ini untuk login selain email.</p>
+                        </div>
+                        <button type="submit" className="w-full bg-white text-indigo-600 border border-indigo-200 py-2 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors">
+                            Simpan Username
+                        </button>
+                     </form>
                      
                      <div className="space-y-3">
-                         <button className="w-full py-3 bg-white/50 text-slate-700 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white transition-colors border border-white/40">
-                             <Settings size={18}/> Pengaturan
-                         </button>
                          <button className="w-full py-3 bg-white/50 text-slate-700 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white transition-colors border border-white/40">
                              <Shield size={18}/> Keamanan
                          </button>
