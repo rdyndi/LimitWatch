@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#4F46E5" />
+    <meta name="theme-color" content="#8B5CF6" />
     <meta name="description" content="Aplikasi manajemen kartu kredit dan hutang cerdas" />
     
     <!-- iOS Meta Tags for PWA -->
@@ -17,8 +17,8 @@
     <link rel="manifest" href="./manifest.json" />
     
     <!-- Custom Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234F46E5'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234F46E5'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%238B5CF6'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%238B5CF6'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,28 +27,25 @@
         theme: {
           extend: {
             colors: {
-              primary: '#4F46E5', // Indigo-600
-              // Override default blue with Indigo/Blurple shades
-              blue: {
-                50: '#eef2ff',
-                100: '#e0e7ff',
-                200: '#c7d2fe',
-                300: '#a5b4fc',
-                400: '#818cf8',
-                500: '#6366f1',
-                600: '#4f46e5',
-                700: '#4338ca',
-                800: '#3730a3',
-                900: '#312e81',
-                950: '#1e1b4b',
+              primary: '#8B5CF6', // Violet-500
+              secondary: '#EC4899', // Pink-500
+              glass: {
+                100: 'rgba(255, 255, 255, 0.1)',
+                200: 'rgba(255, 255, 255, 0.2)',
+                300: 'rgba(255, 255, 255, 0.3)',
+                400: 'rgba(255, 255, 255, 0.4)',
+                500: 'rgba(255, 255, 255, 0.5)',
               },
-              secondary: '#8E8E93',
               danger: '#FF3B30',
               success: '#34C759',
               warning: '#FFCC00',
             },
             fontFamily: {
               sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            },
+            boxShadow: {
+              'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+              'glow': '0 0 20px rgba(139, 92, 246, 0.3)',
             }
           }
         }
@@ -57,7 +54,7 @@
 
     <!-- Font Inter -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
@@ -77,14 +74,22 @@
         -webkit-tap-highlight-color: transparent;
       }
       
-      /* Liquid Aurora Background */
+      /* Liquid Aurora Background - Premium Purple/Pink Gradient */
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #0F0F1E;
+        background: linear-gradient(135deg, #c4b5fd 0%, #e879f9 50%, #818cf8 100%);
+        background-size: 200% 200%;
+        animation: gradientBG 15s ease infinite;
         color: #1e293b;
       }
 
-      /* Animated Mesh Background */
+      @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      /* Animated Mesh Background - Softer, Lighter */
       .ambient-light {
         position: fixed;
         top: 0;
@@ -92,7 +97,8 @@
         width: 100vw;
         height: 100vh;
         z-index: -2;
-        background: radial-gradient(circle at center, #f8fafc, #eef2ff);
+        background: radial-gradient(circle at top left, #f3e8ff, transparent),
+                    radial-gradient(circle at bottom right, #fce7f3, transparent);
         overflow: hidden;
       }
       
@@ -100,17 +106,16 @@
         position: absolute;
         border-radius: 50%;
         filter: blur(80px);
-        opacity: 0.6;
+        opacity: 0.5;
         animation: float 20s infinite ease-in-out alternate;
         will-change: transform;
       }
 
-      /* iOS 18 Style Gradients - Modified for Purple/Indigo Theme */
+      /* Orb colors adjusted for Purple/Pink/Blue theme */
       .orb-1 {
         width: 80vw;
         height: 80vw;
-        /* Changed from Blue to Indigo/Violet */
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0) 70%);
+        background: radial-gradient(circle, rgba(167, 139, 250, 0.6) 0%, rgba(167, 139, 250, 0) 70%); /* Violet */
         top: -20%;
         left: -20%;
         animation-duration: 25s;
@@ -119,7 +124,7 @@
       .orb-2 {
         width: 90vw;
         height: 90vw;
-        background: radial-gradient(circle, rgba(244, 114, 182, 0.8) 0%, rgba(244, 114, 182, 0) 70%);
+        background: radial-gradient(circle, rgba(244, 114, 182, 0.6) 0%, rgba(244, 114, 182, 0) 70%); /* Pink */
         bottom: -20%;
         right: -20%;
         animation-duration: 30s;
@@ -129,7 +134,7 @@
       .orb-3 {
         width: 60vw;
         height: 60vw;
-        background: radial-gradient(circle, rgba(167, 139, 250, 0.8) 0%, rgba(167, 139, 250, 0) 70%);
+        background: radial-gradient(circle, rgba(129, 140, 248, 0.5) 0%, rgba(129, 140, 248, 0) 70%); /* Indigo */
         top: 40%;
         left: 30%;
         animation-duration: 20s;
@@ -139,7 +144,7 @@
       .orb-4 {
         width: 50vw;
         height: 50vw;
-        background: radial-gradient(circle, rgba(52, 211, 153, 0.6) 0%, rgba(52, 211, 153, 0) 70%);
+        background: radial-gradient(circle, rgba(216, 180, 254, 0.5) 0%, rgba(216, 180, 254, 0) 70%); /* Lavender */
         bottom: 10%;
         left: 10%;
         animation-duration: 28s;
@@ -155,45 +160,54 @@
 
       /* --- Liquid Glass Utilities --- */
 
-      /* Base Glass Panel - Ultra premium */
+      /* Premium Glass Panel */
       .glass-panel {
-        background: rgba(255, 255, 255, 0.65);
-        backdrop-filter: blur(24px) saturate(180%);
-        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05);
+      }
+      
+      /* Glass Box for Icons */
+      .glass-box {
+        background: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.5);
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
       }
 
       /* Darker/Heavy Glass (for Sidebars/Navs) */
       .glass-heavy {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(40px) saturate(200%);
-        -webkit-backdrop-filter: blur(40px) saturate(200%);
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(40px) saturate(180%);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
         border-right: 1px solid rgba(255, 255, 255, 0.6);
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
       }
       
       /* Mobile Nav Glass */
       .glass-nav {
-         background: rgba(255, 255, 255, 0.85);
+         background: rgba(255, 255, 255, 0.6);
          backdrop-filter: blur(30px) saturate(180%);
          -webkit-backdrop-filter: blur(30px) saturate(180%);
-         border-top: 1px solid rgba(255, 255, 255, 0.6);
-         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+         border-top: 1px solid rgba(255, 255, 255, 0.4);
+         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.02);
       }
 
       /* Input Fields Glass */
       .glass-input {
-        background: rgba(255, 255, 255, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.5);
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
         color: #1e293b;
       }
       .glass-input:focus {
-        background: rgba(255, 255, 255, 0.9);
-        border-color: #6366f1; /* Indigo */
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); /* Indigo Glow */
+        background: rgba(255, 255, 255, 0.7);
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15);
         transform: translateY(-1px);
       }
       .glass-input::placeholder {
@@ -202,16 +216,16 @@
 
       /* Modal Overlay */
       .glass-overlay {
-        background: rgba(15, 23, 42, 0.2);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: rgba(76, 29, 149, 0.15); /* Deep purple tint */
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
       }
 
-      /* Buttons with liquid sheen - Updated for Purple/Indigo */
+      /* Buttons with liquid sheen */
       .btn-liquid {
-        background-image: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
-        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
+        background-image: linear-gradient(135deg, #8B5CF6 0%, #D946EF 100%);
+        box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+        border: 1px solid rgba(255,255,255,0.2);
         position: relative;
         overflow: hidden;
       }
@@ -223,7 +237,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(rgba(255,255,255,0.2), transparent);
+        background: linear-gradient(rgba(255,255,255,0.3), transparent);
         opacity: 0;
         transition: opacity 0.3s;
       }
@@ -235,8 +249,8 @@
       /* Scrollbar Styling */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+      ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.4); }
 
       /* Safe Areas */
       .pt-safe { padding-top: var(--sat); }
@@ -244,7 +258,7 @@
       
       /* Card gloss effect */
       .card-gloss-overlay {
-        background: linear-gradient(125deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 100%);
+        background: linear-gradient(125deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, rgba(255,255,255,0) 100%);
         pointer-events: none;
       }
     </style>
