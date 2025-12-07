@@ -11,6 +11,7 @@ import {
   onAuthStateChanged,
   User 
 } from "firebase/auth";
+// @ts-ignore
 import { 
   getFirestore, 
   doc, 

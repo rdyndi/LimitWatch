@@ -186,6 +186,7 @@ const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout:
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [data, setData] = useState<AppState>({
     cards: [],
     transactions: [],
@@ -313,7 +314,10 @@ const App: React.FC = () => {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuth(setUser);
+    const unsubscribe = subscribeToAuth((u) => {
+        setUser(u);
+        setAuthChecking(false);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -1553,6 +1557,25 @@ const App: React.FC = () => {
   const filteredPayment = filteredTransactions
       .filter(t => t.type === TransactionType.PAYMENT)
       .reduce((sum, t) => sum + t.amount, 0);
+
+  if (authChecking) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#0F0F1E] z-50">
+          <div className="absolute inset-0 overflow-hidden">
+             <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-indigo-600/20 rounded-full blur-[100px] animate-pulse"></div>
+             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-600/20 rounded-full blur-[100px] animate-pulse delay-700"></div>
+          </div>
+          <div className="relative z-10 flex flex-col items-center">
+              <div className="w-16 h-16 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-6 shadow-2xl shadow-indigo-500/20"></div>
+              <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
+                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-100"></div>
+                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-200"></div>
+              </div>
+          </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
