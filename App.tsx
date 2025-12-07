@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { 
   AppState, 
@@ -2350,24 +2349,52 @@ export const App: React.FC = () => {
                    </div>
                 </div>
 
-                {/* Global Summary Mobile */}
-                <div className="glass-panel rounded-2xl p-4 shadow-lg">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                        <Target size={14}/> Ringkasan {monthNames[currentMonth]}
-                    </h3>
+                {/* Global Summary Mobile - Redesigned Card */}
+                <div className="glass-panel rounded-2xl p-5 shadow-sm relative">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Target size={16} className="text-slate-400"/>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            Ringkasan {monthNames[currentMonth]}
+                        </h3>
+                    </div>
+                    
                     <div className="flex justify-between items-end">
-                        <div>
-                            <p className="text-[10px] text-slate-400 uppercase font-bold">Tagihan vs Tabungan</p>
-                            <div className="flex items-baseline gap-2 mt-1">
-                                <span className="text-sm font-bold text-slate-700">{formatIDR(totalGlobalBillThisMonth)}</span>
-                                <span className="text-[10px] text-slate-400">/</span>
-                                <span className="text-sm font-bold text-green-600">{formatIDR(totalGlobalSavingsThisMonth)}</span>
+                        {/* Left Side: Stats */}
+                        <div className="flex flex-col">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
+                                Tagihan / Tabungan
+                            </p>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-base font-bold text-slate-800 leading-none">
+                                    {formatIDR(totalGlobalBillThisMonth)}
+                                </span>
+                                <span className="text-sm font-bold text-green-600 leading-none">
+                                    {formatIDR(totalGlobalSavingsThisMonth)}
+                                </span>
                             </div>
                         </div>
-                        <div className="text-right">
-                             <p className={`text-sm font-bold px-3 py-1 rounded-lg ${isGlobalSafe ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                 {isGlobalSafe ? 'Aman' : `Kurang ${formatIDR(Math.abs(globalMonthStatus))}`}
-                             </p>
+                        
+                        {/* Right Side: Status Badge */}
+                        <div className={`
+                            flex flex-col items-end justify-center 
+                            px-3 py-2.5 rounded-xl border shadow-sm ml-4
+                            ${isGlobalSafe 
+                                ? 'bg-green-50 border-green-100' 
+                                : 'bg-[#FDE7E7] border-[#fadbd8]'
+                            }
+                        `}>
+                             <span className={`
+                                 text-[10px] font-bold uppercase mb-0.5 tracking-wide
+                                 ${isGlobalSafe ? 'text-green-600' : 'text-[#C0392B] opacity-80'}
+                             `}>
+                                 {isGlobalSafe ? 'Posisi Dana' : 'Kekurangan'}
+                             </span>
+                             <span className={`
+                                 text-sm font-bold whitespace-nowrap
+                                 ${isGlobalSafe ? 'text-green-700' : 'text-[#C0392B]'}
+                             `}>
+                                 {isGlobalSafe ? 'Aman' : formatIDR(Math.abs(globalMonthStatus))}
+                             </span>
                         </div>
                     </div>
                 </div>
