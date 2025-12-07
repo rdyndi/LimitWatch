@@ -33,11 +33,11 @@ messaging.onBackgroundMessage((payload) => {
 // --- Logika PWA Caching ---
 
 const CACHE_NAME = "limitwatch-cache-v2";
-// Menggunakan path absolut untuk memastikan caching bekerja dari root
+// Menggunakan path relatif agar sesuai dengan origin
 const urlsToCache = [
-  "/",
-  "/index.html",
-  "/manifest.json"
+  "./",
+  "./index.html",
+  "./manifest.json"
 ];
 
 // Install Service Worker

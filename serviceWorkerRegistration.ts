@@ -1,8 +1,8 @@
 export function register(config?: any) {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // Menggunakan path absolut agar tidak terkena 404 pada sub-route
-      const swUrl = '/service-worker.js';
+      // Menggunakan path relatif agar sesuai dengan origin saat ini (fix origin mismatch error)
+      const swUrl = './service-worker.js';
 
       registerValidSW(swUrl, config);
     });

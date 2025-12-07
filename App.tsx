@@ -77,7 +77,8 @@ import {
   Share2,
   ReceiptText,
   Info,
-  AtSign
+  AtSign,
+  Zap
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -100,6 +101,19 @@ const CARD_COLORS = [
   { id: 'pink', class: 'bg-gradient-to-br from-pink-500 to-pink-700 shadow-inner', label: 'Pink' },
   { id: 'cyan', class: 'bg-gradient-to-br from-cyan-500 to-cyan-700 shadow-inner', label: 'Cyan' },
 ];
+
+// iOS 26 Gradient & Shadow Map
+const iosGradients: Record<string, string> = {
+  transaksi: 'bg-gradient-to-b from-blue-400 to-blue-600 shadow-blue-500/40',
+  cicilan: 'bg-gradient-to-b from-violet-400 to-purple-600 shadow-violet-500/40',
+  wallets: 'bg-gradient-to-b from-emerald-400 to-teal-600 shadow-emerald-500/40',
+  laporan: 'bg-gradient-to-b from-orange-400 to-red-500 shadow-orange-500/40',
+  kartu: 'bg-gradient-to-b from-pink-400 to-rose-600 shadow-pink-500/40',
+  bills: 'bg-gradient-to-b from-red-400 to-red-600 shadow-red-500/40',
+  tabungan: 'bg-gradient-to-b from-cyan-400 to-blue-500 shadow-cyan-500/40',
+  history: 'bg-gradient-to-b from-slate-400 to-slate-600 shadow-slate-500/40',
+  profile: 'bg-gradient-to-b from-indigo-400 to-indigo-600 shadow-indigo-500/40',
+};
 
 interface NotificationItem {
   id: string;
@@ -189,7 +203,7 @@ const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout:
   );
 };
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [data, setData] = useState<AppState>({
@@ -240,7 +254,7 @@ const App: React.FC = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   // Drag & Drop Mobile Menu States - REMOVED redundant items and 'profile' (moved to dropdown)
-  const [menuOrder, setMenuOrder] = useState<string[]>(['cicilan', 'wallets', 'laporan', 'bills']);
+  const [menuOrder, setMenuOrder] = useState<string[]>(['cicilan', 'wallets', 'laporan', 'bills', 'kartu', 'tabungan', 'history', 'transaksi']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
@@ -2358,21 +2372,21 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 
-                {/* Horizontal Scroll Menu (Sortable) */}
+                {/* Horizontal Scroll Menu (iOS 26 Icons) */}
                 <div>
-                   <h3 className="text-sm font-bold text-slate-700 mb-3 px-1 ml-1">Menu Utama</h3>
-                   <div className="grid grid-cols-4 gap-3">
+                   <h3 className="text-sm font-bold text-slate-700 mb-4 px-1 ml-1">Menu Utama</h3>
+                   <div className="grid grid-cols-4 gap-y-6 gap-x-2">
                       {menuOrder.map(item => {
-                          let label = '', icon = null, action = () => {}, colorClass = '';
-                          if (item === 'transaksi') { label = 'Catat'; icon = <PlusCircle size={24}/>; action = openAddTransactionModal; colorClass='text-indigo-600'; }
-                          if (item === 'cicilan') { label = 'Cicilan'; icon = <Calculator size={24}/>; action = openInstallmentModal; colorClass='text-violet-600'; }
-                          if (item === 'wallets') { label = 'Dompet'; icon = <WalletCards size={24}/>; action = () => setMobileTab('wallets'); colorClass='text-emerald-600'; }
-                          if (item === 'laporan') { label = 'Laporan'; icon = <FileBarChart size={24}/>; action = () => setMobileTab('report'); colorClass='text-orange-600'; }
-                          if (item === 'kartu') { label = 'Kartu'; icon = <CreditCard size={24}/>; action = () => setMobileTab('cards'); colorClass='text-purple-600'; }
-                          if (item === 'bills') { label = 'Tagihan'; icon = <ReceiptText size={24}/>; action = () => setMobileTab('bills'); colorClass='text-red-600'; }
-                          if (item === 'tabungan') { label = 'Tabungan'; icon = <Coins size={24}/>; action = () => setMobileTab('savings'); colorClass='text-teal-600'; }
-                          if (item === 'history') { label = 'Riwayat'; icon = <History size={24}/>; action = () => setMobileTab('history'); colorClass='text-slate-600'; }
-                          if (item === 'profile') { label = 'Akun'; icon = <UserIcon size={24}/>; action = () => setMobileTab('profile'); colorClass='text-pink-600'; }
+                          let label = '', icon = null, action = () => {}, gradientClass = '';
+                          if (item === 'transaksi') { label = 'Transaksi'; icon = <PlusCircle/>; action = openAddTransactionModal; gradientClass = iosGradients.transaksi; }
+                          if (item === 'cicilan') { label = 'Cicilan'; icon = <Calculator/>; action = openInstallmentModal; gradientClass = iosGradients.cicilan; }
+                          if (item === 'wallets') { label = 'Dompet'; icon = <WalletCards/>; action = () => setMobileTab('wallets'); gradientClass = iosGradients.wallets; }
+                          if (item === 'laporan') { label = 'Laporan'; icon = <FileBarChart/>; action = () => setMobileTab('report'); gradientClass = iosGradients.laporan; }
+                          if (item === 'kartu') { label = 'Kartu'; icon = <CreditCard/>; action = () => setMobileTab('cards'); gradientClass = iosGradients.kartu; }
+                          if (item === 'bills') { label = 'Tagihan'; icon = <ReceiptText/>; action = () => setMobileTab('bills'); gradientClass = iosGradients.bills; }
+                          if (item === 'tabungan') { label = 'Tabungan'; icon = <Coins/>; action = () => setMobileTab('savings'); gradientClass = iosGradients.tabungan; }
+                          if (item === 'history') { label = 'Riwayat'; icon = <History/>; action = () => setMobileTab('history'); gradientClass = iosGradients.history; }
+                          if (item === 'profile') { label = 'Akun'; icon = <UserIcon/>; action = () => setMobileTab('profile'); gradientClass = iosGradients.profile; }
 
                           return (
                               <button 
@@ -2382,12 +2396,18 @@ const App: React.FC = () => {
                                 onTouchEnd={onMenuTouchEnd}
                                 onTouchMove={onMenuTouchMove}
                                 onClick={action}
-                                className={`flex flex-col items-center gap-2 p-3 rounded-2xl active:scale-95 transition-all glass-panel ${draggingItem === item ? 'scale-110 shadow-2xl z-20 bg-white' : ''}`}
+                                className={`flex flex-col items-center gap-2 transition-all duration-300 ${draggingItem === item ? 'scale-110 z-20 opacity-80' : 'active:scale-95'}`}
                               >
-                                 <div className={`w-10 h-10 rounded-full bg-white/50 flex items-center justify-center ${colorClass}`}>
-                                    {icon}
+                                 <div className={`relative w-[60px] h-[60px] rounded-[1.4rem] flex items-center justify-center shadow-lg text-white ${gradientClass}`}>
+                                    {/* Gloss Effect */}
+                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/30 to-transparent rounded-t-[1.4rem]"></div>
+                                    
+                                    {/* Icon */}
+                                    <div className="relative z-10 drop-shadow-md">
+                                        {icon && React.cloneElement(icon as React.ReactElement<any>, { strokeWidth: 2.5, size: 28 })}
+                                    </div>
                                  </div>
-                                 <span className="text-[10px] font-bold text-slate-600">{label}</span>
+                                 <span className="text-[11px] font-medium text-slate-600 tracking-tight leading-none">{label}</span>
                               </button>
                           )
                       })}
@@ -2397,7 +2417,7 @@ const App: React.FC = () => {
                 {/* Bill Reminder Horizontal Scroll */}
                 {upcomingBills.length > 0 && (
                    <div>
-                       <h3 className="text-sm font-bold text-slate-700 mb-3 px-1 ml-1">Tagihan Terdekat</h3>
+                       <h3 className="text-sm font-bold text-slate-700 mb-3 px-1 ml-1 mt-2">Tagihan Terdekat</h3>
                        <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
                            {upcomingBills.map(c => {
                                const isOverdue = c.daysLeft < 0;
@@ -2918,36 +2938,47 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* BOTTOM NAVIGATION MOBILE (Floating Pill) */}
+        {/* BOTTOM NAVIGATION MOBILE (Floating Dock Style) */}
         <nav 
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/65 backdrop-blur-xl saturate-150 rounded-[40px] shadow-[0_8px_32px_rgba(99,102,241,0.15)] border border-white/50 z-50 flex justify-between items-center px-6"
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/70 backdrop-blur-2xl saturate-200 rounded-[30px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/60 z-50 flex justify-between items-center px-6"
         >
-            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Beranda</span>
-            </button>
-            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'cards' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Kartu</span>
+            <button onClick={() => setMobileTab('home')} className={`relative flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <div className={`p-2 rounded-2xl transition-all duration-300 ${mobileTab === 'home' ? 'bg-indigo-100/50' : 'bg-transparent'}`}>
+                    <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} className={mobileTab === 'home' ? "drop-shadow-sm" : ""} />
+                </div>
+                {mobileTab === 'home' && <span className="absolute -bottom-2 w-1 h-1 bg-indigo-600 rounded-full"></span>}
             </button>
             
-            {/* CENTER ADD BUTTON (Floating Out) */}
-            <div className="relative -mt-10">
+            <button onClick={() => setMobileTab('cards')} className={`relative flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'cards' ? 'text-pink-600' : 'text-slate-400'}`}>
+                 <div className={`p-2 rounded-2xl transition-all duration-300 ${mobileTab === 'cards' ? 'bg-pink-100/50' : 'bg-transparent'}`}>
+                    <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} className={mobileTab === 'cards' ? "drop-shadow-sm" : ""} />
+                </div>
+                 {mobileTab === 'cards' && <span className="absolute -bottom-2 w-1 h-1 bg-pink-600 rounded-full"></span>}
+            </button>
+            
+            {/* CENTER ADD BUTTON (Floating Out with Glow) */}
+            <div className="relative -mt-10 group">
+                <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
                 <button 
                     onClick={openAddTransactionModal}
-                    className="btn-liquid w-16 h-16 rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-white/50"
+                    className="relative btn-liquid w-16 h-16 rounded-full shadow-2xl shadow-indigo-500/50 flex items-center justify-center active:scale-90 transition-transform ring-[6px] ring-white/40"
                 >
-                    <PlusCircle size={32} strokeWidth={2.5} className="text-white" />
+                    <PlusCircle size={32} strokeWidth={2.5} className="text-white drop-shadow-md" />
                 </button>
             </div>
 
-            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'savings' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <Coins size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Tabungan</span>
+            <button onClick={() => setMobileTab('savings')} className={`relative flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'savings' ? 'text-teal-600' : 'text-slate-400'}`}>
+                 <div className={`p-2 rounded-2xl transition-all duration-300 ${mobileTab === 'savings' ? 'bg-teal-100/50' : 'bg-transparent'}`}>
+                    <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} className={mobileTab === 'savings' ? "drop-shadow-sm" : ""} />
+                </div>
+                 {mobileTab === 'savings' && <span className="absolute -bottom-2 w-1 h-1 bg-teal-600 rounded-full"></span>}
             </button>
-            <button onClick={() => setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'history' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <History size={22} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Riwayat</span>
+            
+            <button onClick={() => setMobileTab('history')} className={`relative flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'history' ? 'text-slate-800' : 'text-slate-400'}`}>
+                 <div className={`p-2 rounded-2xl transition-all duration-300 ${mobileTab === 'history' ? 'bg-slate-200/50' : 'bg-transparent'}`}>
+                    <History size={24} strokeWidth={mobileTab === 'history' ? 2.5 : 2} className={mobileTab === 'history' ? "drop-shadow-sm" : ""} />
+                </div>
+                 {mobileTab === 'history' && <span className="absolute -bottom-2 w-1 h-1 bg-slate-800 rounded-full"></span>}
             </button>
         </nav>
       </div>
@@ -3485,10 +3516,9 @@ const App: React.FC = () => {
                     )}
                  </div>
              </div>
-          </div>
-      )}
+          )}
 
-      {/* WITHDRAW MODAL */}
+          {/* WITHDRAW MODAL */}
       {withdrawModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
              <div className="glass-panel w-full max-w-sm rounded-3xl shadow-2xl p-6 bg-white/80">
