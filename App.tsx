@@ -87,7 +87,7 @@ const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Jul
 // Predefined Card Colors with Gloss Effect
 const CARD_COLORS = [
   { id: 'slate', class: 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-inner', label: 'Hitam' },
-  { id: 'blue', class: 'bg-gradient-to-br from-blue-500 to-blue-700 shadow-inner', label: 'Biru' },
+  { id: 'blue', class: 'bg-gradient-to-br from-blue-600 to-indigo-700 shadow-inner', label: 'Biru (Indigo)' },
   { id: 'emerald', class: 'bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-inner', label: 'Hijau' },
   { id: 'red', class: 'bg-gradient-to-br from-red-500 to-red-700 shadow-inner', label: 'Merah' },
   { id: 'purple', class: 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-inner', label: 'Ungu' },
@@ -1826,9 +1826,9 @@ const App: React.FC = () => {
                      </button>
                   </div>
 
-                  <div className="col-span-1 bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-xl shadow-blue-500/20 text-white flex flex-col justify-between h-48 relative overflow-hidden">
+                  <div className="col-span-1 bg-gradient-to-br from-violet-600 to-indigo-700 p-6 rounded-3xl shadow-xl shadow-blue-500/20 text-white flex flex-col justify-between h-48 relative overflow-hidden">
                      <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
-                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-400 rounded-full blur-3xl opacity-50"></div>
+                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-400 rounded-full blur-3xl opacity-50"></div>
                      
                      <div className="relative z-10">
                        <p className="text-blue-100 font-medium mb-1 uppercase tracking-wide text-xs">Cicilan Aktif</p>
