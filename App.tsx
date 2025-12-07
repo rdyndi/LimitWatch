@@ -3516,9 +3516,10 @@ export const App: React.FC = () => {
                     )}
                  </div>
              </div>
-          )}
+          </div>
+      )}
 
-          {/* WITHDRAW MODAL */}
+      {/* WITHDRAW MODAL */}
       {withdrawModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
              <div className="glass-panel w-full max-w-sm rounded-3xl shadow-2xl p-6 bg-white/80">
@@ -3705,9 +3706,9 @@ export const App: React.FC = () => {
                                             <tbody>
                                                 {report.payments.map(t => (
                                                     <tr key={t.id} className="border-b border-white/20">
-                                                        <td className="py-2 text-slate-500 w-24">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</td>
+                                                        <td className="py-2 text-slate-500">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</td>
                                                         <td className="py-2 text-slate-700">{t.description}</td>
-                                                        <td className="py-2 text-right font-bold text-green-600">{formatIDR(t.amount)}</td>
+                                                        <td className="py-2 text-right font-medium text-green-600">{formatIDR(t.amount)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -3715,7 +3716,7 @@ export const App: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        )
+                        );
                     })()}
                  </div>
              </div>
@@ -3724,5 +3725,3 @@ export const App: React.FC = () => {
     </>
   );
 };
-
-export default App;
