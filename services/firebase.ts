@@ -37,7 +37,7 @@ const messaging = getMessaging(app);
 const googleProvider = new GoogleAuthProvider();
 
 // VAPID Key Anda (Pastikan tidak ada spasi)
-const VAPID_KEY = "BAF-rI8LoPk1Ga5ryX-P2lXpM8zsidXWfFFFvWB2zqS1OIWV6Nl6lCr8wDvT2ZO9xx5YoN2e98yJXlx3HlaSazE";
+const VAPID_KEY = "BKGPRvsWeXMeTww10Ssbmq6nohZ7HBl-M2tak1WYPSZZ8NeC7Ln15T9Mpa6dgoBvlBNWayCvOu_ssTZMSTevcdw";
 
 // --- Messaging Functions ---
 
