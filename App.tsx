@@ -3090,7 +3090,7 @@ export const App: React.FC = () => {
                                required
                                value={txDate}
                                onChange={(e) => setTxDate(e.target.value)}
-                               className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-700 outline-none font-bold shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all"
+                               className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-700 outline-none font-bold shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all appearance-none"
                             />
                         </div>
                      </div>
