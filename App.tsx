@@ -3079,26 +3079,29 @@ export const App: React.FC = () => {
                     />
                  </div>
 
-                 {/* Date & Desc */}
-                 <div className="grid grid-cols-2 gap-4">
+                 {/* Date & Desc - UPDATED LAYOUT */}
+                 <div className="flex flex-col gap-5">
                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
-                        <input 
-                           type="date" 
-                           required
-                           value={txDate}
-                           onChange={(e) => setTxDate(e.target.value)}
-                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
-                        />
+                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Tanggal Transaksi</label>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-3 text-indigo-400" size={18} />
+                            <input 
+                               type="date" 
+                               required
+                               value={txDate}
+                               onChange={(e) => setTxDate(e.target.value)}
+                               className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-700 outline-none font-bold shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all"
+                            />
+                        </div>
                      </div>
                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Keterangan</label>
+                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Keterangan</label>
                         <input 
                            type="text" 
-                           placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar tagihan"}
+                           placeholder={txType === TransactionType.EXPENSE ? "Contoh: Makan Siang, Bensin..." : "Contoh: Bayar Tagihan BCA..."}
                            value={txDesc}
                            onChange={(e) => setTxDesc(e.target.value)}
-                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
+                           className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 px-4 text-sm text-slate-700 outline-none font-medium shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400"
                         />
                      </div>
                  </div>
