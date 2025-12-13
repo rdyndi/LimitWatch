@@ -1,8 +1,9 @@
 export function register(config?: any) {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // Menggunakan path relatif agar sesuai dengan origin saat ini (fix origin mismatch error)
-      const swUrl = './service-worker.js';
+      // Menggunakan URL absolut berbasis window.location untuk menghindari origin mismatch
+      // terutama saat script dimuat dari domain berbeda (seperti CDN/preview host)
+      const swUrl = new URL('service-worker.js', window.location.href).href;
 
       registerValidSW(swUrl, config);
     });

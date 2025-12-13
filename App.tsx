@@ -2987,7 +2987,17 @@ export const App: React.FC = () => {
             <div className="relative -mt-10 group">
                 <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
                 <button 
-                    onClick={openAddTransactionModal}
+                    onClick={() => {
+                        if (mobileTab === 'wallets') {
+                            openAddWalletModal();
+                        } else if (mobileTab === 'cards') {
+                            openAddCardModal();
+                        } else if (mobileTab === 'savings') {
+                            openAddSavingModal();
+                        } else {
+                            openAddTransactionModal();
+                        }
+                    }}
                     className="relative btn-liquid w-16 h-16 rounded-full shadow-2xl shadow-indigo-500/50 flex items-center justify-center active:scale-90 transition-transform ring-[6px] ring-white/40"
                 >
                     <PlusCircle size={32} strokeWidth={2.5} className="text-white drop-shadow-md" />
