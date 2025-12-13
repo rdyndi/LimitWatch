@@ -2987,17 +2987,7 @@ export const App: React.FC = () => {
             <div className="relative -mt-10 group">
                 <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
                 <button 
-                    onClick={() => {
-                        if (mobileTab === 'wallets') {
-                            openAddWalletModal();
-                        } else if (mobileTab === 'cards') {
-                            openAddCardModal();
-                        } else if (mobileTab === 'savings') {
-                            openAddSavingModal();
-                        } else {
-                            openAddTransactionModal();
-                        }
-                    }}
+                    onClick={openAddTransactionModal}
                     className="relative btn-liquid w-16 h-16 rounded-full shadow-2xl shadow-indigo-500/50 flex items-center justify-center active:scale-90 transition-transform ring-[6px] ring-white/40"
                 >
                     <PlusCircle size={32} strokeWidth={2.5} className="text-white drop-shadow-md" />
@@ -3089,29 +3079,26 @@ export const App: React.FC = () => {
                     />
                  </div>
 
-                 {/* Date & Desc - UPDATED LAYOUT */}
-                 <div className="flex flex-col gap-5">
+                 {/* Date & Desc */}
+                 <div className="grid grid-cols-2 gap-4">
                      <div>
-                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Tanggal Transaksi</label>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-3 text-indigo-400" size={18} />
-                            <input 
-                               type="date" 
-                               required
-                               value={txDate}
-                               onChange={(e) => setTxDate(e.target.value)}
-                               className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-700 outline-none font-bold shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all appearance-none"
-                            />
-                        </div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
+                        <input 
+                           type="date" 
+                           required
+                           value={txDate}
+                           onChange={(e) => setTxDate(e.target.value)}
+                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
+                        />
                      </div>
                      <div>
-                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Keterangan</label>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Keterangan</label>
                         <input 
                            type="text" 
-                           placeholder={txType === TransactionType.EXPENSE ? "Contoh: Makan Siang, Bensin..." : "Contoh: Bayar Tagihan BCA..."}
+                           placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar tagihan"}
                            value={txDesc}
                            onChange={(e) => setTxDesc(e.target.value)}
-                           className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 px-4 text-sm text-slate-700 outline-none font-medium shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400"
+                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
                         />
                      </div>
                  </div>
