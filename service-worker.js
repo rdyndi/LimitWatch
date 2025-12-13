@@ -12,7 +12,11 @@ const firebaseConfig = {
   measurementId: "G-Z6MRN5Z18X"
 };
 
-firebase.initializeApp(firebaseConfig);
+try {
+  firebase.initializeApp(firebaseConfig);
+} catch(e) {
+  // Ignore if already initialized
+}
 
 const messaging = firebase.messaging();
 
@@ -23,7 +27,7 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification ? payload.notification.title : 'Notifikasi LimitWatch';
   const notificationOptions = {
     body: payload.notification ? payload.notification.body : 'Pesan baru masuk.',
-    icon: '/favicon.ico', // Pastikan icon tersedia
+    icon: '/favicon.ico', 
     badge: '/favicon.ico'
   };
 
@@ -32,11 +36,12 @@ messaging.onBackgroundMessage((payload) => {
 
 // --- Logika PWA Caching ---
 
-const CACHE_NAME = "limitwatch-cache-v2"; // Increment version
+const CACHE_NAME = "limitwatch-cache-v3"; 
+// Menggunakan path relatif agar aman di berbagai struktur URL
 const urlsToCache = [
-  "/",
-  "/index.html",
-  "/manifest.json"
+  "./",
+  "./index.html",
+  "./manifest.json"
 ];
 
 // Install Service Worker
