@@ -71,9 +71,10 @@
 
       html, body {
         overscroll-behavior-y: none;
-        height: 100dvh;
+        height: auto;
+        min-height: 100dvh;
         width: 100%;
-        overflow: hidden;
+        /* overflow: hidden; removed to fix iOS sticky */
         -webkit-tap-highlight-color: transparent;
       }
       
