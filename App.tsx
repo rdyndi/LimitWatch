@@ -2281,7 +2281,7 @@ export const App: React.FC = () => {
       {/* ========================================= */}
       {/* MOBILE SUPER APP VIEW (Fixed Layout)      */}
       {/* ========================================= */}
-      <div className="md:hidden fixed inset-0 font-sans flex flex-col bg-transparent">
+      <div className="md:hidden fixed inset-0 font-sans flex flex-col bg-transparent h-[100dvh]">
         {/* HEADER MOBILE */}
         <header className="glass-nav pt-safe px-4 pb-4 shadow-sm z-30 flex-shrink-0">
           <div className="flex justify-between items-center py-2">
@@ -2305,7 +2305,7 @@ export const App: React.FC = () => {
 
         {/* CONTENT MOBILE (Scrollable Area) */}
         <div 
-          className="flex-1 overflow-y-auto pb-32"
+          className="flex-1 overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))]"
           onTouchStart={mobileTab === 'savings' ? onTouchStart : undefined}
           onTouchMove={mobileTab === 'savings' ? onTouchMove : undefined}
           onTouchEnd={mobileTab === 'savings' ? onTouchEnd : undefined}
@@ -2967,7 +2967,7 @@ export const App: React.FC = () => {
 
         {/* BOTTOM NAVIGATION MOBILE (Floating Dock Style) */}
         <nav 
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/70 backdrop-blur-2xl saturate-200 rounded-[30px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/60 z-50 flex justify-between items-center px-6"
+            className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/70 backdrop-blur-2xl saturate-200 rounded-[30px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/60 z-50 flex justify-between items-center px-6"
         >
             <button onClick={() => setMobileTab('home')} className={`relative flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
                 <div className={`p-2 rounded-2xl transition-all duration-300 ${mobileTab === 'home' ? 'bg-indigo-100/50' : 'bg-transparent'}`}>
@@ -2987,7 +2987,17 @@ export const App: React.FC = () => {
             <div className="relative -mt-10 group">
                 <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
                 <button 
-                    onClick={openAddTransactionModal}
+                    onClick={() => {
+                        if (mobileTab === 'wallets') {
+                            openAddWalletModal();
+                        } else if (mobileTab === 'cards') {
+                            openAddCardModal();
+                        } else if (mobileTab === 'savings') {
+                            openAddSavingModal();
+                        } else {
+                            openAddTransactionModal();
+                        }
+                    }}
                     className="relative btn-liquid w-16 h-16 rounded-full shadow-2xl shadow-indigo-500/50 flex items-center justify-center active:scale-90 transition-transform ring-[6px] ring-white/40"
                 >
                     <PlusCircle size={32} strokeWidth={2.5} className="text-white drop-shadow-md" />
@@ -3079,26 +3089,29 @@ export const App: React.FC = () => {
                     />
                  </div>
 
-                 {/* Date & Desc */}
-                 <div className="grid grid-cols-2 gap-4">
+                 {/* Date & Desc - UPDATED LAYOUT */}
+                 <div className="flex flex-col gap-5">
                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
-                        <input 
-                           type="date" 
-                           required
-                           value={txDate}
-                           onChange={(e) => setTxDate(e.target.value)}
-                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
-                        />
+                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Tanggal Transaksi</label>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-3 text-indigo-400" size={18} />
+                            <input 
+                               type="date" 
+                               required
+                               value={txDate}
+                               onChange={(e) => setTxDate(e.target.value)}
+                               className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-700 outline-none font-bold shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all appearance-none"
+                            />
+                        </div>
                      </div>
                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Keterangan</label>
+                        <label className="block text-xs font-bold text-indigo-900/60 mb-1.5 ml-1">Keterangan</label>
                         <input 
                            type="text" 
-                           placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar tagihan"}
+                           placeholder={txType === TransactionType.EXPENSE ? "Contoh: Makan Siang, Bensin..." : "Contoh: Bayar Tagihan BCA..."}
                            value={txDesc}
                            onChange={(e) => setTxDesc(e.target.value)}
-                           className="w-full glass-input rounded-xl py-2.5 px-3 text-sm text-slate-700 outline-none font-medium"
+                           className="w-full glass-input bg-white/50 border-indigo-100/50 rounded-2xl py-3 px-4 text-sm text-slate-700 outline-none font-medium shadow-sm focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400"
                         />
                      </div>
                  </div>
