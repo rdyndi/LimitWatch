@@ -1,8 +1,7 @@
 export function register(config?: any) {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // Gunakan path relatif secara langsung. Browser akan menyelesaikannya terhadap origin dokumen saat ini.
-      // Ini menghindari masalah di mana window.location.href mungkin berbeda dari origin yang diharapkan di lingkungan preview/iframe tertentu.
+      // Menggunakan path relatif agar sesuai dengan origin saat ini (fix origin mismatch error)
       const swUrl = './service-worker.js';
 
       registerValidSW(swUrl, config);
