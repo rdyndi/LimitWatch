@@ -114,8 +114,7 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
         cards: [],
         transactions: [],
         installments: [],
-        savings: [],
-        wallets: []
+        savings: []
       });
     }
   }, (error) => {
