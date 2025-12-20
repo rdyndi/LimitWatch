@@ -30,7 +30,6 @@ export interface Transaction {
   type: TransactionType;
   category?: string;
   isInstallment?: boolean; // True jika transaksi ini dikonversi jadi cicilan (agar tidak double hitung di laporan)
-  installmentId?: string; // ID referensi ke data installment (jika isInstallment true)
   targetPeriod?: { month: number, year: number }; // Khusus PAYMENT: Pembayaran untuk tagihan bulan apa
   isValidated?: boolean; // Status validasi (Checklist)
 }
