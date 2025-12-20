@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   AppState, 
   Installment, 
@@ -301,9 +301,27 @@ const App: React.FC = () => {
   };
 
   const handleDeleteClick = (id: string) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+    const txToDelete = data.transactions.find(t => t.id === id);
+    if (!txToDelete) return;
+
+    if (window.confirm(`Apakah Anda yakin ingin menghapus transaksi "${txToDelete.description}"? Hutang Anda akan disesuaikan otomatis.`)) {
+      let updatedInstallments = [...data.installments];
+      
+      // Jika ini transaksi cicilan, hapus juga data cicilannya agar sinkron
+      if (txToDelete.isInstallment && txToDelete.type === TransactionType.EXPENSE) {
+          updatedInstallments = updatedInstallments.filter(inst => 
+              !(inst.cardId === txToDelete.cardId && 
+                inst.totalAmount === txToDelete.amount && 
+                inst.name === txToDelete.description)
+          );
+      }
+
       const updatedTransactions = data.transactions.filter(t => t.id !== id);
-      saveData({ ...data, transactions: updatedTransactions });
+      saveData({ 
+          ...data, 
+          transactions: updatedTransactions,
+          installments: updatedInstallments
+      });
     }
   };
 
@@ -682,54 +700,64 @@ const App: React.FC = () => {
     }
   };
 
-  const totalDebt = data.transactions
-    .filter(t => t.type === TransactionType.EXPENSE)
-    .reduce((acc, curr) => acc + curr.amount, 0) - 
-    data.transactions
-    .filter(t => t.type === TransactionType.PAYMENT)
-    .reduce((acc, curr) => acc + curr.amount, 0);
+  // Re-calculate total debt reactively using useMemo for performance
+  const totalDebt = useMemo(() => {
+    const expenses = data.transactions
+      .filter(t => t.type === TransactionType.EXPENSE)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    
+    const payments = data.transactions
+      .filter(t => t.type === TransactionType.PAYMENT)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    
+    return expenses - payments;
+  }, [data.transactions]);
 
-  const totalSavings = data.savings
-    .filter(s => !s.isTransferred)
-    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalSavings = useMemo(() => {
+    return data.savings
+      .filter(s => !s.isTransferred)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+  }, [data.savings]);
 
-  const upcomingBills = data.cards
-      .filter(c => c.dueDay)
-      .map(c => {
-         const today = new Date();
-         const currentDay = today.getDate();
-         const currentMonth = today.getMonth();
-         const currentYear = today.getFullYear();
-         
-         let targetMonth = currentMonth;
-         let targetYear = currentYear;
-         
-         if (c.dueDay! < currentDay) {
-            targetMonth++;
-            if (targetMonth > 11) { targetMonth = 0; targetYear++; }
-         }
-         
-         const dueDate = new Date(targetYear, targetMonth, c.dueDay!);
-         const diffTime = dueDate.getTime() - today.getTime();
-         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const upcomingBills = useMemo(() => {
+      return data.cards
+          .filter(c => c.dueDay)
+          .map(c => {
+             const today = new Date();
+             const currentDay = today.getDate();
+             const currentMonth = today.getMonth();
+             const currentYear = today.getFullYear();
+             
+             let targetMonth = currentMonth;
+             let targetYear = currentYear;
+             
+             if (c.dueDay! < currentDay) {
+                targetMonth++;
+                if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+             }
+             
+             const dueDate = new Date(targetYear, targetMonth, c.dueDay!);
+             const diffTime = dueDate.getTime() - today.getTime();
+             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-         const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
-         const paidAmount = data.transactions
-            .filter(t => {
-                const d = new Date(t.date);
-                return t.cardId === c.id &&
-                       t.type === TransactionType.PAYMENT &&
-                       d.getMonth() === targetMonth &&
-                       d.getFullYear() === targetYear;
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
-         
-         const remaining = Math.max(0, billAmount - paidAmount);
-         
-         return { ...c, daysLeft: diffDays, nextDueDate: dueDate, remainingBill: remaining };
-      })
-      .filter(c => c.remainingBill > 1000)
-      .sort((a, b) => a.daysLeft - b.daysLeft);
+             const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
+             const paidAmount = data.transactions
+                .filter(t => {
+                    const d = new Date(t.date);
+                    return t.cardId === c.id &&
+                           t.type === TransactionType.PAYMENT &&
+                           d.getMonth() === targetMonth &&
+                           d.getFullYear() === targetYear;
+                })
+                .reduce((sum, t) => sum + t.amount, 0);
+             
+             const remaining = Math.max(0, billAmount - paidAmount);
+             
+             return { ...c, daysLeft: diffDays, nextDueDate: dueDate, remainingBill: remaining };
+          })
+          .filter(c => c.remainingBill > 1000)
+          .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [data.cards, data.transactions, data.installments]);
 
   if (!user) {
     return (

@@ -6,12 +6,8 @@ import { AppState } from "../types";
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
 
 export const getFinancialAdvice = async (data: AppState): Promise<string> => {
-  // Use the pre-configured API_KEY from process.env directly
-  if (!process.env.API_KEY) {
-    return "API Key tidak ditemukan. Mohon konfigurasi environment variable.";
-  }
-
   // Always use the named parameter apiKey when initializing GoogleGenAI
+  // API key is obtained from process.env.API_KEY as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // Prepare a summary of the financial state for the AI
@@ -43,7 +39,7 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   }).join('\n');
 
   const prompt = `
-    Bertindaklah ok sebagai penasihat keuangan pribadi yang ahli. 
+    Bertindaklah sebagai penasihat keuangan pribadi yang ahli. 
     Analisis data keuangan kartu kredit pengguna berikut ini (dalam Rupiah Indonesia):
 
     DATA KARTU KREDIT:
