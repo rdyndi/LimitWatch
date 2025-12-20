@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// Fix: Use direct package imports from firebase/firestore and ensure modular named exports are correctly identified
+// Use named imports for Firestore to comply with Modular SDK v9+ standards and fix property access errors.
 import { 
   getFirestore, 
   doc, 
@@ -42,7 +42,7 @@ try {
   console.warn("Firebase Analytics initialization failed (this is optional):", error);
 }
 
-// Fix: Initialize Firestore correctly using modular SDK
+// Initialize Firestore correctly using modular SDK functions
 const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
@@ -110,7 +110,7 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   if (!userId) return () => {};
 
   // Data is now stored under "users/{userId}" document
-  // Fix: Use modular doc() and onSnapshot() functions
+  // Fixed: Use modular doc() and onSnapshot() functions directly
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -140,7 +140,7 @@ export const saveAppState = async (userId: string, data: AppState) => {
     // We sanitize data by stringifying and parsing back to JSON, which removes undefined keys.
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
-    // Fix: Use modular doc() and setDoc() functions
+    // Fixed: Use modular doc() and setDoc() functions directly
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
   } catch (error) {

@@ -55,7 +55,8 @@ import {
   Clock,
   BellRing,
   Check,
-  Tag
+  Tag,
+  Info
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -63,17 +64,19 @@ const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'curr
 
 /**
  * Mengambil nilai numerik dari string input.
- * Mendukung format Indonesia (titik sebagai ribuan, koma sebagai desimal).
- * Melakukan pembulatan ke atas (Math.ceil) sesuai permintaan user.
+ * Diperbaiki: Mengambil hanya digit untuk menghindari bug "kembali ke nol"
+ * karena awalan "Rp " pada input yang sudah terformat.
  */
 const getNumericValue = (val: string) => {
     if (!val) return 0;
-    // Hapus titik pemisah ribuan
-    // Ganti koma desimal menjadi titik agar bisa diproses parseFloat
-    const cleanVal = val.replace(/\./g, '').replace(',', '.');
-    // Ambil angka saja (menghilangkan karakter mata uang/simbol lain jika ada)
-    const match = cleanVal.match(/^-?\d*\.?\d*/);
-    const num = match ? parseFloat(match[0]) : 0;
+    
+    // Hapus semua karakter kecuali angka dan tanda minus
+    // Ini memastikan awalan "Rp", titik ribuan, atau spasi tidak mengganggu parsing
+    const digitsOnly = val.replace(/[^\d-]/g, '');
+    
+    if (digitsOnly === '' || digitsOnly === '-') return 0;
+    
+    const num = parseInt(digitsOnly, 10);
     return isNaN(num) ? 0 : Math.ceil(num);
 };
 
@@ -257,12 +260,19 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * Menangani input mata uang.
+   */
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
-    const numericVal = getNumericValue(val);
-    if(numericVal === 0 && val.replace(/\D/g, '').replace(',', '.') === '') {
+    // Ambil digit saja untuk cek apakah input kosong
+    const digitsOnly = val.replace(/[^\d]/g, '');
+    
+    if (digitsOnly === '') {
         setter('');
         return;
     }
+
+    const numericVal = getNumericValue(val);
     setter(formatIDR(numericVal));
   };
 
@@ -370,7 +380,10 @@ const App: React.FC = () => {
     let finalIsInstallment = txIsInstallment;
     const amountVal = getNumericValue(txAmount);
 
-    if (amountVal === 0) return;
+    if (amountVal <= 0) {
+        alert("Nominal transaksi harus lebih dari 0.");
+        return;
+    }
 
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
        if (!editingTransaction || (editingTransaction && !editingTransaction.isInstallment)) {
@@ -379,7 +392,6 @@ const App: React.FC = () => {
               cardId: txCardId,
               name: txDesc,
               totalAmount: amountVal,
-              // Memastikan cicilan bulanan dibulatkan ke atas
               monthlyAmount: Math.ceil(amountVal / txInstallmentMonths),
               totalMonths: txInstallmentMonths,
               monthsPaid: 0,
@@ -452,7 +464,7 @@ const App: React.FC = () => {
     if (!cardName || !cardLimit) return;
 
     const limitVal = getNumericValue(cardLimit);
-    if(limitVal === 0) return;
+    if(limitVal <= 0) return;
 
     if (editingCard) {
       const updatedCards = data.cards.map(c => 
@@ -535,7 +547,7 @@ const App: React.FC = () => {
     if (!savingCardId || !savingAmount) return;
 
     const amountVal = getNumericValue(savingAmount);
-    if(amountVal === 0) return;
+    if(amountVal <= 0) return;
 
     if (editingSaving) {
         const updatedSavings = data.savings.map(s => {
@@ -790,6 +802,7 @@ const App: React.FC = () => {
              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
              const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
+             
              const paidAmount = data.transactions
                 .filter(t => {
                     const d = new Date(t.date);
@@ -800,13 +813,34 @@ const App: React.FC = () => {
                 })
                 .reduce((sum, t) => sum + t.amount, 0);
              
-             const remaining = Math.max(0, billAmount - paidAmount);
+             const savedForThisMonth = data.savings
+                .filter(s => 
+                    s.cardId === c.id && 
+                    !s.isTransferred && 
+                    s.targetPeriod?.month === targetMonth && 
+                    s.targetPeriod?.year === targetYear
+                )
+                .reduce((sum, s) => sum + s.amount, 0);
+
+             const remainingDebtAfterPayment = Math.max(0, billAmount - paidAmount);
+             const netGap = Math.max(0, remainingDebtAfterPayment - savedForThisMonth);
+             const isCovered = savedForThisMonth >= remainingDebtAfterPayment && remainingDebtAfterPayment > 0;
              
-             return { ...c, daysLeft: diffDays, nextDueDate: dueDate, remainingBill: remaining };
+             return { 
+                ...c, 
+                daysLeft: diffDays, 
+                nextDueDate: dueDate, 
+                totalBill: billAmount,
+                alreadyPaid: paidAmount,
+                savedAmount: savedForThisMonth,
+                remainingBill: remainingDebtAfterPayment,
+                netGap: netGap,
+                isCovered: isCovered
+             };
           })
           .filter(c => c.remainingBill > 1000)
           .sort((a, b) => a.daysLeft - b.daysLeft);
-  }, [data.cards, data.transactions, data.installments]);
+  }, [data.cards, data.transactions, data.installments, data.savings]);
 
   if (!user) {
     return (
@@ -1035,7 +1069,7 @@ const App: React.FC = () => {
       </div>
 
       {/* ========================================= */}
-      {/* MOBILE SUPER APP VIEW (Refactored Layout) */}
+      {/* MOBILE SUPER APP VIEW                      */}
       {/* ========================================= */}
       <div className="md:hidden flex flex-col h-screen bg-slate-50 font-sans overflow-hidden">
         
@@ -1124,16 +1158,43 @@ const App: React.FC = () => {
                   </h3>
                   <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                     {upcomingBills.map(c => (
-                      <div key={c.id} className="min-w-[200px] bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+                      <div key={c.id} className="min-w-[240px] bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
                         <div className="flex justify-between items-start mb-2">
                           <span className="font-bold text-slate-800 text-xs">{c.name}</span>
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.daysLeft <= 3 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
                             {c.daysLeft} Hari
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mb-2">Sisa: {formatIDR(c.remainingBill)}</p>
-                        <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                          <Calendar size={10} /> {c.nextDueDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'})}
+                        
+                        <div className="space-y-1.5 mb-3">
+                            <div className="flex justify-between text-[10px]">
+                                <span className="text-slate-400">Total Tagihan</span>
+                                <span className="font-bold text-slate-700">{formatIDR(c.remainingBill)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                                <span className="text-slate-400">Tabungan Bulan Ini</span>
+                                <span className="font-bold text-green-600">{formatIDR(c.savedAmount)}</span>
+                            </div>
+                            <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full transition-all duration-500 ${c.isCovered ? 'bg-green-500' : 'bg-orange-400'}`} 
+                                    style={{ width: `${Math.min(100, (c.savedAmount / (c.remainingBill || 1)) * 100)}%` }}
+                                ></div>
+                            </div>
+                        </div>
+
+                        {c.isCovered ? (
+                            <div className="bg-green-50 text-green-700 p-2 rounded-lg flex items-center gap-2 text-[9px] font-bold">
+                                <Check size={12} strokeWidth={3} /> Dana Siap Bayar
+                            </div>
+                        ) : (
+                            <div className="bg-red-50 text-red-700 p-2 rounded-lg flex items-center gap-2 text-[9px] font-bold">
+                                <AlertCircle size={12} strokeWidth={3} /> Kurang: {formatIDR(c.netGap)}
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center gap-1 text-[9px] text-slate-400 mt-3 pt-2 border-t border-slate-50">
+                          <Calendar size={10} /> Jatuh Tempo: {c.nextDueDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'})}
                         </div>
                       </div>
                     ))}
@@ -1205,10 +1266,6 @@ const App: React.FC = () => {
                      </div>
                    </div>
                 ))}
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardModalOpen(true); }} className="w-full py-6 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold flex flex-col items-center gap-2">
-                   <PlusCircle size={24} />
-                   <span>Tambah Kartu</span>
-                </button>
              </div>
           )}
 
@@ -1277,9 +1334,6 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  {data.transactions.length === 0 && (
-                     <div className="text-center py-12 text-slate-400 text-sm">Belum ada transaksi.</div>
-                  )}
                 </div>
              </div>
           )}
@@ -1323,9 +1377,6 @@ const App: React.FC = () => {
                    </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                   <button className="w-full p-4 text-left text-sm font-bold text-slate-700 flex justify-between items-center border-b border-slate-50">
-                      Pengaturan Akun <ChevronRight size={16} />
-                   </button>
                    <button onClick={() => logout()} className="w-full p-4 text-left text-sm font-bold text-red-500 flex justify-between items-center">
                       Keluar <LogOut size={16} />
                    </button>
@@ -1449,7 +1500,7 @@ const App: React.FC = () => {
                </div>
                <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Limit (IDR)</label>
-                  <input type="text" value={cardLimit} onChange={e => handleCurrencyInput(e.target.value, setCardLimit)} placeholder="Rp 5.000.000" className="w-full py-3 px-4 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold" required />
+                  <input type="text" value={cardLimit} onChange={e => handleCurrencyInput(e.target.value, setCardLimit)} placeholder="Rp 0" className="w-full py-3 px-4 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold" required />
                </div>
                <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Tanggal Jatuh Tempo (1-31)</label>
