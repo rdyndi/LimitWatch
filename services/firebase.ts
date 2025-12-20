@@ -1,7 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// Fix: Consolidating Firestore imports at the top level to resolve module export errors
-import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
+// Fix: Use standardized named imports for Firestore modular SDK to resolve member resolution errors
+import { 
+  getFirestore, 
+  doc, 
+  onSnapshot, 
+  setDoc 
+} from "firebase/firestore";
 import { 
   getAuth, 
   GoogleAuthProvider, 

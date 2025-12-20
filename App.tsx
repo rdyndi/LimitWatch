@@ -38,7 +38,9 @@ import {
   AlertCircle,
   Bell,
   Check,
-  FileText
+  FileText,
+  Filter,
+  CheckCircle2
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -66,13 +68,13 @@ const TRANSACTION_CATEGORIES = [
 ];
 
 const CARD_COLORS = [
-  { label: 'Slate', value: 'bg-slate-800' },
-  { label: 'Blue', value: 'bg-blue-600' },
-  { label: 'Indigo', value: 'bg-indigo-700' },
-  { label: 'Emerald', value: 'bg-emerald-700' },
-  { label: 'Rose', value: 'bg-rose-700' },
-  { label: 'Amber', value: 'bg-amber-600' },
-  { label: 'Violet', value: 'bg-violet-700' }
+  { label: 'Slate', value: 'bg-slate-800', text: 'text-slate-800' },
+  { label: 'Blue', value: 'bg-blue-600', text: 'text-blue-600' },
+  { label: 'Indigo', value: 'bg-indigo-700', text: 'text-indigo-700' },
+  { label: 'Emerald', value: 'bg-emerald-700', text: 'text-emerald-700' },
+  { label: 'Rose', value: 'bg-rose-700', text: 'text-rose-700' },
+  { label: 'Amber', value: 'bg-amber-600', text: 'text-amber-600' },
+  { label: 'Violet', value: 'bg-violet-700', text: 'text-violet-700' }
 ];
 
 const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, year: number } => {
@@ -107,10 +109,14 @@ const App: React.FC = () => {
   const [savingModalOpen, setSavingModalOpen] = useState(false);
   const [statementModalOpen, setStatementModalOpen] = useState(false);
   
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'history' | 'profile'>('home');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
+
+  // History Filter State
+  const [historyCardFilter, setHistoryCardFilter] = useState<string>('all');
+  const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
+  const [historyYearFilter, setHistoryYearFilter] = useState<number>(new Date().getFullYear());
 
   // Card Form State
   const [cardName, setCardName] = useState('');
@@ -159,13 +165,7 @@ const App: React.FC = () => {
       const unsubscribe = subscribeToAppState(user.uid, setData);
       return () => unsubscribe();
     } else {
-      // Reset data when user logs out
-      setData({
-        cards: [],
-        transactions: [],
-        installments: [],
-        savings: []
-      });
+      setData({ cards: [], transactions: [], installments: [], savings: [] });
     }
   }, [user]);
 
@@ -192,12 +192,7 @@ const App: React.FC = () => {
     if (window.confirm("Apakah Anda yakin ingin keluar?")) {
       await logout();
       setUser(null);
-      setData({
-        cards: [],
-        transactions: [],
-        installments: [],
-        savings: []
-      });
+      setData({ cards: [], transactions: [], installments: [], savings: [] });
     }
   };
 
@@ -213,9 +208,15 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleTransactionValidation = (id: string) => {
+    const updated = data.transactions.map(t => 
+      t.id === id ? { ...t, isValidated: !t.isValidated } : t
+    );
+    saveData({ ...data, transactions: updated });
+  };
+
   const getMonthlyBill = (cardId: string, targetMonth: number, targetYear: number) => {
      const card = data.cards.find(c => c.id === cardId);
-     
      const expenses = data.transactions
        .filter(t => {
           if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
@@ -237,6 +238,19 @@ const App: React.FC = () => {
 
      return expenses + installmentLoad;
   };
+
+  const filteredTransactions = useMemo(() => {
+    return data.transactions.filter(t => {
+      const card = data.cards.find(c => c.id === t.cardId);
+      const billing = getBillingPeriod(t.date, card?.dueDay);
+      
+      const matchCard = historyCardFilter === 'all' || t.cardId === historyCardFilter;
+      const matchMonth = billing.month === historyMonthFilter;
+      const matchYear = billing.year === historyYearFilter;
+      
+      return matchCard && matchMonth && matchYear;
+    });
+  }, [data.transactions, data.cards, historyCardFilter, historyMonthFilter, historyYearFilter]);
 
   const upcomingBills = useMemo(() => {
       return data.cards
@@ -435,11 +449,7 @@ const App: React.FC = () => {
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-400 font-bold">Atau</span></div>
           </div>
 
-          <button 
-            onClick={handleGoogleLogin} 
-            disabled={authLoading}
-            className="w-full bg-white border border-slate-200 text-slate-700 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition active:scale-95"
-          >
+          <button onClick={handleGoogleLogin} disabled={authLoading} className="w-full bg-white border border-slate-200 text-slate-700 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition active:scale-95">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
             Lanjutkan dengan Google
           </button>
@@ -530,6 +540,48 @@ const App: React.FC = () => {
                 )}
              </div>
            )}
+
+           {mobileTab === 'history' && (
+              <div className="space-y-6 animate-in fade-in">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                   <div className="flex items-center gap-3 mb-6">
+                      <Filter size={20} className="text-blue-600"/>
+                      <h3 className="font-bold text-slate-800">Filter Riwayat Siklus</h3>
+                   </div>
+                   <div className="grid grid-cols-3 gap-4">
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Kartu</label><select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium"><option value="all">Semua Kartu</option>{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Bulan Siklus</label><select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select></div>
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Tahun Siklus</label><input type="number" value={historyYearFilter} onChange={(e)=>setHistoryYearFilter(parseInt(e.target.value))} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium" /></div>
+                   </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                   <table className="w-full text-left">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase">
+                         <tr><th className="px-6 py-4">Status</th><th className="px-6 py-4">Tanggal</th><th className="px-6 py-4">Keterangan</th><th className="px-6 py-4">Kartu</th><th className="px-6 py-4 text-right">Nominal</th><th className="px-6 py-4 text-center">Buku</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                         {filteredTransactions.length === 0 ? (
+                            <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Tidak ada transaksi ditemukan untuk filter ini.</td></tr>
+                         ) : filteredTransactions.map(t => {
+                            const card = data.cards.find(c => c.id === t.cardId);
+                            const cardTheme = CARD_COLORS.find(cc => cc.value === card?.color) || CARD_COLORS[0];
+                            return (
+                               <tr key={t.id} className="hover:bg-slate-50 transition">
+                                  <td className="px-6 py-4"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>{t.type === TransactionType.EXPENSE ? <ArrowUpRight size={16}/> : <ArrowDownLeft size={16}/>}</div></td>
+                                  <td className="px-6 py-4 text-xs font-medium text-slate-500">{new Date(t.date).toLocaleDateString('id-ID')}</td>
+                                  <td className="px-6 py-4"><p className="text-sm font-bold text-slate-800">{t.description}</p><p className="text-[10px] text-slate-400">{t.isInstallment ? 'Dikonversi ke Cicilan' : 'Transaksi Ritel'}</p></td>
+                                  <td className="px-6 py-4"><span className={`text-[9px] font-bold px-2 py-1 rounded-full text-white ${card?.color || 'bg-slate-800'}`}>{card?.name || 'Unknown'}</span></td>
+                                  <td className={`px-6 py-4 text-sm font-bold text-right ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-600'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}</td>
+                                  <td className="px-6 py-4 text-center"><button onClick={() => toggleTransactionValidation(t.id)} className={`transition transform active:scale-90 ${t.isValidated ? cardTheme.text : 'text-slate-200'}`}><CheckCircle2 size={24} fill={t.isValidated ? 'currentColor' : 'none'} className={t.isValidated ? 'fill-current opacity-20' : ''}/></button></td>
+                               </tr>
+                            )
+                         })}
+                      </tbody>
+                   </table>
+                </div>
+              </div>
+           )}
         </main>
       </div>
 
@@ -539,11 +591,11 @@ const App: React.FC = () => {
             <div>
               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">LimitWatch</p>
               <h2 className="text-xl font-bold text-slate-800">
-                {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Kartu' : mobileTab === 'savings' ? 'Tabungan' : 'Riwayat'}
+                {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Kartu' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'history' ? 'Riwayat' : 'Akun'}
               </h2>
             </div>
             <div className="flex items-center gap-3">
-                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-200 relative"><Bell size={20} />{notifications.length > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}</button>
+                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-200 relative"><Bell size={20} /></button>
                 <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
                    {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-slate-400"/>}
                 </div>
@@ -622,6 +674,56 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {mobileTab === 'history' && (
+             <div className="space-y-4 animate-in fade-in pb-10">
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                   <div className="flex items-center gap-2 text-blue-600 font-bold text-xs mb-1"><Filter size={14}/> FILTER SIKLUS</div>
+                   <select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold">
+                      <option value="all">Semua Kartu</option>
+                      {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                   </select>
+                   <div className="grid grid-cols-2 gap-3">
+                      <select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold">
+                         {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                      </select>
+                      <input type="number" value={historyYearFilter} onChange={(e)=>setHistoryYearFilter(parseInt(e.target.value))} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold"/>
+                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  {filteredTransactions.length === 0 ? (
+                    <div className="text-center py-20"><History size={48} className="mx-auto text-slate-200 mb-4"/><p className="text-slate-400 text-xs italic">Tidak ada transaksi pada filter ini.</p></div>
+                  ) : filteredTransactions.map(t => {
+                    const card = data.cards.find(c => c.id === t.cardId);
+                    const cardTheme = CARD_COLORS.find(cc => cc.value === card?.color) || CARD_COLORS[0];
+                    return (
+                      <div key={t.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group active:scale-98 transition">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>{t.type === TransactionType.EXPENSE ? <ArrowUpRight size={18}/> : <ArrowDownLeft size={18}/>}</div>
+                           <div className="overflow-hidden">
+                              <p className="font-bold text-slate-800 text-xs truncate mb-0.5">{t.description}</p>
+                              <div className="flex items-center gap-2">
+                                 <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white ${card?.color || 'bg-slate-800'}`}>{card?.name || '??'}</span>
+                                 <span className="text-[9px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID')}</span>
+                              </div>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 ml-2">
+                           <div className="text-right">
+                              <p className={`text-xs font-bold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-600'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}</p>
+                              {t.isValidated && <p className={`text-[8px] font-bold uppercase tracking-wider ${cardTheme.text}`}>Dibukukan</p>}
+                           </div>
+                           <button onClick={() => toggleTransactionValidation(t.id)} className={`transition transform active:scale-90 ${t.isValidated ? cardTheme.text : 'text-slate-200'}`}>
+                              <CheckCircle2 size={26} fill={t.isValidated ? 'currentColor' : 'none'} className={t.isValidated ? 'fill-current opacity-20' : ''}/>
+                           </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+             </div>
+          )}
+
           {mobileTab === 'cards' && (
              <div className="space-y-4 animate-in fade-in">
                 {data.cards.length === 0 ? (
@@ -661,23 +763,6 @@ const App: React.FC = () => {
                     </div>
                   )
                 })}
-             </div>
-          )}
-
-          {mobileTab === 'history' && (
-             <div className="space-y-4 animate-in fade-in">
-                <h3 className="font-bold text-lg text-slate-800">Riwayat</h3>
-                {data.transactions.length === 0 ? (
-                  <div className="text-center py-20"><History size={48} className="mx-auto text-slate-200 mb-4"/><p className="text-slate-400 text-sm">Belum ada transaksi.</p></div>
-                ) : data.transactions.map(t => (
-                  <div key={t.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center active:scale-98 transition">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>{t.type === TransactionType.EXPENSE ? <ArrowUpRight size={18}/> : <ArrowDownLeft size={18}/>}</div>
-                      <div><p className="font-bold text-slate-800 text-sm truncate max-w-[150px]">{t.description}</p><p className="text-[10px] text-slate-400">{new Date(t.date).toLocaleDateString('id-ID')}</p></div>
-                    </div>
-                    <span className={`text-sm font-bold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-600'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}</span>
-                  </div>
-                ))}
              </div>
           )}
 
