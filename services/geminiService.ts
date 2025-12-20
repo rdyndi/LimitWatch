@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { AppState } from "../types";
 
 // Helper to format currency for the prompt
@@ -8,7 +8,7 @@ const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'curr
 export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   // Always use the named parameter apiKey when initializing GoogleGenAI
   // API key is obtained from process.env.API_KEY as per guidelines
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
   // Prepare a summary of the financial state for the AI
   const cardSummaries = data.cards.map(card => {
@@ -56,7 +56,8 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
 
   try {
     // Always use ai.models.generateContent with a valid Gemini 3 model for complex reasoning tasks
-    const response = await ai.models.generateContent({
+    // Use gemini-3-pro-preview for advanced financial reasoning and strategy analysis
+    const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {

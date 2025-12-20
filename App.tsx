@@ -60,8 +60,21 @@ import {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+
+/**
+ * Mengambil nilai numerik dari string input.
+ * Mendukung format Indonesia (titik sebagai ribuan, koma sebagai desimal).
+ * Melakukan pembulatan ke atas (Math.ceil) sesuai permintaan user.
+ */
 const getNumericValue = (val: string) => {
-    return parseInt(val.replace(/\D/g, '') || '0', 10);
+    if (!val) return 0;
+    // Hapus titik pemisah ribuan
+    // Ganti koma desimal menjadi titik agar bisa diproses parseFloat
+    const cleanVal = val.replace(/\./g, '').replace(',', '.');
+    // Ambil angka saja (menghilangkan karakter mata uang/simbol lain jika ada)
+    const match = cleanVal.match(/^-?\d*\.?\d*/);
+    const num = match ? parseFloat(match[0]) : 0;
+    return isNaN(num) ? 0 : Math.ceil(num);
 };
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -113,6 +126,7 @@ const App: React.FC = () => {
   const [loadingAi, setLoadingAi] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
+  const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
 
   // Auth States
   const [email, setEmail] = useState('');
@@ -245,7 +259,7 @@ const App: React.FC = () => {
 
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
     const numericVal = getNumericValue(val);
-    if(numericVal === 0 && val.replace(/\D/g, '') === '') {
+    if(numericVal === 0 && val.replace(/\D/g, '').replace(',', '.') === '') {
         setter('');
         return;
     }
@@ -307,7 +321,6 @@ const App: React.FC = () => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus transaksi "${txToDelete.description}"? Hutang Anda akan disesuaikan otomatis.`)) {
       let updatedInstallments = [...data.installments];
       
-      // Jika ini transaksi cicilan, hapus juga data cicilannya agar sinkron
       if (txToDelete.isInstallment && txToDelete.type === TransactionType.EXPENSE) {
           updatedInstallments = updatedInstallments.filter(inst => 
               !(inst.cardId === txToDelete.cardId && 
@@ -366,7 +379,8 @@ const App: React.FC = () => {
               cardId: txCardId,
               name: txDesc,
               totalAmount: amountVal,
-              monthlyAmount: amountVal / txInstallmentMonths,
+              // Memastikan cicilan bulanan dibulatkan ke atas
+              monthlyAmount: Math.ceil(amountVal / txInstallmentMonths),
               totalMonths: txInstallmentMonths,
               monthsPaid: 0,
               startDate: new Date(txDate).toISOString()
@@ -440,23 +454,58 @@ const App: React.FC = () => {
     const limitVal = getNumericValue(cardLimit);
     if(limitVal === 0) return;
 
-    const newCard: CreditCardType = {
-        id: generateId(),
-        name: cardName,
-        limit: limitVal,
-        color: 'bg-slate-800', 
-        dueDay: cardDue ? parseInt(cardDue) : undefined
-    };
-
-    saveData({
-        ...data,
-        cards: [...data.cards, newCard]
-    });
+    if (editingCard) {
+      const updatedCards = data.cards.map(c => 
+        c.id === editingCard.id ? { ...c, name: cardName, limit: limitVal, dueDay: cardDue ? parseInt(cardDue) : undefined } : c
+      );
+      saveData({ ...data, cards: updatedCards });
+      setEditingCard(null);
+    } else {
+      const newCard: CreditCardType = {
+          id: generateId(),
+          name: cardName,
+          limit: limitVal,
+          color: 'bg-slate-800', 
+          dueDay: cardDue ? parseInt(cardDue) : undefined
+      };
+      saveData({
+          ...data,
+          cards: [...data.cards, newCard]
+      });
+    }
 
     setCardName('');
     setCardLimit('');
     setCardDue('');
     setCardModalOpen(false);
+  };
+
+  const handleEditCardClick = (card: CreditCardType) => {
+    setEditingCard(card);
+    setCardName(card.name);
+    setCardLimit(formatIDR(card.limit));
+    setCardDue(card.dueDay?.toString() || '');
+    setCardModalOpen(true);
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    const card = data.cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    if (window.confirm(`Hapus kartu "${card.name}"? PERHATIAN: Seluruh riwayat transaksi, cicilan, dan tabungan yang terkait kartu ini akan ikut terhapus selamanya.`)) {
+      const updatedCards = data.cards.filter(c => c.id !== cardId);
+      const updatedTransactions = data.transactions.filter(t => t.cardId !== cardId);
+      const updatedInstallments = data.installments.filter(i => i.cardId !== cardId);
+      const updatedSavings = data.savings.filter(s => s.cardId !== cardId);
+      
+      saveData({
+        ...data,
+        cards: updatedCards,
+        transactions: updatedTransactions,
+        installments: updatedInstallments,
+        savings: updatedSavings
+      });
+    }
   };
 
   const openAddSavingModal = () => {
@@ -1060,7 +1109,7 @@ const App: React.FC = () => {
                     <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-sm"><FileBarChart size={22}/></div>
                     <span className="text-[10px] font-bold text-slate-600 text-center">Laporan</span>
                   </button>
-                  <button onClick={() => setCardModalOpen(true)} className="flex flex-col items-center gap-1.5">
+                  <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardModalOpen(true); }} className="flex flex-col items-center gap-1.5">
                     <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm"><CreditCard size={22}/></div>
                     <span className="text-[10px] font-bold text-slate-600 text-center">Kartu</span>
                   </button>
@@ -1121,32 +1170,42 @@ const App: React.FC = () => {
           )}
 
           {mobileTab === 'cards' && (
-             <div className="space-y-4">
+             <div className="space-y-6">
                 <div className="flex justify-between items-center">
                    <h3 className="font-bold text-lg text-slate-800">Kartu Saya</h3>
-                   <button onClick={() => setCardModalOpen(true)} className="text-xs font-bold text-blue-600">+ Tambah</button>
+                   <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardModalOpen(true); }} className="text-xs font-bold text-blue-600">+ Tambah</button>
                 </div>
                 {data.cards.map(card => (
-                   <div key={card.id} className="bg-slate-800 text-white p-5 rounded-2xl shadow-lg relative h-44 flex flex-col justify-between overflow-hidden">
-                      <div className="absolute top-0 right-0 p-16 bg-white/5 rounded-full -mr-8 -mt-8"></div>
-                      <div className="flex justify-between items-start z-10">
-                        <span className="text-sm font-bold tracking-wide">{card.name}</span>
-                        <CreditCard size={20} className="text-slate-400" />
-                      </div>
-                      <div className="z-10">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Limit Kartu</p>
-                        <h4 className="text-xl font-bold tracking-widest">{formatIDR(card.limit)}</h4>
-                      </div>
-                      <div className="flex justify-between items-end z-10">
-                         <p className="text-[10px] text-slate-300">Tempo: Tgl {card.dueDay || '-'}</p>
-                         <div className="flex gap-1.5">
-                            <div className="w-8 h-5 bg-white/20 rounded-sm"></div>
-                            <div className="w-8 h-5 bg-white/20 rounded-sm"></div>
-                         </div>
-                      </div>
+                   <div key={card.id} className="space-y-2">
+                     <div className="bg-slate-800 text-white p-5 rounded-2xl shadow-lg relative h-44 flex flex-col justify-between overflow-hidden">
+                        <div className="absolute top-0 right-0 p-16 bg-white/5 rounded-full -mr-8 -mt-8"></div>
+                        <div className="flex justify-between items-start z-10">
+                          <span className="text-sm font-bold tracking-wide">{card.name}</span>
+                          <CreditCard size={20} className="text-slate-400" />
+                        </div>
+                        <div className="z-10">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Limit Kartu</p>
+                          <h4 className="text-xl font-bold tracking-widest">{formatIDR(card.limit)}</h4>
+                        </div>
+                        <div className="flex justify-between items-end z-10">
+                           <p className="text-[10px] text-slate-300">Tempo: Tgl {card.dueDay || '-'}</p>
+                           <div className="flex gap-1.5">
+                              <div className="w-8 h-5 bg-white/20 rounded-sm"></div>
+                              <div className="w-8 h-5 bg-white/20 rounded-sm"></div>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="flex gap-2">
+                        <button onClick={() => handleEditCardClick(card)} className="flex-1 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-2 shadow-sm">
+                           <Pencil size={14}/> Edit Kartu
+                        </button>
+                        <button onClick={() => handleDeleteCard(card.id)} className="flex-1 py-2.5 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600 flex items-center justify-center gap-2 shadow-sm">
+                           <Trash2 size={14}/> Hapus
+                        </button>
+                     </div>
                    </div>
                 ))}
-                <button onClick={() => setCardModalOpen(true)} className="w-full py-6 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold flex flex-col items-center gap-2">
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardModalOpen(true); }} className="w-full py-6 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold flex flex-col items-center gap-2">
                    <PlusCircle size={24} />
                    <span>Tambah Kartu</span>
                 </button>
@@ -1375,12 +1434,12 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* --- ADD CARD MODAL --- */}
+      {/* --- ADD/EDIT CARD MODAL --- */}
       {cardModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-end md:items-center justify-center p-0 md:p-4">
            <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
              <div className="flex justify-between items-center mb-6">
-               <h3 className="text-lg font-bold text-slate-800">Tambah Kartu</h3>
+               <h3 className="text-lg font-bold text-slate-800">{editingCard ? 'Edit Kartu' : 'Tambah Kartu'}</h3>
                <button onClick={() => setCardModalOpen(false)}><X className="text-slate-400"/></button>
              </div>
              <form onSubmit={handleSaveCard} className="space-y-4">
@@ -1396,7 +1455,9 @@ const App: React.FC = () => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Tanggal Jatuh Tempo (1-31)</label>
                   <input type="number" min="1" max="31" value={cardDue} onChange={e => setCardDue(e.target.value)} placeholder="Contoh: 25" className="w-full py-3 px-4 bg-slate-50 border border-slate-100 rounded-xl outline-none" />
                </div>
-               <button type="submit" className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition">Simpan Kartu</button>
+               <button type="submit" className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition">
+                 {editingCard ? 'Simpan Perubahan' : 'Simpan Kartu'}
+               </button>
              </form>
            </div>
         </div>
