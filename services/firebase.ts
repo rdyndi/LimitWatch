@@ -1,12 +1,8 @@
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// Fix: Use standardized named imports for Firestore modular SDK to resolve member resolution errors
-import { 
-  getFirestore, 
-  doc, 
-  onSnapshot, 
-  setDoc 
-} from "firebase/firestore";
+// Fix: Use namespace import for firestore to bypass "no exported member" errors in specific environments
+import * as firestore from "firebase/firestore";
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -19,6 +15,9 @@ import {
   User 
 } from "firebase/auth";
 import { AppState } from "../types";
+
+// Extract modular functions from firestore namespace
+const { getFirestore, doc, onSnapshot, setDoc } = firestore;
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -41,7 +40,7 @@ try {
   console.warn("Firebase Analytics initialization failed (this is optional):", error);
 }
 
-// Initialize Firestore correctly using modular SDK functions
+// Initialize Firestore and Auth using modular SDK
 const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
@@ -109,7 +108,6 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   if (!userId) return () => {};
 
   // Data is now stored under "users/{userId}" document
-  // Using modular doc() and onSnapshot() functions directly
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -117,7 +115,6 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
       onUpdate(docSnap.data() as AppState);
     } else {
       console.log("No user data found, creating new empty state.");
-      // Send empty state so the app stops loading
       onUpdate({
         cards: [],
         transactions: [],
@@ -135,11 +132,8 @@ export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
-    // Firestore throws error on 'undefined' values.
-    // We sanitize data by stringifying and parsing back to JSON, which removes undefined keys.
+    // Firestore throws error on 'undefined' values. Sanitizing to JSON removes them.
     const sanitizedData = JSON.parse(JSON.stringify(data));
-
-    // Using modular doc() and setDoc() functions directly
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
   } catch (error) {

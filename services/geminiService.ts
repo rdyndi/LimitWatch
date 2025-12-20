@@ -7,7 +7,6 @@ const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'curr
 
 export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   // Always use the named parameter apiKey when initializing GoogleGenAI
-  // API key is obtained from process.env.API_KEY as per guidelines
   const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
   // Prepare a summary of the financial state for the AI
@@ -22,7 +21,7 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
         .filter(i => i.cardId === card.id && i.monthsPaid < i.totalMonths);
     
     const installmentTotalMonthly = activeInstallments.reduce((sum, i) => sum + i.monthlyAmount, 0);
-    const currentDebt = expenses - payments; // Simplified logic: balance is expenses minus payments
+    const currentDebt = expenses - payments;
     
     const saved = data.savings
       .filter(s => s.cardId === card.id && !s.isTransferred)
@@ -55,16 +54,17 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   `;
 
   try {
-    // Always use ai.models.generateContent with a valid Gemini 3 model for complex reasoning tasks
-    // Use gemini-3-pro-preview for advanced financial reasoning and strategy analysis
+    // Use gemini-3-pro-preview for complex reasoning and financial strategy analysis
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         temperature: 0.7,
+        // Optional: Adding thinkingBudget for more detailed financial reasoning
+        thinkingConfig: { thinkingBudget: 4000 }
       }
     });
-    // Access response.text as a property, not a method
+    // Access response.text as a property, not a method, according to the SDK guidelines
     return response.text || "Maaf, tidak dapat menghasilkan saran saat ini.";
   } catch (error) {
     console.error("Gemini API Error:", error);
