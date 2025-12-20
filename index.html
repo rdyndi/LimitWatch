@@ -2,7 +2,7 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>LimitWatch</title>
 
     <!-- TailwindCSS -->
@@ -33,6 +33,38 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
+        /* Menghilangkan scrollbar global */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+        overflow-x: hidden;
+      }
+      
+      /* Menghilangkan scrollbar untuk Chrome, Safari, dan Opera */
+      ::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Mencegah bounce effect di iOS yang mengganggu header fixed */
+      html, body {
+        height: 100%;
+        width: 100%;
+        position: fixed;
+        overflow: hidden;
+      }
+
+      #root {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      /* Utility class untuk menyembunyikan scrollbar pada elemen tertentu */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     </style>
   <script type="importmap">

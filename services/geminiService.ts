@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { AppState } from "../types";
 
@@ -5,10 +6,12 @@ import { AppState } from "../types";
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
 
 export const getFinancialAdvice = async (data: AppState): Promise<string> => {
+  // Use the pre-configured API_KEY from process.env directly
   if (!process.env.API_KEY) {
     return "API Key tidak ditemukan. Mohon konfigurasi environment variable.";
   }
 
+  // Always use the named parameter apiKey when initializing GoogleGenAI
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // Prepare a summary of the financial state for the AI
@@ -56,13 +59,15 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   `;
 
   try {
+    // Always use ai.models.generateContent with a valid Gemini 3 model for complex reasoning tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         temperature: 0.7,
       }
     });
+    // Access response.text as a property, not a method
     return response.text || "Maaf, tidak dapat menghasilkan saran saat ini.";
   } catch (error) {
     console.error("Gemini API Error:", error);

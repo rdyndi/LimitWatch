@@ -1,5 +1,7 @@
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+// Fix: Use modular SDK imports for firestore to ensure all standalone functions are correctly recognized.
 import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { 
   getAuth, 
