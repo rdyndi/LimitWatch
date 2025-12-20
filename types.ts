@@ -8,14 +8,6 @@ export interface CreditCard {
   dueDay?: number; // Tanggal jatuh tempo (1-31)
 }
 
-export interface Wallet {
-  id: string;
-  name: string;
-  type: 'BANK' | 'EWALLET' | 'CASH';
-  balance: number;
-  color: string;
-}
-
 export enum TransactionType {
   EXPENSE = 'EXPENSE', // Pemakaian Kartu
   PAYMENT = 'PAYMENT', // Pembayaran Tagihan (Mengurangi Hutang)
@@ -30,7 +22,6 @@ export interface Transaction {
   type: TransactionType;
   category?: string;
   isInstallment?: boolean; // True jika transaksi ini dikonversi jadi cicilan (agar tidak double hitung di laporan)
-  installmentId?: string; // ID referensi ke data installment (jika isInstallment true)
   targetPeriod?: { month: number, year: number }; // Khusus PAYMENT: Pembayaran untuk tagihan bulan apa
   isValidated?: boolean; // Status validasi (Checklist)
 }
@@ -61,7 +52,6 @@ export interface AppState {
   transactions: Transaction[];
   installments: Installment[];
   savings: Saving[];
-  wallets: Wallet[];
 }
 
-export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT' | 'WALLETS';
+export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT';

@@ -1,22 +1,17 @@
-// @ts-ignore
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { 
   getAuth, 
-  signInWithPopup, 
   GoogleAuthProvider, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut, 
-  updateProfile, 
   onAuthStateChanged,
+  updateProfile,
   User 
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  doc, 
-  onSnapshot, 
-  setDoc
-} from "firebase/firestore";
 import { AppState } from "../types";
 
 // Your web app's Firebase configuration
@@ -31,10 +26,17 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (error) {
+  console.warn("Firebase Analytics initialization failed (this is optional):", error);
+}
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
 // --- Auth Functions ---
@@ -99,6 +101,7 @@ export const subscribeToAuth = (callback: (user: User | null) => void) => {
 export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
   if (!userId) return () => {};
 
+  // Data is now stored under "users/{userId}" document
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -106,12 +109,12 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
       onUpdate(docSnap.data() as AppState);
     } else {
       console.log("No user data found, creating new empty state.");
+      // Send empty state so the app stops loading
       onUpdate({
         cards: [],
         transactions: [],
         installments: [],
-        savings: [],
-        wallets: []
+        savings: []
       });
     }
   }, (error) => {
@@ -124,7 +127,10 @@ export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
+    // Firestore throws error on 'undefined' values.
+    // We sanitize data by stringifying and parsing back to JSON, which removes undefined keys.
     const sanitizedData = JSON.parse(JSON.stringify(data));
+
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
   } catch (error) {
@@ -132,4 +138,4 @@ export const saveAppState = async (userId: string, data: AppState) => {
   }
 };
 
-export { app, db, auth };
+export { app, analytics, db, auth };
