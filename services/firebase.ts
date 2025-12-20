@@ -1,13 +1,8 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// Use named imports for Firestore to comply with Modular SDK v9+ standards and fix property access errors.
-import { 
-  getFirestore, 
-  doc, 
-  onSnapshot, 
-  setDoc 
-} from "firebase/firestore";
+// Fix: Consolidating Firestore imports to ensure standard modular SDK exports are correctly resolved
+import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -110,7 +105,7 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   if (!userId) return () => {};
 
   // Data is now stored under "users/{userId}" document
-  // Fixed: Use modular doc() and onSnapshot() functions directly
+  // Using modular doc() and onSnapshot() functions directly
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -140,7 +135,7 @@ export const saveAppState = async (userId: string, data: AppState) => {
     // We sanitize data by stringifying and parsing back to JSON, which removes undefined keys.
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
-    // Fixed: Use modular doc() and setDoc() functions directly
+    // Using modular doc() and setDoc() functions directly
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
   } catch (error) {
