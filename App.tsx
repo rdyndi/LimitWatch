@@ -788,8 +788,7 @@ const App: React.FC = () => {
                                  {t.isValidated && <p className={`text-[8px] font-bold uppercase tracking-wider ${cardTheme.text}`}>Dibukukan</p>}
                               </div>
                               <button onClick={() => toggleTransactionValidation(t.id)} className={`transition transform active:scale-90 ${t.isValidated ? cardTheme.text : 'text-slate-200'}`}>
-                                 <CheckCircle2 size={26} fill={t.isValidated ? 'currentColor' : 'none'} className={t.isValidated ? 'fill-current opacity-20' : ''}/>
-                              </button>
+                                 <CheckCircle2 size={26} fill={t.isValidated ? 'currentColor' : 'none'} className={t.isValidated ? 'fill-current opacity-20' : ''}/></button>
                            </div>
                         </div>
                         <div className="flex border-t border-slate-50 pt-2 gap-2">
@@ -814,14 +813,25 @@ const App: React.FC = () => {
                     <div key={card.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                        <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center"><span className="font-bold text-slate-700 text-sm">{card.name}</span><span className="font-bold text-green-600">{formatIDR(totalCardSaved)}</span></div>
                        {activeSavings.map(s => (
-                          <div key={s.id} className="p-4 border-b border-slate-50 last:border-0 flex flex-col gap-3">
-                             <div className="flex justify-between items-center">
-                                <div><p className="text-xs font-bold text-slate-800">{s.note}</p><p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p></div>
-                                <span className="font-bold text-green-600 text-sm">{formatIDR(s.amount)}</span>
+                          <div key={s.id} className="relative overflow-hidden group">
+                             {/* Swipe Layer for Mobile Delete */}
+                             <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center w-20 bg-red-500 z-0">
+                                <button onClick={() => handleDeleteSaving(s.id)} className="text-white flex flex-col items-center gap-1 font-bold text-[10px]"><Trash2 size={20}/></button>
                              </div>
-                             <div className="flex gap-2">
-                                <button onClick={() => openEditSaving(s)} className="flex-1 py-1 text-[9px] font-bold text-slate-500 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-center gap-1.5 transition active:scale-95"><Pencil size={12}/> Edit</button>
-                                <button onClick={() => handleDeleteSaving(s.id)} className="flex-1 py-1 text-[9px] font-bold text-slate-500 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-center gap-1.5 transition active:scale-95"><Trash2 size={12}/> Hapus</button>
+                             
+                             {/* Main Content Layer */}
+                             <div 
+                                onClick={() => openEditSaving(s)}
+                                className="relative z-10 bg-white p-4 border-b border-slate-50 last:border-0 flex justify-between items-center overflow-x-auto snap-x snap-mandatory no-scrollbar cursor-pointer active:bg-slate-50 transition"
+                             >
+                                <div className="min-w-full snap-start flex justify-between items-center pr-2">
+                                   <div><p className="text-xs font-bold text-slate-800">{s.note}</p><p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p></div>
+                                   <div className="flex items-center gap-2">
+                                      <span className="font-bold text-green-600 text-sm">{formatIDR(s.amount)}</span>
+                                      <ChevronRight size={14} className="text-slate-300 md:hidden"/>
+                                   </div>
+                                </div>
+                                <div className="min-w-[80px] snap-end"></div>
                              </div>
                           </div>
                        ))}
