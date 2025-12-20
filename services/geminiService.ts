@@ -56,9 +56,8 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   `;
 
   try {
-    // Fix: Updated model to 'gemini-3-flash-preview' per guidelines for basic text tasks.
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         temperature: 0.7,

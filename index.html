@@ -28,6 +28,7 @@
           extend: {
             colors: {
               primary: '#4F46E5', // Indigo-600
+              // Override default blue with Indigo/Blurple shades
               blue: {
                 50: '#eef2ff',
                 100: '#e0e7ff',
@@ -68,39 +69,32 @@
         --sar: env(safe-area-inset-right);
       }
 
-html, body {
-  overscroll-behavior-y: none;
-  height: 100%;
-  width: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-
+      html, body {
+        overscroll-behavior-y: none;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
       
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: #0F0F1E;
-  color: #1e293b;
-  padding:
-    env(safe-area-inset-top)
-    env(safe-area-inset-right)
-    env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
-}
-
+      /* Liquid Aurora Background */
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #0F0F1E;
+        color: #1e293b;
+      }
 
       /* Animated Mesh Background */
-.ambient-light {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  min-height: 100vh;
-  z-index: -2;
-  background: radial-gradient(circle at center, #f8fafc, #eef2ff);
-  overflow: hidden;
-}
+      .ambient-light {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -2;
+        background: radial-gradient(circle at center, #f8fafc, #eef2ff);
+        overflow: hidden;
+      }
       
       .orb {
         position: absolute;
@@ -111,9 +105,11 @@ body {
         will-change: transform;
       }
 
+      /* iOS 18 Style Gradients - Modified for Purple/Indigo Theme */
       .orb-1 {
         width: 80vw;
         height: 80vw;
+        /* Changed from Blue to Indigo/Violet */
         background: radial-gradient(circle, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0) 70%);
         top: -20%;
         left: -20%;
@@ -157,6 +153,9 @@ body {
         100% { transform: translate(0, 0) rotate(0deg) scale(1); }
       }
 
+      /* --- Liquid Glass Utilities --- */
+
+      /* Base Glass Panel - Ultra premium */
       .glass-panel {
         background: rgba(255, 255, 255, 0.65);
         backdrop-filter: blur(24px) saturate(180%);
@@ -165,6 +164,7 @@ body {
         box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
       }
 
+      /* Darker/Heavy Glass (for Sidebars/Navs) */
       .glass-heavy {
         background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(40px) saturate(200%);
@@ -173,10 +173,16 @@ body {
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
       }
       
-.glass-nav {
-  padding-bottom: env(safe-area-inset-bottom);
-}
+      /* Mobile Nav Glass */
+      .glass-nav {
+         background: rgba(255, 255, 255, 0.85);
+         backdrop-filter: blur(30px) saturate(180%);
+         -webkit-backdrop-filter: blur(30px) saturate(180%);
+         border-top: 1px solid rgba(255, 255, 255, 0.6);
+         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+      }
 
+      /* Input Fields Glass */
       .glass-input {
         background: rgba(255, 255, 255, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.6);
@@ -186,17 +192,22 @@ body {
       }
       .glass-input:focus {
         background: rgba(255, 255, 255, 0.9);
-        border-color: #6366f1;
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        border-color: #6366f1; /* Indigo */
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); /* Indigo Glow */
         transform: translateY(-1px);
       }
+      .glass-input::placeholder {
+        color: rgba(100, 116, 139, 0.6);
+      }
 
+      /* Modal Overlay */
       .glass-overlay {
         background: rgba(15, 23, 42, 0.2);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
       }
 
+      /* Buttons with liquid sheen - Updated for Purple/Indigo */
       .btn-liquid {
         background-image: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
         box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
@@ -221,13 +232,17 @@ body {
         opacity: 1;
       }
 
+      /* Scrollbar Styling */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
 
+      /* Safe Areas */
       .pt-safe { padding-top: var(--sat); }
       .pb-safe { padding-bottom: var(--sab); }
       
+      /* Card gloss effect */
       .card-gloss-overlay {
         background: linear-gradient(125deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 100%);
         pointer-events: none;
