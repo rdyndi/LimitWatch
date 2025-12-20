@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { 
   AppState, 
@@ -17,10 +16,7 @@ import {
   logout, 
   subscribeToAuth, 
   subscribeToAppState, 
-  saveAppState,
-  getEmailByUsername,
-  requestFcmToken,
-  onMessageListener
+  saveAppState 
 } from "./services/firebase";
 import { User } from "firebase/auth";
 import html2canvas from "html2canvas";
@@ -76,8 +72,7 @@ import {
   Receipt,
   Share2,
   ReceiptText,
-  Info,
-  AtSign
+  Info
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -92,7 +87,7 @@ const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Jul
 // Predefined Card Colors with Gloss Effect
 const CARD_COLORS = [
   { id: 'slate', class: 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-inner', label: 'Hitam' },
-  { id: 'blue', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 shadow-inner', label: 'Biru (Indigo)' },
+  { id: 'blue', class: 'bg-gradient-to-br from-blue-500 to-blue-700 shadow-inner', label: 'Biru' },
   { id: 'emerald', class: 'bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-inner', label: 'Hijau' },
   { id: 'red', class: 'bg-gradient-to-br from-red-500 to-red-700 shadow-inner', label: 'Merah' },
   { id: 'purple', class: 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-inner', label: 'Ungu' },
@@ -110,7 +105,7 @@ interface NotificationItem {
 }
 
 // --- REUSABLE PROFILE COMPONENT ---
-const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout: () => void, onNavigate: () => void }) => {
+const ProfileDropdown = ({ user, onLogout }: { user: User, onLogout: () => void }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -144,7 +139,7 @@ const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout:
     <div className="relative" ref={menuRef}>
         <button 
             onClick={() => setIsOpen(!isOpen)}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel p-0.5 overflow-hidden hover:scale-105 transition-transform cursor-pointer shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel p-0.5 overflow-hidden hover:scale-105 transition-transform cursor-pointer shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             aria-label="User Menu"
             aria-expanded={isOpen}
         >
@@ -167,11 +162,11 @@ const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout:
                     <button 
                         onClick={() => {
                             setIsOpen(false);
-                            onNavigate();
+                            // Navigate to profile if needed, or just close
                         }} 
                         className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-white/60 rounded-xl flex items-center gap-3 font-medium transition-colors mb-1"
                     >
-                        <Settings size={18} className="text-slate-500" /> Akun & Pengaturan
+                        <Settings size={18} className="text-slate-500" /> Pengaturan Akun
                     </button>
                     <button 
                         onClick={() => {
@@ -191,7 +186,6 @@ const ProfileDropdown = ({ user, onLogout, onNavigate }: { user: User, onLogout:
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [authChecking, setAuthChecking] = useState(true);
   const [data, setData] = useState<AppState>({
     cards: [],
     transactions: [],
@@ -239,20 +233,17 @@ const App: React.FC = () => {
   const maxVerticalDistance = 30; // Maximum allowed vertical scroll during swipe
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-  // Drag & Drop Mobile Menu States - REMOVED redundant items and 'profile' (moved to dropdown)
-  const [menuOrder, setMenuOrder] = useState<string[]>(['cicilan', 'wallets', 'laporan', 'bills']);
+  // Drag & Drop Mobile Menu States
+  const [menuOrder, setMenuOrder] = useState<string[]>(['transaksi', 'cicilan', 'wallets', 'laporan', 'kartu', 'tabungan', 'history', 'bills', 'profile']);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
 
   // Auth States
-  const [authInput, setAuthInput] = useState(''); // Email or Username
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-
-  // Profile Settings State
-  const [newUsername, setNewUsername] = useState('');
 
   // Transaction Form State
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
@@ -322,43 +313,13 @@ const App: React.FC = () => {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Meminta Izin Notifikasi & Token saat aplikasi dimuat
-    requestFcmToken();
-    
-    // Listener untuk notifikasi saat aplikasi sedang dibuka (Foreground)
-    const unsubscribeMessage = onMessageListener().then((payload: any) => {
-        if (payload && payload.notification) {
-            setToastMessage({
-                id: generateId(),
-                type: 'info',
-                title: payload.notification.title || 'Info',
-                message: payload.notification.body || 'Pesan baru masuk',
-                date: new Date().toISOString()
-            });
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 5000);
-        }
-    });
-
-    const unsubscribe = subscribeToAuth((u) => {
-        setUser(u);
-        setAuthChecking(false);
-    });
-    return () => {
-        unsubscribe();
-    };
+    const unsubscribe = subscribeToAuth(setUser);
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToAppState(user.uid, (fetchedData) => {
-          // Check if we need to sync email or if data is empty
-          if (fetchedData && !fetchedData.email && user.email) {
-               saveAppState(user.uid, { ...fetchedData, email: user.email });
-          }
-          setData(fetchedData);
-          if (fetchedData.username) setNewUsername(fetchedData.username);
-      });
+      const unsubscribe = subscribeToAppState(user.uid, setData);
       return () => unsubscribe();
     } else {
       setData({ cards: [], transactions: [], installments: [], savings: [], wallets: [] });
@@ -642,17 +603,6 @@ const App: React.FC = () => {
     if (user) {
       saveAppState(user.uid, newData);
     }
-  };
-
-  const handleUpdateUsername = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!newUsername || newUsername.length < 3) {
-          alert("Username minimal 3 karakter");
-          return;
-      }
-      // Simple check to ensure we don't save empty
-      saveData({ ...data, username: newUsername });
-      alert("Username berhasil diperbarui!");
   };
 
   const openInstallmentModal = () => {
@@ -1452,36 +1402,20 @@ const App: React.FC = () => {
     setAuthLoading(true);
     try {
       if (isRegistering) {
-        // Registration is strictly Email for now, Username can be set in profile
-        if (!authInput.includes('@')) {
-             throw new Error("Pendaftaran wajib menggunakan Email.");
-        }
-        await registerWithEmail(authInput, password);
+        await registerWithEmail(email, password);
         if (displayName) {
              await updateUserProfile(displayName);
         }
       } else {
-        // LOGIN LOGIC: Check if input is Email or Username
-        let loginEmail = authInput;
-        
-        if (!authInput.includes('@')) {
-             // Treat as Username
-             const foundEmail = await getEmailByUsername(authInput);
-             if (!foundEmail) {
-                 throw new Error("Username tidak ditemukan.");
-             }
-             loginEmail = foundEmail;
-        }
-
-        await loginWithEmail(loginEmail, password);
+        await loginWithEmail(email, password);
       }
     } catch (err: any) {
       console.error(err);
-      let msg = err.message || "Terjadi kesalahan.";
+      let msg = "Terjadi kesalahan.";
       if (err.code === 'auth/invalid-email') msg = "Format email tidak valid.";
-      if (err.code === 'auth/user-not-found') msg = "Akun tidak ditemukan.";
+      if (err.code === 'auth/user-not-found') msg = "Akun tidak ditemukan. Silakan daftar.";
       if (err.code === 'auth/wrong-password') msg = "Password salah.";
-      if (err.code === 'auth/invalid-credential') msg = "Email/Username atau password salah.";
+      if (err.code === 'auth/invalid-credential') msg = "Email atau password salah.";
       if (err.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar.";
       if (err.code === 'auth/weak-password') msg = "Password terlalu lemah (min 6 karakter).";
       setAuthError(msg);
@@ -1620,32 +1554,13 @@ const App: React.FC = () => {
       .filter(t => t.type === TransactionType.PAYMENT)
       .reduce((sum, t) => sum + t.amount, 0);
 
-  if (authChecking) {
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#0F0F1E] z-50">
-          <div className="absolute inset-0 overflow-hidden">
-             <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-indigo-600/20 rounded-full blur-[100px] animate-pulse"></div>
-             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-600/20 rounded-full blur-[100px] animate-pulse delay-700"></div>
-          </div>
-          <div className="relative z-10 flex flex-col items-center">
-              <div className="w-16 h-16 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-6 shadow-2xl shadow-indigo-500/20"></div>
-              <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-100"></div>
-                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce delay-200"></div>
-              </div>
-          </div>
-      </div>
-    );
-  }
-
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 font-sans relative">
         <div className="glass-panel p-8 rounded-3xl shadow-xl w-full max-w-md relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400"></div>
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-white/30 backdrop-blur-sm text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg ring-1 ring-white/50">
+            <div className="w-16 h-16 bg-white/30 backdrop-blur-sm text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg ring-1 ring-white/50">
               <Wallet size={32} />
             </div>
             <h1 className="text-3xl font-bold text-slate-800 tracking-tight">LimitWatch</h1>
@@ -1671,16 +1586,15 @@ const App: React.FC = () => {
             
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                {/* Change icon based on registering state */}
-                {isRegistering ? <Mail size={18} /> : <UserIcon size={18} />}
+                <Mail size={18} />
               </div>
               <input 
-                type={isRegistering ? "email" : "text"}
+                type="email" 
                 required 
-                value={authInput}
-                onChange={(e) => setAuthInput(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 glass-input rounded-xl outline-none text-sm placeholder:text-slate-400 text-slate-800"
-                placeholder={isRegistering ? "Alamat Email" : "Email atau Username"}
+                placeholder="Alamat Email"
               />
             </div>
 
@@ -1740,10 +1654,10 @@ const App: React.FC = () => {
                 onClick={() => {
                   setIsRegistering(!isRegistering);
                   setAuthError('');
-                  setAuthInput('');
+                  setEmail('');
                   setPassword('');
                 }}
-                className="text-indigo-600 font-bold hover:text-indigo-700 transition"
+                className="text-blue-600 font-bold hover:text-blue-700 transition"
               >
                 {isRegistering ? "Login" : "Daftar"}
               </button>
@@ -1759,11 +1673,11 @@ const App: React.FC = () => {
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
         active 
-          ? 'bg-white/60 text-indigo-700 shadow-sm border border-white/50 backdrop-blur-md' 
+          ? 'bg-white/60 text-blue-700 shadow-sm border border-white/50 backdrop-blur-md' 
           : 'text-slate-600 hover:bg-white/30 hover:text-slate-900'
       }`}
     >
-      <span className={active ? 'text-indigo-600' : 'text-slate-500'}>{icon}</span>
+      <span className={active ? 'text-blue-600' : 'text-slate-500'}>{icon}</span>
       {label}
     </button>
   );
@@ -1778,7 +1692,7 @@ const App: React.FC = () => {
         {/* SIDEBAR (GLASS) */}
         <aside className="w-72 glass-heavy flex flex-col fixed h-full z-20">
            <div className="h-24 flex items-center px-8">
-              <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-600 text-white rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-indigo-500/30">
+              <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
                 <Wallet size={20} />
               </div>
               <span className="font-bold text-2xl text-slate-800 tracking-tight">LimitWatch</span>
@@ -1869,7 +1783,7 @@ const App: React.FC = () => {
                  <div className="relative group">
                     <button 
                       onClick={openAddTransactionModal}
-                      className="btn-liquid text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-500/30"
+                      className="btn-liquid text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/30"
                     >
                        <PlusCircle size={18} /> 
                        <span>Catat Transaksi</span>
@@ -1877,7 +1791,7 @@ const App: React.FC = () => {
                  </div>
 
                  {/* Profile Dropdown Component */}
-                 <ProfileDropdown user={user} onLogout={logout} onNavigate={() => setMobileTab('profile')} />
+                 <ProfileDropdown user={user} onLogout={logout} />
               </div>
            </header>
 
@@ -1912,16 +1826,16 @@ const App: React.FC = () => {
                      </button>
                   </div>
 
-                  <div className="col-span-1 bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-3xl shadow-xl shadow-indigo-500/20 text-white flex flex-col justify-between h-48 relative overflow-hidden">
+                  <div className="col-span-1 bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-xl shadow-blue-500/20 text-white flex flex-col justify-between h-48 relative overflow-hidden">
                      <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
-                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-violet-400 rounded-full blur-3xl opacity-50"></div>
+                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-400 rounded-full blur-3xl opacity-50"></div>
                      
                      <div className="relative z-10">
-                       <p className="text-indigo-100 font-medium mb-1 uppercase tracking-wide text-xs">Cicilan Aktif</p>
+                       <p className="text-blue-100 font-medium mb-1 uppercase tracking-wide text-xs">Cicilan Aktif</p>
                        <div className="flex items-baseline gap-2">
                            <h3 className="text-3xl font-bold">{activeInstallmentsCount} Item</h3>
                        </div>
-                       <span className="text-sm text-indigo-100/80 font-medium mt-1 block">Beban: {formatIDR(totalInstallmentBillThisMonth)}/bln</span>
+                       <span className="text-sm text-blue-100/80 font-medium mt-1 block">Beban: {formatIDR(totalInstallmentBillThisMonth)}/bln</span>
                      </div>
                      <div className="flex gap-2 relative z-10 mt-auto">
                          <button onClick={() => setInstallmentListModalOpen(true)} className="text-sm bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/20 py-2 px-4 rounded-xl transition-all font-semibold">
@@ -2023,7 +1937,7 @@ const App: React.FC = () => {
                <div className="glass-panel rounded-3xl overflow-hidden">
                   <div className="p-6 border-b border-white/30 flex justify-between items-center bg-white/20">
                      <h3 className="font-bold text-lg text-slate-800">Transaksi Terakhir</h3>
-                     <button onClick={() => setMobileTab('history')} className="text-indigo-600 text-sm font-semibold hover:bg-indigo-50/50 px-3 py-1 rounded-lg transition-colors">Lihat Semua</button>
+                     <button onClick={() => setMobileTab('history')} className="text-blue-600 text-sm font-semibold hover:bg-blue-50/50 px-3 py-1 rounded-lg transition-colors">Lihat Semua</button>
                   </div>
                   <table className="w-full text-left border-collapse">
                      <thead>
@@ -2071,8 +1985,7 @@ const App: React.FC = () => {
              </div>
            )}
 
-           {/* ... (Other Desktop Views Omitted for Brevity as Request Focused on Mobile Color) ... */}
-           {/* Re-rendering other desktop views using the same logic as before but ensuring they are inside the main desktop container */}
+           {/* --- WALLETS VIEW (DESKTOP) --- */}
            {mobileTab === 'wallets' && (
               <div className="space-y-6 animate-in fade-in">
                   <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
@@ -2081,7 +1994,7 @@ const App: React.FC = () => {
                           <PlusCircle size={18}/> Tambah Dompet
                       </button>
                   </div>
-                  {/* ... Desktop Wallet Grid ... */}
+                  
                   <div className="grid grid-cols-3 gap-6">
                       {(data.wallets || []).map(w => (
                           <div key={w.id} className={`p-6 rounded-3xl shadow-lg relative group overflow-hidden ${w.color || 'bg-slate-700'}`}>
@@ -2108,15 +2021,55 @@ const App: React.FC = () => {
                               <WalletCards className="absolute -bottom-4 -right-4 text-white/10 w-40 h-40 transform rotate-12" />
                           </div>
                       ))}
+                      {(data.wallets || []).length === 0 && (
+                          <div className="col-span-3 text-center py-16 glass-panel rounded-3xl border-dashed border-2 border-white/40 text-slate-400">
+                              <WalletCards size={48} className="mx-auto mb-3 opacity-50"/>
+                              <p>Belum ada dompet. Tambahkan dompet untuk mencatat pemasukan.</p>
+                          </div>
+                      )}
                   </div>
               </div>
            )}
 
-           {/* ... Other desktop tabs ... */}
-           {/* Keeping existing desktop tabs implementation */}
+           {/* --- HISTORY VIEW (DESKTOP) --- */}
            {mobileTab === 'history' && (
              <div className="space-y-6 animate-in fade-in">
-                {/* ... History Desktop ... */}
+                {/* Filters */}
+                <div className="glass-panel p-5 rounded-2xl flex gap-4 items-end">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Filter Kartu</label>
+                        <select value={historyFilterCard} onChange={(e) => setHistoryFilterCard(e.target.value)} className="w-full glass-input rounded-xl p-2.5 text-sm outline-none">
+                            <option value="all">Semua Kartu</option>
+                            {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="w-40">
+                         <label className="block text-xs font-bold text-slate-500 mb-1">Bulan</label>
+                         <select value={historyFilterMonth} onChange={(e) => setHistoryFilterMonth(parseInt(e.target.value))} className="w-full glass-input rounded-xl p-2.5 text-sm outline-none">
+                             {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                         </select>
+                    </div>
+                    <div className="w-32">
+                         <label className="block text-xs font-bold text-slate-500 mb-1">Tahun</label>
+                         <select value={historyFilterYear} onChange={(e) => setHistoryFilterYear(parseInt(e.target.value))} className="w-full glass-input rounded-xl p-2.5 text-sm outline-none">
+                             {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                         </select>
+                    </div>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="glass-panel bg-red-50/40 p-5 rounded-2xl border-red-100/50">
+                        <p className="text-xs text-red-600 font-bold uppercase tracking-wider">Total Pengeluaran</p>
+                        <p className="text-3xl font-bold text-red-700 mt-1">{formatIDR(filteredExpense)}</p>
+                    </div>
+                    <div className="glass-panel bg-green-50/40 p-5 rounded-2xl border-green-100/50">
+                        <p className="text-xs text-green-600 font-bold uppercase tracking-wider">Total Pembayaran</p>
+                        <p className="text-3xl font-bold text-green-700 mt-1">{formatIDR(filteredPayment)}</p>
+                    </div>
+                </div>
+
+                {/* Table */}
                 <div className="glass-panel rounded-2xl overflow-hidden">
                     <table className="w-full text-left">
                         <thead className="bg-white/20 text-slate-500 text-sm border-b border-white/30">
@@ -2131,7 +2084,7 @@ const App: React.FC = () => {
                             {filteredTransactions.map(t => {
                                 const card = data.cards.find(c => c.id === t.cardId);
                                 return (
-                                    <tr onClick={() => handleEditClick(t)} key={t.id} className="border-b border-white/20 hover:bg-white/40 cursor-pointer transition-colors transition-colors last:border-0">
+                                    <tr onClick={() => handleEditClick(t)} key={t.id} className="border-b border-white/20 hover:bg-white/40 cursor-pointer transition-colors last:border-0">
                                         <td className="p-5 text-center" onClick={(e) => handleToggleValidation(e, t.id)}>
                                             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-all ${t.isValidated ? 'bg-green-500 border-green-500 text-white shadow-md' : 'border-slate-300 text-transparent hover:border-green-400 bg-white/50'}`}>
                                                 <Check size={14} strokeWidth={3} />
@@ -2149,25 +2102,29 @@ const App: React.FC = () => {
                                     </tr>
                                 )
                             })}
+                            {filteredTransactions.length === 0 && (
+                                <tr><td colSpan={4} className="p-10 text-center text-slate-400">Tidak ada transaksi yang sesuai filter.</td></tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
              </div>
            )}
 
+           {/* --- SAVINGS VIEW (DESKTOP) --- */}
            {mobileTab === 'savings' && (
                <div className="space-y-8 animate-in fade-in">
-                   {/* ... Savings Desktop ... */}
                    <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
                        <h2 className="text-xl font-bold text-slate-800">Tabungan Pelunasan</h2>
                        <button onClick={openAddSavingModal} className="btn-liquid text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2">
                            <PlusCircle size={18}/> Tambah Tabungan
                        </button>
                    </div>
-                   {/* ... Savings List ... */}
+                   
                    {data.cards.map(card => {
                        const groupedSavings = getSavingsByMonth(card.id);
                        if (groupedSavings.length === 0) return null;
+
                        return (
                            <div key={card.id} className="glass-panel rounded-3xl overflow-hidden shadow-lg">
                                <div className={`p-4 ${card.color || 'bg-slate-700'} text-white flex justify-between items-center relative`}>
@@ -2179,24 +2136,50 @@ const App: React.FC = () => {
                                        Total: {formatIDR(groupedSavings.reduce((sum, g) => sum + g.total, 0))}
                                    </div>
                                </div>
-                               {/* ... Grouped Savings Items ... */}
                                <div className="p-6 grid grid-cols-2 gap-6 bg-white/40">
                                    {groupedSavings.map(group => (
                                        <div key={group.key} className="glass-panel rounded-2xl p-5 border-white/50">
-                                            <div className="flex justify-between items-start mb-4">
+                                           <div className="flex justify-between items-start mb-4">
                                                <h4 className="font-bold text-slate-700 bg-white/50 px-2 py-1 rounded-lg">{group.label}</h4>
                                                <span className="text-xl font-bold text-green-600">{formatIDR(group.total)}</span>
                                            </div>
-                                            {/* ... */}
+                                           <div className="space-y-3 mb-5">
+                                               {group.items.map(item => (
+                                                   <div key={item.id} className="flex justify-between text-sm items-center group/item p-2 hover:bg-white/40 rounded-lg transition-colors">
+                                                       <span className="text-slate-600 font-medium truncate max-w-[150px]">{item.note}</span>
+                                                       <div className="flex items-center gap-3">
+                                                           <span className="font-bold text-slate-800">{formatIDR(item.amount)}</span>
+                                                           <button onClick={() => handleEditSaving(item)} className="text-slate-400 hover:text-blue-500 opacity-0 group-hover/item:opacity-100 transition-opacity bg-white p-1 rounded-md shadow-sm">
+                                                               <Pencil size={12}/>
+                                                           </button>
+                                                       </div>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                           <div className="flex gap-2">
+                                               <button onClick={() => openWithdrawModal(group.items)} className="flex-1 bg-white/50 hover:bg-white border border-white/60 text-slate-700 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm">
+                                                   Ambil
+                                               </button>
+                                               <button onClick={() => handleOpenBatchPay(group.items, group.label, group.total)} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-green-200 transition-all">
+                                                   Bayar Tagihan
+                                               </button>
+                                           </div>
                                        </div>
                                    ))}
                                </div>
                            </div>
                        )
                    })}
+                   {data.savings.filter(s => !s.isTransferred).length === 0 && (
+                       <div className="text-center py-16 glass-panel rounded-3xl border-dashed border-2 border-white/40 text-slate-400">
+                           <Coins size={48} className="mx-auto mb-3 opacity-50"/>
+                           <p>Belum ada tabungan aktif.</p>
+                       </div>
+                   )}
                </div>
            )}
 
+           {/* --- CARDS VIEW (DESKTOP) --- */}
            {mobileTab === 'cards' && (
               <div className="space-y-6 animate-in fade-in">
                   <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
@@ -2207,7 +2190,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-8">
                       {data.cards.map(card => {
-                           const cardUsage = data.transactions
+                          const cardUsage = data.transactions
                              .filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
                           const cardPayments = data.transactions
                              .filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT).reduce((sum, t) => sum + t.amount, 0);
@@ -2215,8 +2198,10 @@ const App: React.FC = () => {
                           const remainingLimit = card.limit - currentDebt;
                           return (
                               <div key={card.id} onClick={() => openCardHistory(card)} className={`aspect-[1.58/1] rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.02] ${card.color || 'bg-slate-700'}`}>
+                                  {/* Gloss Overlay */}
                                   <div className="card-gloss-overlay absolute inset-0"></div>
                                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                                  
                                   <div className="flex justify-between items-start mb-8 relative z-10">
                                       <div className="flex items-center gap-2">
                                           <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">
@@ -2224,7 +2209,10 @@ const App: React.FC = () => {
                                           </div>
                                           <span className="font-bold text-lg tracking-wide text-shadow-sm">{card.name}</span>
                                       </div>
-                                      <button onClick={(e) => {e.stopPropagation(); handleEditCard(card);}} className="bg-black/20 p-2 rounded-xl hover:bg-black/30 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button 
+                                          onClick={(e) => {e.stopPropagation(); handleEditCard(card);}} 
+                                          className="bg-black/20 p-2 rounded-xl hover:bg-black/30 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
                                           <Pencil size={16} className="text-white"/>
                                       </button>
                                   </div>
@@ -2233,7 +2221,14 @@ const App: React.FC = () => {
                                       <p className="text-3xl font-mono font-bold tracking-tight text-shadow-md">{formatIDR(remainingLimit)}</p>
                                       <p className="text-xs opacity-70 mt-2 font-mono tracking-wide">LIMIT: {formatIDR(card.limit)}</p>
                                   </div>
-                                  {/* ... */}
+                                  {card.dueDay && (
+                                      <div className="absolute bottom-6 right-6 text-right">
+                                          <div className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                                              <p className="text-[10px] opacity-80 uppercase font-bold">Jatuh Tempo</p>
+                                              <p className="text-sm font-bold">Tgl {card.dueDay}</p>
+                                          </div>
+                                      </div>
+                                  )}
                               </div>
                           )
                       })}
@@ -2241,25 +2236,223 @@ const App: React.FC = () => {
               </div>
            )}
 
+           {/* --- REPORT VIEW (DESKTOP) --- */}
            {mobileTab === 'report' && (
               <div className="space-y-6 animate-in fade-in h-full flex flex-col">
-                  {/* ... Report Desktop ... */}
-                   <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
+                  <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
                       <h2 className="text-xl font-bold text-slate-800">Laporan Tahunan</h2>
-                      {/* ... filters ... */}
-                   </div>
-                   {/* ... report table ... */}
+                      <div className="flex gap-4">
+                          <select value={reportCardId} onChange={(e) => setReportCardId(e.target.value)} className="glass-input rounded-xl py-2 px-3 text-sm outline-none font-medium">
+                              {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="glass-input rounded-xl py-2 px-3 text-sm outline-none font-medium">
+                              {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                                  <option key={y} value={y}>{y}</option>
+                              ))}
+                          </select>
+                          <div className="bg-white/40 p-1 rounded-xl flex gap-1 border border-white/40">
+                              <button onClick={() => setReportViewMode('detail')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'detail' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>Detail</button>
+                              <button onClick={() => setReportViewMode('matrix')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'matrix' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>Matriks</button>
+                          </div>
+                      </div>
+                  </div>
+
+                  {reportViewMode === 'detail' ? (
+                      <div className="flex-1 glass-panel rounded-3xl overflow-hidden flex flex-col shadow-lg">
+                          <div className="overflow-x-auto flex-1">
+                              <table className="w-full text-left border-collapse min-w-[1200px]">
+                                  <thead>
+                                      <tr className="bg-white/30 border-b border-white/40">
+                                          <th className="p-4 w-40 font-bold text-slate-700 sticky left-0 bg-white/80 backdrop-blur-md z-10 border-r border-slate-200/50">Bulan</th>
+                                          {monthNames.map(m => (
+                                              <th key={m} className="p-4 font-bold text-slate-600 text-center border-r border-white/30 min-w-[200px]">{m}</th>
+                                          ))}
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      <tr className="border-b border-white/30 bg-white/10">
+                                          <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white/70 backdrop-blur-md border-r border-slate-200/50 align-top">Rincian</td>
+                                          {monthNames.map((_, i) => {
+                                              const report = getMonthlyReportData(reportCardId, i, selectedYear);
+                                              return (
+                                                  <td key={i} className="p-4 border-r border-white/30 align-top h-64 hover:bg-white/20 transition-colors">
+                                                      <div className="space-y-2 text-xs overflow-y-auto max-h-60 custom-scrollbar">
+                                                          {report.expenses.map(t => (
+                                                              <div key={t.id} className="text-slate-700 truncate font-medium" title={t.description}>• {t.description} ({formatIDR(t.amount)})</div>
+                                                          ))}
+                                                          {report.installments.map(ins => (
+                                                              <div key={ins.id} className="text-indigo-600 truncate font-medium" title={ins.name}>• {ins.name} ({ins.currentMonthIndex}) ({formatIDR(ins.monthlyAmount)})</div>
+                                                          ))}
+                                                          {report.expenses.length === 0 && report.installments.length === 0 && (
+                                                              <span className="text-slate-400 opacity-50">-</span>
+                                                          )}
+                                                      </div>
+                                                  </td>
+                                              )
+                                          })}
+                                      </tr>
+                                      <tr className="bg-white/20 border-b border-white/30">
+                                          <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white/70 backdrop-blur-md border-r border-slate-200/50">Total Tagihan</td>
+                                          {monthNames.map((_, i) => {
+                                              const report = getMonthlyReportData(reportCardId, i, selectedYear);
+                                              return (
+                                                  <td key={i} className="p-4 text-right font-bold text-slate-800 border-r border-white/30">
+                                                      {formatIDR(report.totalBill)}
+                                                  </td>
+                                              )
+                                          })}
+                                      </tr>
+                                      <tr className="bg-green-50/30 border-b border-white/30">
+                                          <td className="p-4 font-bold text-slate-700 sticky left-0 bg-green-50/70 backdrop-blur-md border-r border-slate-200/50">Dibayar</td>
+                                          {monthNames.map((_, i) => {
+                                              const report = getMonthlyReportData(reportCardId, i, selectedYear);
+                                              return (
+                                                  <td key={i} className="p-4 text-right font-bold text-green-600 border-r border-white/30">
+                                                      {formatIDR(report.totalPaid)}
+                                                  </td>
+                                              )
+                                          })}
+                                      </tr>
+                                      <tr className="bg-white/40">
+                                          <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white/70 backdrop-blur-md border-r border-slate-200/50">Sisa Tagihan</td>
+                                          {monthNames.map((_, i) => {
+                                              const report = getMonthlyReportData(reportCardId, i, selectedYear);
+                                              return (
+                                                  <td key={i} className={`p-4 text-right font-bold border-r border-white/30 ${report.remaining > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                                                      {formatIDR(Math.max(0, report.remaining))}
+                                                  </td>
+                                              )
+                                          })}
+                                      </tr>
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                  ) : (
+                       // MATRIX VIEW
+                       <div className="flex-1 glass-panel rounded-3xl overflow-hidden flex flex-col shadow-lg">
+                           <div className="overflow-auto flex-1">
+                               <table className="w-full text-left border-collapse">
+                                   <thead className="bg-white/40 sticky top-0 z-20 backdrop-blur-md">
+                                       <tr>
+                                           <th className="p-4 font-bold text-slate-700 border-b border-r border-white/30 sticky left-0 bg-white/70 w-40">Bulan</th>
+                                           {data.cards.map(c => (
+                                               <th key={c.id} className="p-4 font-bold text-slate-600 border-b border-white/30 min-w-[150px] text-right">
+                                                   {c.name}
+                                               </th>
+                                           ))}
+                                           <th className="p-4 font-bold text-slate-800 border-b border-l border-white/30 min-w-[150px] text-right bg-white/60">TOTAL</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       {monthNames.map((month, i) => {
+                                           let monthlyTotal = 0;
+                                           return (
+                                               <tr key={i} className="border-b border-white/20 hover:bg-white/30 transition-colors">
+                                                   <td className="p-4 font-medium text-slate-600 border-r border-white/30 sticky left-0 bg-white/60 backdrop-blur-sm">{month}</td>
+                                                   {data.cards.map(c => {
+                                                       const bill = getMonthlyBill(c.id, i, selectedYear);
+                                                       monthlyTotal += bill;
+                                                       return (
+                                                           <td key={c.id} className="p-4 text-right text-slate-700 font-medium">{formatIDR(bill)}</td>
+                                                       );
+                                                   })}
+                                                   <td className="p-4 text-right font-bold text-slate-900 border-l border-white/30 bg-white/40">{formatIDR(monthlyTotal)}</td>
+                                               </tr>
+                                           );
+                                       })}
+                                   </tbody>
+                               </table>
+                           </div>
+                       </div>
+                  )}
               </div>
            )}
 
+           {/* --- BILLS VIEW (DESKTOP) --- */}
            {mobileTab === 'bills' && (
               <div className="space-y-6 animate-in fade-in">
-                  {/* ... Bills Desktop ... */}
                   <div className="flex justify-between items-center glass-panel p-4 rounded-2xl">
                       <h2 className="text-xl font-bold text-slate-800">Tagihan Bulanan</h2>
-                      {/* ... filters ... */}
+                      <select value={billsYear} onChange={(e) => setBillsYear(parseInt(e.target.value))} className="glass-input rounded-xl py-2 px-3 text-sm font-semibold outline-none">
+                          {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                          ))}
+                      </select>
                   </div>
-                   {/* ... bills grid ... */}
+                  
+                  <div className="space-y-8">
+                     {monthNames.map((month, i) => {
+                        const billsInMonth = data.cards.map(card => {
+                            const report = getMonthlyReportData(card.id, i, billsYear);
+                            if (report.totalBill === 0 && report.totalPaid === 0 && report.remaining === 0) return null;
+                            let status: 'PAID' | 'UNPAID' | 'LATE' = 'UNPAID';
+                            if (report.remaining <= 0) status = 'PAID';
+                            else {
+                                const dueDate = new Date(billsYear, i, card.dueDay || 25);
+                                const today = new Date();
+                                if (today > dueDate) status = 'LATE';
+                            }
+                            return { card, report, status };
+                        }).filter(item => item !== null) as {card: CreditCardType, report: ReturnType<typeof getMonthlyReportData>, status: 'PAID'|'UNPAID'|'LATE'}[];
+
+                        if (billsInMonth.length === 0) return null;
+
+                        return (
+                           <div key={month} className="glass-panel rounded-3xl overflow-hidden shadow-lg">
+                               <div className="bg-white/40 px-6 py-4 border-b border-white/40 font-bold text-slate-700 flex justify-between items-center">
+                                  <span className="text-lg">{month} {billsYear}</span>
+                                  <span className="text-slate-500 text-sm font-normal bg-white/50 px-3 py-1 rounded-lg">Total: {formatIDR(billsInMonth.reduce((sum, item) => sum + item.report.totalBill, 0))}</span>
+                               </div>
+                               <div className="p-6 grid grid-cols-3 gap-6 bg-white/20">
+                                  {billsInMonth.map(({card, report, status}) => (
+                                      <div 
+                                          key={card.id} 
+                                          onClick={() => { setSelectedCardForHistory(card); setCardHistoryMonth(i); setCardHistoryYear(billsYear); }}
+                                          className={`border rounded-2xl p-5 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all bg-white/60 backdrop-blur-md ${status === 'LATE' ? 'border-red-200 bg-red-50/60' : status === 'PAID' ? 'border-green-200 bg-green-50/60' : 'border-orange-200 bg-orange-50/60'}`}
+                                      >
+                                          <div className="flex justify-between items-start mb-3">
+                                              <div className="flex items-center gap-2">
+                                                  <div className={`w-3 h-3 rounded-full ${card.color.split(' ')[0]}`}></div>
+                                                  <span className="font-bold text-slate-800">{card.name}</span>
+                                              </div>
+                                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${status === 'LATE' ? 'bg-red-100 text-red-600 border-red-200' : status === 'PAID' ? 'bg-green-100 text-green-600 border-green-200' : 'bg-orange-100 text-orange-600 border-orange-200'}`}>
+                                                  {status === 'LATE' ? 'TELAT' : status === 'PAID' ? 'LUNAS' : 'BELUM LUNAS'}
+                                              </span>
+                                          </div>
+                                          <div className="space-y-1 text-sm">
+                                              <div className="flex justify-between text-slate-500">
+                                                  <span>Total</span>
+                                                  <span className="font-bold text-slate-700">{formatIDR(report.totalBill)}</span>
+                                              </div>
+                                              <div className="flex justify-between text-slate-500">
+                                                  <span>Dibayar</span>
+                                                  <span className="font-medium text-green-600">{formatIDR(report.totalPaid)}</span>
+                                              </div>
+                                              <div className="border-t border-slate-200/50 my-2 pt-2 flex justify-between font-bold">
+                                                  <span className="text-slate-600">Sisa</span>
+                                                  <span className={report.remaining > 0 ? 'text-red-600' : 'text-slate-400'}>{formatIDR(Math.max(0, report.remaining))}</span>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ))}
+                               </div>
+                           </div>
+                        )
+                     })}
+                     {data.cards.length > 0 && monthNames.every((_, i) => {
+                         const hasBills = data.cards.some(c => {
+                             const r = getMonthlyReportData(c.id, i, billsYear);
+                             return r.totalBill > 0 || r.totalPaid > 0;
+                         });
+                         return !hasBills;
+                     }) && (
+                         <div className="text-center py-16 glass-panel rounded-3xl border-dashed border-2 border-white/40 text-slate-400">
+                             <ReceiptText size={48} className="mx-auto mb-3 opacity-50"/>
+                             <p>Tidak ada tagihan untuk tahun {billsYear}.</p>
+                         </div>
+                     )}
+                  </div>
               </div>
            )}
         </main>
@@ -2273,7 +2466,7 @@ const App: React.FC = () => {
         <header className="glass-nav pt-safe px-4 pb-4 shadow-sm z-30 flex-shrink-0">
           <div className="flex justify-between items-center py-2">
              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-md shadow-indigo-500/30">
+                <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-md shadow-blue-500/30">
                    <Wallet size={18} className="text-white"/>
                 </div>
                 <h1 className="text-lg font-bold tracking-tight text-slate-800">LimitWatch</h1>
@@ -2285,22 +2478,22 @@ const App: React.FC = () => {
                  </button>
                  
                  {/* Mobile Profile Dropdown */}
-                 <ProfileDropdown user={user} onLogout={logout} onNavigate={() => setMobileTab('profile')} />
+                 <ProfileDropdown user={user} onLogout={logout} />
              </div>
           </div>
         </header>
 
         {/* CONTENT MOBILE (Scrollable Area) */}
         <div 
-          className="flex-1 overflow-y-auto pb-32"
+          className="flex-1 overflow-y-auto pb-24"
           onTouchStart={mobileTab === 'savings' ? onTouchStart : undefined}
           onTouchMove={mobileTab === 'savings' ? onTouchMove : undefined}
           onTouchEnd={mobileTab === 'savings' ? onTouchEnd : undefined}
         >
           {/* TOAST NOTIFICATION */}
           {showToast && toastMessage && (
-            <div className="mx-4 mt-4 glass-panel border-l-4 border-indigo-500 px-4 py-3 rounded-xl shadow-xl flex items-start gap-3 animate-in slide-in-from-top-5 fade-in duration-300 z-50 bg-white/90">
-                <BellRing className="text-indigo-500 shrink-0 mt-0.5" size={18} />
+            <div className="mx-4 mt-4 glass-panel border-l-4 border-red-500 px-4 py-3 rounded-xl shadow-xl flex items-start gap-3 animate-in slide-in-from-top-5 fade-in duration-300 z-50 bg-white/90">
+                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
                 <div>
                     <p className="font-bold text-sm text-slate-800">{toastMessage.title}</p>
                     <p className="text-xs text-slate-500">{toastMessage.message}</p>
@@ -2311,24 +2504,24 @@ const App: React.FC = () => {
           {mobileTab === 'home' && (
             <div className="p-4 space-y-6">
                 {/* Hero Card */}
-                <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-500/30 relative overflow-hidden">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-blue-500/30 relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
                    <div className="relative z-10">
-                     <p className="text-indigo-100 text-xs font-bold uppercase tracking-wide mb-1">Total Hutang Berjalan</p>
+                     <p className="text-blue-100 text-xs font-bold uppercase tracking-wide mb-1">Total Hutang Berjalan</p>
                      <h2 className="text-4xl font-bold mb-6 tracking-tight">{formatIDR(totalDebt)}</h2>
                      
                      <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/10">
                            <div className="flex items-center gap-2 mb-1">
                               <Coins size={14} className="text-green-300"/>
-                              <span className="text-xs text-indigo-100 font-medium">Tabungan</span>
+                              <span className="text-xs text-blue-100 font-medium">Tabungan</span>
                            </div>
                            <p className="font-bold text-lg">{formatIDR(totalSavings)}</p>
                         </div>
                         <div className="bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/10 active:scale-95 transition-transform" onClick={() => setInstallmentListModalOpen(true)}>
                            <div className="flex items-center gap-2 mb-1">
                               <FileBarChart size={14} className="text-orange-300"/>
-                              <span className="text-xs text-indigo-100 font-medium">Cicilan Aktif</span>
+                              <span className="text-xs text-blue-100 font-medium">Cicilan Aktif</span>
                            </div>
                            <p className="font-bold text-lg">{activeInstallmentsCount} Item</p>
                         </div>
@@ -2364,8 +2557,8 @@ const App: React.FC = () => {
                    <div className="grid grid-cols-4 gap-3">
                       {menuOrder.map(item => {
                           let label = '', icon = null, action = () => {}, colorClass = '';
-                          if (item === 'transaksi') { label = 'Catat'; icon = <PlusCircle size={24}/>; action = openAddTransactionModal; colorClass='text-indigo-600'; }
-                          if (item === 'cicilan') { label = 'Cicilan'; icon = <Calculator size={24}/>; action = openInstallmentModal; colorClass='text-violet-600'; }
+                          if (item === 'transaksi') { label = 'Catat'; icon = <PlusCircle size={24}/>; action = openAddTransactionModal; colorClass='text-blue-600'; }
+                          if (item === 'cicilan') { label = 'Cicilan'; icon = <Calculator size={24}/>; action = openInstallmentModal; colorClass='text-indigo-600'; }
                           if (item === 'wallets') { label = 'Dompet'; icon = <WalletCards size={24}/>; action = () => setMobileTab('wallets'); colorClass='text-emerald-600'; }
                           if (item === 'laporan') { label = 'Laporan'; icon = <FileBarChart size={24}/>; action = () => setMobileTab('report'); colorClass='text-orange-600'; }
                           if (item === 'kartu') { label = 'Kartu'; icon = <CreditCard size={24}/>; action = () => setMobileTab('cards'); colorClass='text-purple-600'; }
@@ -2434,7 +2627,7 @@ const App: React.FC = () => {
                 <div className="glass-panel rounded-2xl p-4 shadow-lg">
                    <div className="flex justify-between items-center mb-4">
                       <h3 className="text-sm font-bold text-slate-700">Transaksi Terakhir</h3>
-                      <button onClick={() => setMobileTab('history')} className="text-xs text-indigo-600 font-bold bg-indigo-50/50 px-2 py-1 rounded-lg">Lihat Semua</button>
+                      <button onClick={() => setMobileTab('history')} className="text-xs text-blue-600 font-bold bg-blue-50/50 px-2 py-1 rounded-lg">Lihat Semua</button>
                    </div>
                    <div className="space-y-4">
                       {data.transactions.slice(0, 5).map(t => {
@@ -2457,7 +2650,7 @@ const App: React.FC = () => {
                                       <p className={`text-sm font-bold ${t.type === TransactionType.EXPENSE ? 'text-slate-800' : 'text-green-600'}`}>
                                           {t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}
                                       </p>
-                                      {t.isInstallment && <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold border border-indigo-200">Cicilan</span>}
+                                      {t.isInstallment && <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold">Cicilan</span>}
                                   </div>
                               </div>
                           )
@@ -2472,7 +2665,7 @@ const App: React.FC = () => {
              <div className="p-4 space-y-4 animate-in fade-in">
                  <div className="flex justify-between items-center glass-panel p-3 rounded-2xl">
                     <h2 className="text-lg font-bold text-slate-800 ml-2">Kartu Saya</h2>
-                    <button onClick={openAddCardModal} className="bg-indigo-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-500/30">
+                    <button onClick={openAddCardModal} className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/30">
                         <PlusCircle size={20} />
                     </button>
                  </div>
@@ -2595,7 +2788,7 @@ const App: React.FC = () => {
              <div className="p-4 space-y-4 animate-in fade-in">
                  <div className="flex justify-between items-center glass-panel p-3 rounded-2xl">
                     <h2 className="text-lg font-bold text-slate-800 ml-2">Dompet & Kas</h2>
-                    <button onClick={openAddWalletModal} className="bg-indigo-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-500/30">
+                    <button onClick={openAddWalletModal} className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/30">
                         <PlusCircle size={20} />
                     </button>
                  </div>
@@ -2760,8 +2953,8 @@ const App: React.FC = () => {
                  
                  <div className="flex justify-center mb-4">
                      <div className="bg-white/40 p-1 rounded-xl flex gap-1 border border-white/20">
-                          <button onClick={() => setReportViewMode('detail')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'detail' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Detail</button>
-                          <button onClick={() => setReportViewMode('matrix')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'matrix' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Matriks</button>
+                          <button onClick={() => setReportViewMode('detail')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'detail' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Detail</button>
+                          <button onClick={() => setReportViewMode('matrix')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${reportViewMode === 'matrix' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Matriks</button>
                       </div>
                  </div>
 
@@ -2869,29 +3062,11 @@ const App: React.FC = () => {
                      </div>
                      <h3 className="font-bold text-xl text-slate-800">{user.displayName || 'Pengguna'}</h3>
                      <p className="text-slate-500 text-sm mb-6 font-medium">{user.email}</p>
-
-                     {/* Username Settings */}
-                     <form onSubmit={handleUpdateUsername} className="mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 text-left space-y-3">
-                        <div>
-                             <label className="text-xs font-bold text-slate-500 block mb-1">Username Login</label>
-                             <div className="relative">
-                                 <AtSign size={16} className="absolute left-3 top-3 text-slate-400"/>
-                                 <input 
-                                    type="text" 
-                                    value={newUsername}
-                                    onChange={(e) => setNewUsername(e.target.value.trim())}
-                                    placeholder="Buat username..."
-                                    className="w-full glass-input rounded-xl py-2 pl-9 pr-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-200"
-                                 />
-                             </div>
-                             <p className="text-[10px] text-slate-400 mt-1">*Gunakan username ini untuk login selain email.</p>
-                        </div>
-                        <button type="submit" className="w-full bg-white text-indigo-600 border border-indigo-200 py-2 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors">
-                            Simpan Username
-                        </button>
-                     </form>
                      
                      <div className="space-y-3">
+                         <button className="w-full py-3 bg-white/50 text-slate-700 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white transition-colors border border-white/40">
+                             <Settings size={18}/> Pengaturan
+                         </button>
                          <button className="w-full py-3 bg-white/50 text-slate-700 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white transition-colors border border-white/40">
                              <Shield size={18}/> Keamanan
                          </button>
@@ -2901,10 +3076,10 @@ const App: React.FC = () => {
                      </div>
                  </div>
                  
-                 <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-500/30 mt-6 relative overflow-hidden">
+                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-blue-500/30 mt-6 relative overflow-hidden">
                      <div className="relative z-10">
                          <h3 className="font-bold text-lg mb-1">LimitWatch Premium</h3>
-                         <p className="text-indigo-100 text-sm mb-4">Dapatkan fitur analisis AI dan laporan eksklusif.</p>
+                         <p className="text-blue-100 text-sm mb-4">Dapatkan fitur analisis AI dan laporan eksklusif.</p>
                          <button className="bg-white/20 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg">Segera Hadir</button>
                      </div>
                      <div className="absolute -right-6 -bottom-6 bg-white/10 w-40 h-40 rounded-full blur-xl"></div>
@@ -2917,37 +3092,41 @@ const App: React.FC = () => {
              </div>
           )}
         </div>
+        
+        {/* Floating Action Button (Mobile) */}
+        {mobileTab === 'home' && (
+            <button 
+                onClick={openAddTransactionModal}
+                className="absolute bottom-24 right-4 btn-liquid text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-500/40 flex items-center justify-center z-40 active:scale-90 transition-transform"
+            >
+                <PlusCircle size={28} />
+            </button>
+        )}
 
-        {/* BOTTOM NAVIGATION MOBILE (Floating Pill) */}
+        {/* BOTTOM NAVIGATION MOBILE */}
         <nav 
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md h-[72px] bg-white/65 backdrop-blur-xl saturate-150 rounded-[40px] shadow-[0_8px_32px_rgba(99,102,241,0.15)] border border-white/50 z-50 flex justify-between items-center px-6"
+            className="glass-nav fixed bottom-0 w-full z-40 flex justify-around items-start text-[10px] font-medium text-slate-400/80"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)', paddingTop: '12px' }}
         >
-            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <Home size={22} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Beranda</span>
+            <button onClick={() => setMobileTab('home')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'home' ? 'text-blue-600' : ''}`}>
+                <Home size={24} strokeWidth={mobileTab === 'home' ? 2.5 : 2} />
+                <span>Beranda</span>
             </button>
-            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'cards' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <CreditCard size={22} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Kartu</span>
+            <button onClick={() => setMobileTab('cards')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'cards' ? 'text-blue-600' : ''}`}>
+                <CreditCard size={24} strokeWidth={mobileTab === 'cards' ? 2.5 : 2} />
+                <span>Kartu</span>
             </button>
-            
-            {/* CENTER ADD BUTTON (Floating Out) */}
-            <div className="relative -mt-10">
-                <button 
-                    onClick={openAddTransactionModal}
-                    className="btn-liquid w-16 h-16 rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-white/50"
-                >
-                    <PlusCircle size={32} strokeWidth={2.5} className="text-white" />
-                </button>
-            </div>
-
-            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'savings' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <Coins size={22} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Tabungan</span>
+            <button onClick={() => setMobileTab('wallets')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'wallets' ? 'text-blue-600' : ''}`}>
+                <WalletCards size={24} strokeWidth={mobileTab === 'wallets' ? 2.5 : 2} />
+                <span>Dompet</span>
             </button>
-            <button onClick={() => setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all active:scale-95 ${mobileTab === 'history' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                <History size={22} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
-                <span className="text-[9px] font-bold">Riwayat</span>
+            <button onClick={() => setMobileTab('savings')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'savings' ? 'text-blue-600' : ''}`}>
+                <Coins size={24} strokeWidth={mobileTab === 'savings' ? 2.5 : 2} />
+                <span>Tabungan</span>
+            </button>
+            <button onClick={() => setMobileTab('history')} className={`flex flex-col items-center gap-1 w-14 transition-colors ${mobileTab === 'history' ? 'text-blue-600' : ''}`}>
+                <History size={24} strokeWidth={mobileTab === 'history' ? 2.5 : 2} />
+                <span>Riwayat</span>
             </button>
         </nav>
       </div>
@@ -3017,7 +3196,7 @@ const App: React.FC = () => {
                        placeholder="0"
                        value={txAmount}
                        onChange={(e) => handleCurrencyInput(e.target.value, setTxAmount)}
-                       className="w-full text-3xl font-bold bg-transparent border-b-2 border-slate-200 py-2 px-1 text-slate-800 outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-300"
+                       className="w-full text-3xl font-bold bg-transparent border-b-2 border-slate-200 py-2 px-1 text-slate-800 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-300"
                     />
                  </div>
 
@@ -3125,8 +3304,8 @@ const App: React.FC = () => {
                          </div>
                          
                          {payFromSavings && (
-                             <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 text-sm space-y-2 animate-in slide-in-from-top-2">
-                                 <div className="flex items-start gap-2 text-indigo-800 font-bold mb-1">
+                             <div className="bg-blue-50/50 border border-blue-100/50 rounded-2xl p-4 text-sm space-y-2 animate-in slide-in-from-top-2">
+                                 <div className="flex items-start gap-2 text-blue-800 font-bold mb-1">
                                      <Info size={16} className="mt-0.5"/>
                                      <span>Simulasi Pembayaran</span>
                                  </div>
@@ -3147,7 +3326,7 @@ const App: React.FC = () => {
                                                  <span>Tabungan Tersedia:</span>
                                                  <span className="font-bold text-green-600">{formatIDR(totalAvailableSavings)}</span>
                                              </div>
-                                             <div className="h-px bg-indigo-200/50 my-1"></div>
+                                             <div className="h-px bg-blue-200/50 my-1"></div>
                                              <div className="flex justify-between">
                                                  <span>Total Tagihan ({monthNames[txTargetMonth]}):</span>
                                                  <span className="font-bold">{formatIDR(report.totalBill)}</span>
@@ -3156,9 +3335,9 @@ const App: React.FC = () => {
                                                  <span>Sisa Tagihan (Saat ini):</span>
                                                  <span className="font-bold text-red-500">{formatIDR(remainingBill)}</span>
                                              </div>
-                                             <div className="flex justify-between border-t border-indigo-200/50 pt-1 mt-1">
-                                                 <span className="font-bold text-indigo-700">Sisa Setelah Bayar:</span>
-                                                 <span className="font-bold text-indigo-700">{formatIDR(projectedRemaining)}</span>
+                                             <div className="flex justify-between border-t border-blue-200/50 pt-1 mt-1">
+                                                 <span className="font-bold text-blue-700">Sisa Setelah Bayar:</span>
+                                                 <span className="font-bold text-blue-700">{formatIDR(projectedRemaining)}</span>
                                              </div>
                                          </div>
                                      );
@@ -3181,7 +3360,7 @@ const App: React.FC = () => {
                      )}
                      <button 
                         type="submit" 
-                        className="flex-1 btn-liquid text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:opacity-90 transition active:scale-95"
+                        className="flex-1 btn-liquid text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:opacity-90 transition active:scale-95"
                      >
                         {editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
                      </button>
@@ -3502,7 +3681,7 @@ const App: React.FC = () => {
                          <input type="text" inputMode="numeric" required value={withdrawAmount} onChange={(e) => handleCurrencyInput(e.target.value, setWithdrawAmount)} className="w-full glass-input rounded-xl p-3 font-bold outline-none" autoFocus/>
                      </div>
                      <div className="flex gap-3">
-                         <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg">Ambil</button>
+                         <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg">Ambil</button>
                          <button type="button" onClick={() => setWithdrawModalOpen(false)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Batal</button>
                      </div>
                  </form>
@@ -3613,7 +3792,7 @@ const App: React.FC = () => {
 
                                 {/* Transactions List */}
                                 <div>
-                                    <h4 className="font-bold text-slate-700 mb-3 border-l-4 border-indigo-500 pl-3">Transaksi Baru</h4>
+                                    <h4 className="font-bold text-slate-700 mb-3 border-l-4 border-blue-500 pl-3">Transaksi Baru</h4>
                                     {report.expenses.length === 0 ? (
                                         <p className="text-sm text-slate-400 italic">Tidak ada transaksi belanja baru.</p>
                                     ) : (

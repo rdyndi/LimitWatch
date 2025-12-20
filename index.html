@@ -3,22 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#4F46E5" />
+    <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="Aplikasi manajemen kartu kredit dan hutang cerdas" />
-    
-    <!-- iOS Meta Tags for PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LimitWatch" />
-
     <title>LimitWatch</title>
 
-    <!-- PWA Manifest - Menggunakan path relatif -->
+    <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json" />
     
     <!-- Custom Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234F46E5'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234F46E5'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%232563eb'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%232563eb'/%3E%3Cpath fill='%23ffffff' d='M384 176H128c-17.6 0-32 14.4-32 32v192c0 17.6 14.4 32 32 32h256c17.6 0 32-14.4 32-32V208c0-17.6-14.4-32-32-32zm-48 96c-17.7 0-32 14.3-32 32s14.3 32 32 32 32-14.3 32-32-14.3-32-32-32zm-208-48c0-8.8 7.2-16 16-16h256c8.8 0 16 7.2 16 16v16H128v-16z'/%3E%3C/svg%3E" />
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,21 +21,7 @@
         theme: {
           extend: {
             colors: {
-              primary: '#4F46E5', // Indigo-600
-              // Override default blue with Indigo/Blurple shades
-              blue: {
-                50: '#eef2ff',
-                100: '#e0e7ff',
-                200: '#c7d2fe',
-                300: '#a5b4fc',
-                400: '#818cf8',
-                500: '#6366f1',
-                600: '#4f46e5',
-                700: '#4338ca',
-                800: '#3730a3',
-                900: '#312e81',
-                950: '#1e1b4b',
-              },
+              primary: '#007AFF', // iOS Blue
               secondary: '#8E8E93',
               danger: '#FF3B30',
               success: '#34C759',
@@ -105,12 +85,11 @@
         will-change: transform;
       }
 
-      /* iOS 18 Style Gradients - Modified for Purple/Indigo Theme */
+      /* iOS 18 Style Gradients */
       .orb-1 {
         width: 80vw;
         height: 80vw;
-        /* Changed from Blue to Indigo/Violet */
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0) 70%);
+        background: radial-gradient(circle, rgba(96, 165, 250, 0.8) 0%, rgba(96, 165, 250, 0) 70%);
         top: -20%;
         left: -20%;
         animation-duration: 25s;
@@ -192,8 +171,8 @@
       }
       .glass-input:focus {
         background: rgba(255, 255, 255, 0.9);
-        border-color: #6366f1; /* Indigo */
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); /* Indigo Glow */
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
         transform: translateY(-1px);
       }
       .glass-input::placeholder {
@@ -207,10 +186,10 @@
         -webkit-backdrop-filter: blur(12px);
       }
 
-      /* Buttons with liquid sheen - Updated for Purple/Indigo */
+      /* Buttons with liquid sheen */
       .btn-liquid {
-        background-image: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
-        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+        background-image: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
         border: 1px solid rgba(255,255,255,0.1);
         position: relative;
         overflow: hidden;
@@ -259,7 +238,6 @@
     "firebase/app": "https://aistudiocdn.com/firebase@^12.6.0/app",
     "firebase/auth": "https://aistudiocdn.com/firebase@^12.6.0/auth",
     "firebase/firestore": "https://aistudiocdn.com/firebase@^12.6.0/firestore",
-    "firebase/messaging": "https://aistudiocdn.com/firebase@^12.6.0/messaging",
     "firebase/analytics": "https://aistudiocdn.com/firebase@^12.6.0/analytics",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
