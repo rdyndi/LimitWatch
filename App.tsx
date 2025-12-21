@@ -68,6 +68,7 @@ import {
   Sun
 } from "lucide-react";
 
+// --- Utility Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.ceil(num));
 
@@ -119,6 +120,48 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
   }
   return { month, year };
 };
+
+// --- Sub-components (Moved outside App to fix Mobile Click issues) ---
+
+const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
+  <button type="button" onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
+    <span className={active ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}>{icon}</span>{label}
+  </button>
+);
+
+const MobileMenuButton = ({ icon, label, onClick, danger = false, rightElement }: { icon: React.ReactNode, label: string, onClick: () => void, danger?: boolean, rightElement?: React.ReactNode }) => (
+  <button type="button" onClick={(e) => { e.preventDefault(); onClick(); }} className={`w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800 last:border-0 active:bg-slate-100 dark:active:bg-slate-800 transition`}>
+     <div className="flex items-center gap-4 pointer-events-none">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-red-50 dark:bg-red-900/20 text-danger' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>{icon}</div>
+        <span className={`text-sm font-bold ${danger ? 'text-danger' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
+     </div>
+     <div className="flex items-center gap-2 pointer-events-none">
+        {rightElement}
+        <ChevronRight size={18} className={danger ? 'text-red-300 dark:text-red-800' : 'text-slate-300 dark:text-slate-600'} />
+     </div>
+  </button>
+);
+
+const PinKeypad = ({ onAction }: { onAction: (val: string) => void }) => {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "DEL"];
+  return (
+    <div className="grid grid-cols-3 gap-6 max-w-[280px] mx-auto mt-10">
+      {keys.map((k, i) => k === "" ? <div key={i} /> : (
+        <button key={i} type="button" onClick={() => onAction(k === "DEL" ? "DEL" : k)} className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium transition active:scale-90 ${k === "DEL" ? 'text-slate-400 dark:text-slate-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100'}`}>
+          {k === "DEL" ? <Delete size={24} /> : k}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const PinIndicators = ({ length, isError }: { length: number, isError: boolean }) => (
+  <div className={`flex gap-5 justify-center mt-6 ${isError ? 'animate-shake' : ''}`}>
+    {[...Array(6)].map((_, i) => (<div key={i} className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${i < length ? 'bg-slate-800 dark:bg-slate-100 border-slate-800 dark:border-slate-100 scale-110' : 'border-slate-300 dark:border-slate-700'}`}></div>))}
+  </div>
+);
+
+// --- Main App Component ---
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -229,12 +272,14 @@ const App: React.FC = () => {
   const toggleTheme = () => {
     const newTheme = data.theme === 'dark' ? 'light' : 'dark';
     const newData = { ...data, theme: newTheme };
-    saveData(newData);
+    // Optimistic UI update
+    setData(newData);
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    saveData(newData);
   };
 
   useEffect(() => {
@@ -373,31 +418,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCancelInstallment = (transactionId: string) => {
-    if (window.confirm("Batalkan cicilan ini dan kembalikan ke transaksi ritel biasa?")) {
-      const tx = data.transactions.find(t => t.id === transactionId);
-      if (!tx) return;
-      const updatedTx = data.transactions.map(t => t.id === transactionId ? { ...t, isInstallment: false } : t);
-      const updatedInstallments = data.installments.filter(inst => !(inst.cardId === tx.cardId && inst.name === tx.description && inst.totalAmount === tx.amount));
-      saveData({ ...data, transactions: updatedTx, installments: updatedInstallments });
-      setTransactionModalOpen(false);
-      setEditingTransaction(null);
-    }
-  };
-
+  // Fix: Added missing handleDeleteSaving function to handle deletion of saving records
   const handleDeleteSaving = (id: string) => {
     if (window.confirm("Hapus catatan tabungan ini?")) {
       const updatedSavings = data.savings.filter(s => s.id !== id);
       saveData({ ...data, savings: updatedSavings });
+      
+      // Update selected history state if it was open
       if (selectedSavingsHistory) {
-        const filteredItems = selectedSavingsHistory.items.filter(item => item.id !== id);
-        if (filteredItems.length === 0) {
-          setSavingsHistoryModalOpen(false);
-          setSelectedSavingsHistory(null);
-        } else {
-          setSelectedSavingsHistory({ ...selectedSavingsHistory, items: filteredItems });
-        }
+         const newItems = selectedSavingsHistory.items.filter(item => item.id !== id);
+         if (newItems.length === 0) {
+           setSavingsHistoryModalOpen(false);
+           setSelectedSavingsHistory(null);
+         } else {
+           setSelectedSavingsHistory({ ...selectedSavingsHistory, items: newItems });
+         }
       }
+      
       setSavingModalOpen(false);
       setEditingSaving(null);
     }
@@ -698,41 +735,6 @@ const App: React.FC = () => {
     setSavingModalOpen(false); setSavingAmount(''); setSavingNote('');
   };
 
-  const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
-      <span className={active ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}>{icon}</span>{label}
-    </button>
-  );
-
-  const MobileMenuButton = ({ icon, label, onClick, danger = false, rightElement }: { icon: React.ReactNode, label: string, onClick: () => void, danger?: boolean, rightElement?: React.ReactNode }) => (
-    <button onClick={onClick} className={`w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800 last:border-0 active:bg-slate-50 dark:active:bg-slate-800 transition`}>
-       <div className="flex items-center gap-4">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-red-50 dark:bg-red-900/20 text-danger' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>{icon}</div>
-          <span className={`text-sm font-bold ${danger ? 'text-danger' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
-       </div>
-       <div className="flex items-center gap-2">{rightElement}<ChevronRight size={18} className={danger ? 'text-red-300 dark:text-red-800' : 'text-slate-300 dark:text-slate-600'} /></div>
-    </button>
-  );
-
-  const PinKeypad = ({ onAction }: { onAction: (val: string) => void }) => {
-    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "DEL"];
-    return (
-      <div className="grid grid-cols-3 gap-6 max-w-[280px] mx-auto mt-10">
-        {keys.map((k, i) => k === "" ? <div key={i} /> : (
-          <button key={i} onClick={() => onAction(k === "DEL" ? "DEL" : k)} className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium transition active:scale-90 ${k === "DEL" ? 'text-slate-400 dark:text-slate-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100'}`}>
-            {k === "DEL" ? <Delete size={24} /> : k}
-          </button>
-        ))}
-      </div>
-    );
-  };
-
-  const PinIndicators = ({ length, isError }: { length: number, isError: boolean }) => (
-    <div className={`flex gap-5 justify-center mt-6 ${isError ? 'animate-shake' : ''}`}>
-      {[...Array(6)].map((_, i) => (<div key={i} className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${i < length ? 'bg-slate-800 dark:bg-slate-100 border-slate-800 dark:border-slate-100 scale-110' : 'border-slate-300 dark:border-slate-700'}`}></div>))}
-    </div>
-  );
-
   if (!authInited) return (<div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950"><Loader2 size={40} className="animate-spin text-primary" /></div>);
 
   if (isLocked && isMobileDevice) {
@@ -742,7 +744,7 @@ const App: React.FC = () => {
         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Masukkan PIN</h2>
         <p className={`text-sm font-bold mt-2 transition-colors ${pinError ? 'text-danger' : 'text-slate-400 dark:text-slate-500'}`}>{pinError ? 'PIN Salah, coba lagi' : 'Sesi terkunci karena tidak ada aktivitas'}</p>
         <PinIndicators length={pinInput.length} isError={pinError} /><PinKeypad onAction={(val) => val === "DEL" ? deletePinInput() : handlePinInput(val)} />
-        <button onClick={handleLogout} className="mt-12 text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest hover:text-danger transition">Keluar Sesi</button>
+        <button type="button" onClick={handleLogout} className="mt-12 text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest hover:text-danger transition">Keluar Sesi</button>
       </div>
     );
   }
@@ -750,7 +752,7 @@ const App: React.FC = () => {
   if (setupPinStep !== 'OFF' && isMobileDevice) {
     return (
       <div className="fixed inset-0 z-[1000] bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-8 animate-in slide-in-from-bottom duration-500">
-        <button onClick={() => { setSetupPinStep('OFF'); setPinInput(""); }} className="absolute top-10 right-10 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-400"><X size={24}/></button>
+        <button type="button" onClick={() => { setSetupPinStep('OFF'); setPinInput(""); }} className="absolute top-10 right-10 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-600 dark:text-slate-400"><X size={24}/></button>
         <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mb-10 shadow-xl"><ShieldCheck size={32} /></div>
         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{setupPinStep === 'ENTER_NEW' ? 'Set PIN Baru' : 'Konfirmasi PIN'}</h2>
         <p className="text-sm font-bold text-slate-400 dark:text-slate-500 mt-2">{setupPinStep === 'ENTER_NEW' ? 'Gunakan PIN 6-digit untuk keamanan' : 'Masukkan kembali PIN yang Anda buat'}</p>
@@ -771,8 +773,8 @@ const App: React.FC = () => {
             <button type="submit" disabled={authLoading} className="w-full bg-primary hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold transition shadow-lg active:scale-95 disabled:opacity-50">{authLoading ? 'Memproses...' : (isRegistering ? 'Buat Akun' : 'Masuk Sekarang')}</button>
           </form>
           <div className="relative my-8"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-400 dark:text-slate-600 font-bold">Atau</span></div></div>
-          <button onClick={handleGoogleLogin} disabled={authLoading} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />Lanjutkan dengan Google</button>
-          <button onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }} className="w-full mt-6 text-sm text-primary dark:text-blue-400 font-bold hover:underline">{isRegistering ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar gratis'}</button>
+          <button type="button" onClick={handleGoogleLogin} disabled={authLoading} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />Lanjutkan dengan Google</button>
+          <button type="button" onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }} className="w-full mt-6 text-sm text-primary dark:text-blue-400 font-bold hover:underline">{isRegistering ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar gratis'}</button>
         </div>
       </div>
   );
@@ -790,25 +792,25 @@ const App: React.FC = () => {
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
            </nav>
            <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-1">
-              <button onClick={toggleTheme} className="flex items-center gap-3 text-secondary hover:text-slate-900 dark:hover:text-slate-100 w-full p-3 rounded-lg transition">
+              <button type="button" onClick={toggleTheme} className="flex items-center gap-3 text-secondary hover:text-slate-900 dark:hover:text-slate-100 w-full p-3 rounded-lg transition">
                  {data.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                  <span className="font-bold">{data.theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
               </button>
-              <button onClick={handleLogout} className="flex items-center gap-3 text-secondary hover:text-danger w-full p-3 rounded-lg transition"><LogOut size={20} /> <span className="font-bold">Keluar</span></button>
+              <button type="button" onClick={handleLogout} className="flex items-center gap-3 text-secondary hover:text-danger w-full p-3 rounded-lg transition"><LogOut size={20} /> <span className="font-bold">Keluar</span></button>
            </div>
         </aside>
 
         <main className="flex-1 ml-72 p-10 overflow-y-auto no-scrollbar h-full bg-slate-50 dark:bg-slate-950">
            <header className="flex justify-between items-center mb-10">
               <div><h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{mobileTab === 'home' ? 'Dashboard' : mobileTab === 'cards' ? 'Manajemen Hutang' : mobileTab === 'savings' ? 'Tabungan Pelunasan' : mobileTab === 'yearly' ? 'Proyeksi Tahunan' : 'Riwayat Transaksi'}</h1><p className="text-slate-500 dark:text-slate-400">Halo, {user.displayName || user.email}</p></div>
-              <div className="flex items-center gap-4"><button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg active:scale-95"><PlusCircle size={20} /> Transaksi</button><button onClick={() => setProfileModalOpen(true)} className="w-12 h-12 rounded-full border-2 border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400"><UserIcon size={24} /></div>}</button></div>
+              <div className="flex items-center gap-4"><button type="button" onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg active:scale-95"><PlusCircle size={20} /> Transaksi</button><button type="button" onClick={() => setProfileModalOpen(true)} className="w-12 h-12 rounded-full border-2 border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400"><UserIcon size={24} /></div>}</button></div>
            </header>
 
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in">
                 <div className="grid grid-cols-3 gap-6">
                    <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
-                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
+                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
                       <div className="mt-4 pt-4 border-t border-white/20"><div className="flex justify-between text-xs opacity-80 mb-1"><span>Total Tabungan</span><span>{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</span></div><div className="flex justify-between text-sm font-black"><span>Sisa Hutang (Gap)</span><span>{showAmounts ? formatIDR(currentDebtGap) : '••••'}</span></div></div>
                    </div>
                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center"><p className="text-slate-400 dark:text-slate-500 text-sm mb-1">Total Tabungan (Tersedia)</p><h3 className="text-3xl font-bold text-success">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}</h3></div>
@@ -823,10 +825,10 @@ const App: React.FC = () => {
 
            {mobileTab === 'cards' && (
              <div className="space-y-6 animate-in fade-in">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Daftar Kartu & Hutang</h2><button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><PlusCircle size={18}/> Tambah</button></div>
+                <div className="flex justify-between items-center"><h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Daftar Kartu & Hutang</h2><button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><PlusCircle size={18}/> Tambah</button></div>
                 <div className="grid grid-cols-3 gap-6">{data.cards.map(card => {
                   const balance = getCardBalance(card.id); const remaining = card.limit - balance;
-                  return (<div key={card.id} className="space-y-4"><div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-6 rounded-[28px] text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-95 transition-transform`}><div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div><div className="flex justify-between items-start relative z-10"><div className="flex flex-col"><span className="text-lg font-bold">{card.name}</span><span className="text-[9px] uppercase font-black opacity-60">{card.type}</span></div><FileText size={24} className="opacity-50" /></div><div className="relative z-10"><p className="text-[10px] opacity-60 uppercase mb-1">Limit / Hutang</p><h4 className="text-2xl font-bold">{showAmounts ? formatIDR(card.limit) : '••••••••'}</h4></div><div className="flex justify-between items-center relative z-10"><p className="text-xs opacity-60 font-medium">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tanpa tempo'}</p><div className="text-right"><p className="text-[9px] uppercase font-bold opacity-60">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div></div></div><div className="flex gap-3"><button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2"><Pencil size={16}/> Edit</button><button onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-danger rounded-xl text-xs font-bold flex items-center justify-center gap-2"><Trash2 size={16}/> Hapus</button></div></div>);
+                  return (<div key={card.id} className="space-y-4"><div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-6 rounded-[28px] text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-95 transition-transform`}><div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div><div className="flex justify-between items-start relative z-10"><div className="flex flex-col"><span className="text-lg font-bold">{card.name}</span><span className="text-[9px] uppercase font-black opacity-60">{card.type}</span></div><FileText size={24} className="opacity-50" /></div><div className="relative z-10"><p className="text-[10px] opacity-60 uppercase mb-1">Limit / Hutang</p><h4 className="text-2xl font-bold">{showAmounts ? formatIDR(card.limit) : '••••••••'}</h4></div><div className="flex justify-between items-center relative z-10"><p className="text-xs opacity-60 font-medium">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tanpa tempo'}</p><div className="text-right"><p className="text-[9px] uppercase font-bold opacity-60">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div></div></div><div className="flex gap-3"><button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2"><Pencil size={16}/> Edit</button><button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-danger rounded-xl text-xs font-bold flex items-center justify-center gap-2"><Trash2 size={16}/> Hapus</button></div></div>);
                 })}</div>
              </div>
            )}
@@ -843,7 +845,7 @@ const App: React.FC = () => {
                   <td className="px-6 py-4"><p className="text-sm font-bold text-slate-800 dark:text-slate-100">{t.description}</p><p className="text-[10px] text-slate-400 dark:text-slate-500">{t.category}</p></td>
                   <td className="px-6 py-4"><span className={`text-[9px] font-bold px-2 py-1 rounded-full text-white ${data.cards.find(c=>c.id===t.cardId)?.color || 'bg-slate-800'}`}>{data.cards.find(c=>c.id===t.cardId)?.name}</span></td>
                   <td className={`px-6 py-4 text-sm font-bold text-right ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{showAmounts ? formatIDR(t.amount) : '••••••••'}</td>
-                  <td className="px-6 py-4 text-center" onClick={(e)=>e.stopPropagation()}><button onClick={(e)=>{ e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`transition transform active:scale-90 ${t.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></td>
+                  <td className="px-6 py-4 text-center" onClick={(e)=>e.stopPropagation()}><button type="button" onClick={(e)=>{ e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`transition transform active:scale-90 ${t.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></td>
                 </tr>))}</tbody></table></div>
              </div>
            )}
@@ -881,10 +883,10 @@ const App: React.FC = () => {
 
       {/* --- MOBILE VIEW --- */}
       <div className="md:hidden flex flex-col h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
-        <header className="flex-none bg-white dark:bg-slate-900 px-5 pt-8 pb-4 z-50 shadow-sm border-b dark:border-slate-800">
+        <header className="flex-none bg-white dark:bg-slate-900 px-5 pt-8 pb-4 z-[60] shadow-sm border-b dark:border-slate-800">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3"><div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg"><Wallet size={20} /></div><div><p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-none mb-1">LIMITWATCH</p><h2 className="text-xl font-black text-slate-800 dark:text-slate-100 leading-none">{mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}</h2></div></div>
-            <div className="flex items-center gap-3"><button className="w-11 h-11 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm relative active:scale-95 transition"><Bell size={22} /></button><button onClick={() => setProfileModalOpen(true)} className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={22} className="text-slate-400"/>}</button></div>
+            <div className="flex items-center gap-3"><button type="button" className="w-11 h-11 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm relative active:scale-95 transition"><Bell size={22} /></button><button type="button" onClick={() => setProfileModalOpen(true)} className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={22} className="text-slate-400"/>}</button></div>
           </div>
         </header>
 
@@ -892,7 +894,7 @@ const App: React.FC = () => {
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in">
               <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative">
-                <div className="flex justify-between items-start mb-1"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button></div>
+                <div className="flex justify-between items-start mb-1"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button></div>
                 <h3 className="text-3xl font-black mb-6">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
                 <div className="space-y-3 pt-5 border-t border-white/10">
                   <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest">Total Simpanan (Kumulatif)</p><p className="font-bold text-base">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
@@ -914,9 +916,9 @@ const App: React.FC = () => {
                 </div>
               )}
               <div className="grid grid-cols-3 gap-4">
-                <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
-                <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Vault size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Briefcase size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
+                <button type="button" onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
+                <button type="button" onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Vault size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
+                <button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Briefcase size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
               </div>
             </div>
           )}
@@ -935,7 +937,7 @@ const App: React.FC = () => {
                 {filteredTransactions.length > 0 ? filteredTransactions.map(t => {
                   const card = data.cards.find(c => c.id === t.cardId);
                   return (
-                    <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-50 dark:border-slate-800 shadow-sm flex justify-between items-center active:scale-[0.98] transition group relative overflow-hidden"><div className={`absolute left-0 top-0 bottom-0 w-1.5 ${card?.color || 'bg-slate-800'}`}></div><div className="space-y-1 pl-2"><p className="text-sm font-black text-slate-800 dark:text-slate-100 group-active:text-primary leading-tight">{t.description}</p><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">{new Date(t.date).toLocaleDateString('id-ID')}</span><span className="text-slate-200 dark:text-slate-700 text-xs">•</span><span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-tighter`}>{card?.name}</span></div></div><div className="flex items-center gap-3"><div className="flex flex-col items-end gap-1"><span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••••••'}</span></div><button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></div></div>
+                    <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-50 dark:border-slate-800 shadow-sm flex justify-between items-center active:scale-[0.98] transition group relative overflow-hidden"><div className={`absolute left-0 top-0 bottom-0 w-1.5 ${card?.color || 'bg-slate-800'}`}></div><div className="space-y-1 pl-2"><p className="text-sm font-black text-slate-800 dark:text-slate-100 group-active:text-primary leading-tight">{t.description}</p><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">{new Date(t.date).toLocaleDateString('id-ID')}</span><span className="text-slate-200 dark:text-slate-700 text-xs">•</span><span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-tighter`}>{card?.name}</span></div></div><div className="flex items-center gap-3"><div className="flex flex-col items-end gap-1"><span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••••••'}</span></div><button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-4 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={28}/></button></div></div>
                   );
                 }) : (<div className="text-center py-20"><History size={48} className="mx-auto text-slate-100 dark:text-slate-800 mb-4" /><p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Tidak ada transaksi ditemukan.</p></div>)}
               </div>
@@ -945,7 +947,7 @@ const App: React.FC = () => {
           {mobileTab === 'yearly' && (
             <div className="space-y-6 animate-in fade-in pb-10">
               <div className="bg-[#1a2332] rounded-[32px] p-7 text-white shadow-2xl space-y-7">
-                <div className="flex justify-between items-center"><div className="flex items-center gap-3"><Calendar className="text-blue-400" size={24} /><span className="text-lg font-black tracking-tight">Tahun {yearlySelectedYear}</span></div><div className="flex gap-2"><button onClick={() => setYearlySelectedYear(y => y - 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronLeft size={18}/></button><button onClick={() => setYearlySelectedYear(y => y + 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronRight size={18}/></button></div></div>
+                <div className="flex justify-between items-center"><div className="flex items-center gap-3"><Calendar className="text-blue-400" size={24} /><span className="text-lg font-black tracking-tight">Tahun {yearlySelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setYearlySelectedYear(y => y - 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronLeft size={18}/></button><button type="button" onClick={() => setYearlySelectedYear(y => y + 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronRight size={18}/></button></div></div>
                 <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Proyeksi</p><p className="text-xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••••••'}</p></div><div className="text-right space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dana Siap</p><p className="text-xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••••••'}</p></div></div>
                 <div className="pt-6 border-t border-white/5 space-y-1"><div className="flex justify-between items-end"><p className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Gap Tahunan</p><p className="text-2xl font-black text-danger">{showAmounts ? formatIDR(yearlySummary.totalYearGap) : '••••••••'}</p></div><div className="w-full h-[6px] bg-white/5 rounded-full overflow-hidden mt-3"><div className="h-full bg-danger/40 rounded-full" style={{ width: `${Math.min(100, (yearlySummary.totalYearGap / (yearlySummary.totalYearBill || 1)) * 100)}%` }}></div></div></div>
               </div>
@@ -969,41 +971,41 @@ const App: React.FC = () => {
                           <div className="relative z-10"><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p><p className="text-lg font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div>
                           <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2"><div><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div><div className="text-right opacity-60"><span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span></div></div>
                       </div>
-                      <div className="flex gap-2"><button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 active:bg-slate-50 dark:active:bg-slate-800 transition"><Pencil size={16}/> Edit</button><button onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 active:bg-red-100 transition"><Trash2 size={16}/> Hapus</button></div>
+                      <div className="flex gap-2"><button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 active:bg-slate-50 dark:active:bg-slate-800 transition"><Pencil size={16}/> Edit</button><button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 active:bg-red-100 transition"><Trash2 size={16}/> Hapus</button></div>
                     </div>
                   );
-                })}<button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardModalOpen(true); }} className="w-full py-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex items-center justify-center gap-2 active:bg-slate-50 dark:active:bg-slate-900 transition"><Plus size={20}/> Tambah Item Baru</button></div>
+                })}<button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardModalOpen(true); }} className="w-full py-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex items-center justify-center gap-2 active:bg-slate-50 dark:active:bg-slate-900 transition"><Plus size={20}/> Tambah Item Baru</button></div>
           )}
 
           {mobileTab === 'savings' && (
             <div className="space-y-6 animate-in fade-in pb-10">
               <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 text-white shadow-xl">
-                 <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-lg font-black tracking-tight">Tahun {savingsSelectedYear}</span></div><div className="flex gap-2"><button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button><button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button></div></div>
+                 <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-lg font-black tracking-tight">Tahun {savingsSelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button><button type="button" onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button></div></div>
                  <div className="space-y-1"><p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">Total Simpanan Tahun Ini</p><h3 className="text-3xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3></div>
               </div>
               <div className="space-y-4">{savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
                     <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-5">
                        <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3 mb-3"><h4 className="font-black text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-xs font-black text-success bg-success/5 dark:bg-success/10 px-3 py-1 rounded-full">{showAmounts ? formatIDR(m.totalMonth) : '••••••••'}</span></div>
-                       <div className="space-y-2">{m.cardGroups.map((group, i) => (<button key={i} onClick={() => { setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items }); setSavingsHistoryModalOpen(true); }} className="w-full flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl active:bg-slate-100 dark:active:bg-slate-700 transition group"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${group.cardColor}`}></div><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{group.cardName}</span></div><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span><ChevronRight size={14} className="text-slate-300 dark:text-slate-600"/></div></button>))}</div>
+                       <div className="space-y-2">{m.cardGroups.map((group, i) => (<button key={i} type="button" onClick={() => { setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items }); setSavingsHistoryModalOpen(true); }} className="w-full flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl active:bg-slate-100 dark:active:bg-slate-700 transition group"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${group.cardColor}`}></div><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{group.cardName}</span></div><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span><ChevronRight size={14} className="text-slate-300 dark:text-slate-600"/></div></button>))}</div>
                     </div>
                  ))}</div>
             </div>
           )}
         </main>
 
-        <nav className="flex-none h-[90px] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-50">
-          <button onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
-          <button onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
-          <button onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
-          <button onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
-          <button onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
+        <nav className="flex-none h-[90px] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-[60]">
+          <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
+          <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
+          <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
+          <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
+          <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
         </nav>
       </div>
 
       {profileModalOpen && (
          <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-8 flex flex-col items-center border-b border-slate-100 dark:border-slate-800 relative"><button onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-28 h-28 rounded-full border-[6px] border-white dark:border-slate-900 shadow-xl overflow-hidden flex items-center justify-center mb-5 ring-1 ring-slate-100 dark:ring-slate-800">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'User'}</h3><p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">{user.email}</p></div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-8 flex flex-col items-center border-b border-slate-100 dark:border-slate-800 relative"><button type="button" onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-28 h-28 rounded-full border-[6px] border-white dark:border-slate-900 shadow-xl overflow-hidden flex items-center justify-center mb-5 ring-1 ring-slate-100 dark:ring-slate-800">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'User'}</h3><p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">{user.email}</p></div>
               <div className="p-3">
                  <MobileMenuButton icon={data.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>} label={data.theme === 'dark' ? 'Gunakan Light Mode' : 'Gunakan Dark Mode'} onClick={toggleTheme} />
                  {isMobileDevice && (<MobileMenuButton icon={<ShieldCheck size={20}/>} label="Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'NONAKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />)}
@@ -1016,7 +1018,7 @@ const App: React.FC = () => {
       {savingsHistoryModalOpen && selectedSavingsHistory && (
          <div className="fixed inset-0 z-[150] bg-black/70 flex items-end md:items-center md:justify-center p-0 md:p-4 backdrop-blur-sm">
             <div className="bg-white dark:bg-slate-900 w-full max-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
-               <div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}><div className="flex justify-between items-center mb-6"><button onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button><span className="text-[10px] font-black uppercase tracking-[0.2em]">Riwayat Simpanan</span><div className="w-8"></div></div><div className="flex justify-between items-end"><div><h4 className="text-2xl font-black">{selectedSavingsHistory.cardName}</h4><p className="text-xs font-bold opacity-70 uppercase mt-1">{selectedSavingsHistory.monthName} {selectedSavingsHistory.year}</p></div><div className="text-right"><p className="text-[10px] font-bold opacity-60 uppercase mb-1">Terkumpul</p><h3 className="text-xl font-black">{showAmounts ? formatIDR(selectedSavingsHistory.items.reduce((s, i) => s + i.amount, 0)) : '••••••••'}</h3></div></div></div>
+               <div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}><div className="flex justify-between items-center mb-6"><button type="button" onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button><span className="text-[10px] font-black uppercase tracking-[0.2em]">Riwayat Simpanan</span><div className="w-8"></div></div><div className="flex justify-between items-end"><div><h4 className="text-2xl font-black">{selectedSavingsHistory.cardName}</h4><p className="text-xs font-bold opacity-70 uppercase mt-1">{selectedSavingsHistory.monthName} {selectedSavingsHistory.year}</p></div><div className="text-right"><p className="text-[10px] font-bold opacity-60 uppercase mb-1">Terkumpul</p><h3 className="text-xl font-black">{showAmounts ? formatIDR(selectedSavingsHistory.items.reduce((s, i) => s + i.amount, 0)) : '••••••••'}</h3></div></div></div>
                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-10">{selectedSavingsHistory.items.map(item => (<div key={item.id} onClick={() => openEditSaving(item)} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-3xl border border-slate-100 dark:border-slate-700 flex justify-between items-center active:scale-[0.98] transition cursor-pointer"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-white dark:bg-slate-700 rounded-2xl flex items-center justify-center text-success shadow-sm"><Vault size={20}/></div><div><p className="text-sm font-black text-slate-800 dark:text-slate-100">{item.note}</p><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('id-ID')}</p></div></div><div className="text-right"><p className="text-sm font-black text-success">{showAmounts ? formatIDR(item.amount) : '••••••••'}</p></div></div>))}</div>
             </div>
          </div>
@@ -1025,7 +1027,7 @@ const App: React.FC = () => {
       {cardModalOpen && (
          <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 border dark:border-slate-800">
-             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingCard ? 'Edit Item' : 'Tambah Item'}</h3><button onClick={() => setCardModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
+             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingCard ? 'Edit Item' : 'Tambah Item'}</h3><button type="button" onClick={() => setCardModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
              <form onSubmit={handleSaveCard} className="space-y-5">
                  <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500 dark:text-slate-600'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500 dark:text-slate-600'}`}>HUTANG LAIN</button></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nama Item</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Cicilan Gadget" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none border-transparent border-2 focus:border-primary transition font-bold" /></div>
@@ -1040,7 +1042,7 @@ const App: React.FC = () => {
       {transactionModalOpen && (
          <div className="fixed inset-0 z-[120] bg-black/70 flex items-end md:items-center md:justify-center backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full md:max-w-xl h-[88vh] md:h-auto md:max-h-[92vh] md:rounded-[40px] rounded-t-[40px] p-8 shadow-2xl overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-300 border-t dark:border-slate-800">
-             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingTransaction ? 'Detail Transaksi' : 'Catat Pemakaian'}</h3><button onClick={() => setTransactionModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
+             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingTransaction ? 'Detail Transaksi' : 'Catat Pemakaian'}</h3><button type="button" onClick={() => setTransactionModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
              <form onSubmit={handleSaveTransaction} className="space-y-6">
                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[20px]"><button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-3 text-xs font-black rounded-2xl transition ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-sm' : 'text-slate-500 dark:text-slate-600'}`}>PAKAI</button><button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-3 text-xs font-black rounded-2xl transition ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-sm' : 'text-slate-500 dark:text-slate-600'}`}>BAYAR</button></div>
                  <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Pilih Item</label><select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Tanggal</label><input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
@@ -1061,7 +1063,7 @@ const App: React.FC = () => {
       {savingModalOpen && (
          <div className="fixed inset-0 z-[160] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 border dark:border-slate-800">
-             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">Simpan Dana</h3><button onClick={() => setSavingModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
+             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">Simpan Dana</h3><button type="button" onClick={() => setSavingModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
              <form onSubmit={handleSaveSaving} className="space-y-6">
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Pelunasan</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nominal</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-2xl font-black p-2 border-b-[3px] border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100" /></div>
@@ -1075,12 +1077,12 @@ const App: React.FC = () => {
       {statementModalOpen && activeStatementCard && (
          <div className="fixed inset-0 z-[110] bg-black/70 flex items-end md:items-center md:justify-center backdrop-blur-sm">
             <div className="bg-slate-50 dark:bg-slate-950 w-full md:max-w-2xl h-[92vh] md:h-auto md:max-h-[94vh] md:rounded-[40px] rounded-t-[40px] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 border-t dark:border-slate-800">
-                <div className={`${activeStatementCard.color} p-8 text-white shrink-0`}><div className="flex justify-between items-center mb-8"><button onClick={() => setStatementModalOpen(false)} className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center active:scale-90 transition"><ChevronDown size={28}/></button><h3 className="font-black text-xl tracking-tight uppercase">E-Statement</h3><div className="w-12"></div></div><div className="flex justify-between items-start"><div><p className="text-[10px] opacity-70 uppercase tracking-[0.3em] font-black mb-2">{activeStatementCard.type}</p><h4 className="text-2xl font-black">{activeStatementCard.name}</h4></div><Receipt size={40} className="opacity-30" /></div></div>
+                <div className={`${activeStatementCard.color} p-8 text-white shrink-0`}><div className="flex justify-between items-center mb-8"><button type="button" onClick={() => setStatementModalOpen(false)} className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center active:scale-90 transition"><ChevronDown size={28}/></button><h3 className="font-black text-xl tracking-tight uppercase">E-Statement</h3><div className="w-12"></div></div><div className="flex justify-between items-start"><div><p className="text-[10px] opacity-70 uppercase tracking-[0.3em] font-black mb-2">{activeStatementCard.type}</p><h4 className="text-2xl font-black">{activeStatementCard.name}</h4></div><Receipt size={40} className="opacity-30" /></div></div>
                 <div className="bg-white dark:bg-slate-900 p-5 border-b border-slate-100 dark:border-slate-800 flex gap-4 shrink-0 shadow-sm"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-28 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none" /></div>
                 <div className="bg-white dark:bg-slate-900 p-5 border-b border-slate-100 dark:border-slate-800 flex gap-3 shrink-0 overflow-x-auto no-scrollbar">
-                   <button onClick={() => { setTxType(TransactionType.EXPENSE); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 dark:text-slate-200 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-slate-200 dark:active:bg-slate-700 transition">Pakai</button>
-                   <button onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(getMonthlyBill(activeStatementCard.id, statementMonth, statementYear))); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-blue-100 dark:active:bg-blue-900/50 transition">Bayar</button>
-                   <button onClick={() => { setSavingCardId(activeStatementCard.id); setSavingTargetMonth(statementMonth); setSavingTargetYear(statementYear); setSavingModalOpen(true); }} className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-emerald-100 dark:active:bg-emerald-900/50 transition">Tabung</button>
+                   <button type="button" onClick={() => { setTxType(TransactionType.EXPENSE); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 dark:text-slate-200 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-slate-200 dark:active:bg-slate-700 transition">Pakai</button>
+                   <button type="button" onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(getMonthlyBill(activeStatementCard.id, statementMonth, statementYear))); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-blue-100 dark:active:bg-blue-900/50 transition">Bayar</button>
+                   <button type="button" onClick={() => { setSavingCardId(activeStatementCard.id); setSavingTargetMonth(statementMonth); setSavingTargetYear(statementYear); setSavingModalOpen(true); }} className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-emerald-100 dark:active:bg-emerald-900/50 transition">Tabung</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-24 bg-white dark:bg-slate-900">
                    {(() => {
@@ -1108,7 +1110,7 @@ const App: React.FC = () => {
                                   </div>
                                   <div className="flex items-center gap-3">
                                     <span className="font-black text-danger text-sm">{showAmounts ? formatIDR(t.amount) : '••••••••'}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={20}/></button>
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-4 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={24}/></button>
                                   </div>
                                 </div>
                               ))}
@@ -1124,7 +1126,7 @@ const App: React.FC = () => {
                                   <div><p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{inst.name}</p><p className="text-[10px] text-primary dark:text-blue-400 font-black uppercase mt-1">TENOR {inst.currentTenor}/{inst.totalMonths}</p></div>
                                   <div className="flex items-center gap-3">
                                     <span className="font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(inst.monthlyAmount) : '••••••••'}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleInstallmentValidation(inst.id, statementMonth, statementYear); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${inst.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={20}/></button>
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleInstallmentValidation(inst.id, statementMonth, statementYear); }} className={`p-4 rounded-full transition transform active:scale-90 ${inst.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={24}/></button>
                                   </div>
                                 </div>
                               ))}
@@ -1143,7 +1145,7 @@ const App: React.FC = () => {
                                   </div>
                                   <div className="flex items-center gap-3">
                                     <span className="font-black text-success dark:text-emerald-400 text-sm">{showAmounts ? formatIDR(p.amount) : '••••••••'}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(p.id); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${p.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={20}/></button>
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(p.id); }} className={`p-4 rounded-full transition transform active:scale-90 ${p.isValidated ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-700 text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={24}/></button>
                                   </div>
                                 </div>
                               ))}
