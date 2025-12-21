@@ -1149,35 +1149,35 @@ const App: React.FC = () => {
                    </div>
                    <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 snap-x snap-mandatory">
                       {upcomingBills.map(bill => (
-                         <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[280px] bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-4 snap-center active:scale-95 transition-all group border-b-4 border-b-slate-100">
+                         <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[320px] bg-white p-4 rounded-[28px] border border-slate-100 shadow-sm flex flex-col gap-3 snap-center active:scale-95 transition-all group border-b-2 border-b-slate-200">
                             <div className="flex justify-between items-center">
-                               <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 ${bill.color} rounded-2xl flex items-center justify-center text-white shadow-sm`}>
-                                     <AlertCircle size={18}/>
+                               <div className="flex items-center gap-2.5">
+                                  <div className={`w-9 h-9 ${bill.color} rounded-xl flex items-center justify-center text-white shadow-sm`}>
+                                     <AlertCircle size={16}/>
                                   </div>
                                   <span className="text-sm font-black text-slate-800 tracking-tight">{bill.name}</span>
                                </div>
-                               <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 text-danger' : 'bg-orange-50 text-orange-600'}`}>
+                               <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 text-danger' : 'bg-orange-50 text-orange-600'}`}>
                                   {bill.daysLeft} Hari
                                </span>
                             </div>
                             
-                            <div className="space-y-2.5 bg-slate-50/50 p-4 rounded-2xl">
-                               <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tagihan</span>
-                                  <span className="font-black text-slate-700">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
+                            <div className="grid grid-cols-2 gap-2 bg-slate-50/50 p-3 rounded-xl">
+                               <div className="flex flex-col">
+                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Tagihan</span>
+                                  <span className="font-black text-slate-700 text-xs">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
                                </div>
-                               <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tabungan</span>
-                                  <span className="font-black text-success">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
+                               <div className="flex flex-col text-right">
+                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Tabungan</span>
+                                  <span className="font-black text-success text-xs">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
                                </div>
-                               <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-                                  <span className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Sisa Perlu</span>
-                                  <span className="font-black text-danger text-sm">{showAmounts ? formatIDR(bill.netGap) : '••••••••'}</span>
+                               <div className="col-span-2 pt-1 border-t border-slate-100 flex justify-between items-center">
+                                  <span className="text-slate-800 font-black uppercase tracking-widest text-[9px]">Sisa Perlu</span>
+                                  <span className="font-black text-danger text-xs">{showAmounts ? formatIDR(bill.netGap) : '••••••••'}</span>
                                </div>
                             </div>
 
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                                <div className={`h-full transition-all duration-700 ${bill.progress >= 100 ? 'bg-success' : 'bg-indigo-500'}`} style={{ width: `${Math.min(100, bill.progress)}%` }}></div>
                             </div>
                          </div>
@@ -1207,17 +1207,30 @@ const App: React.FC = () => {
                     const balance = getCardBalance(card.id);
                     const remaining = card.limit - balance;
                     return (
-                      <button key={card.id} onClick={() => openStatement(card)} className={`min-w-[220px] ${card.color} p-5 rounded-3xl text-white text-left shadow-lg relative overflow-hidden active:scale-95 transition group`}>
-                        <div className="absolute top-0 right-0 p-8 bg-white/10 rounded-full -mr-6 -mt-6"></div>
-                        <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{card.name}</p>
-                        <p className="text-xl font-black mt-2">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p>
-                        <div className="mt-2 flex flex-col border-t border-white/10 pt-2">
-                           <span className="text-[8px] font-black opacity-60 uppercase tracking-widest">Sisa Limit</span>
-                           <span className="text-sm font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</span>
+                      <button key={card.id} onClick={() => openStatement(card)} className={`min-w-[300px] ${card.color} p-4 rounded-[28px] text-white text-left shadow-lg relative overflow-hidden active:scale-95 transition h-40 flex flex-col justify-between group`}>
+                        <div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div>
+                        <div className="relative z-10 flex justify-between items-start">
+                           <div>
+                              <p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p>
+                              <h4 className="text-sm font-black tracking-tight">{card.name}</h4>
+                           </div>
+                           <div className="w-7 h-5 bg-white/20 rounded backdrop-blur-sm"></div>
                         </div>
-                        <div className="mt-4 flex items-center justify-between opacity-60">
-                          <span className="text-[10px] font-bold">{card.dueDay ? `Tgl ${card.dueDay}` : 'N/A'}</span>
-                          <ArrowUpRight size={14} className="group-active:translate-x-1 group-active:-translate-y-1 transition-transform"/>
+                        
+                        <div className="relative z-10">
+                           <p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p>
+                           <p className="text-lg font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p>
+                        </div>
+
+                        <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2">
+                           <div>
+                              <p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p>
+                              <p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p>
+                           </div>
+                           <div className="text-right flex items-center gap-1.5 opacity-60">
+                              <span className="text-[9px] font-bold uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span>
+                              <ArrowUpRight size={12}/>
+                           </div>
                         </div>
                       </button>
                     );
@@ -1316,24 +1329,29 @@ const App: React.FC = () => {
                   const remaining = card.limit - balance;
                   return (
                     <div key={card.id} className="space-y-3">
-                      <div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-5 rounded-3xl text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden cursor-pointer active:opacity-90 transition`}>
-                          <div className="absolute top-0 right-0 p-10 bg-white/10 rounded-full -mr-8 -mt-8"></div>
-                          <div className="flex justify-between items-start z-10">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold tracking-tight">{card.name}</span>
-                              <span className="text-[8px] uppercase opacity-60 tracking-[0.2em] font-black">{card.type === DebtType.CREDIT_CARD ? 'KARTU KREDIT' : 'HUTANG LAIN'}</span>
+                      <div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-4 rounded-[28px] text-white shadow-lg relative h-40 flex flex-col justify-between overflow-hidden cursor-pointer active:opacity-90 transition`}>
+                          <div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div>
+                          <div className="relative z-10 flex justify-between items-start">
+                            <div>
+                              <p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p>
+                              <h4 className="text-sm font-black tracking-tight">{card.name}</h4>
                             </div>
-                            <FileText size={22} className="opacity-40" />
+                            <div className="w-7 h-5 bg-white/20 rounded backdrop-blur-sm"></div>
                           </div>
-                          <div className="z-10 flex justify-between items-end">
-                             <div>
-                               <p className="text-[10px] opacity-60 uppercase mb-1 font-bold tracking-widest">Limit / Hutang</p>
-                               <h4 className="text-xl font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</h4>
-                             </div>
-                             <div className="text-right">
-                               <p className="text-[10px] opacity-100 uppercase mb-1 font-black text-white bg-black/20 px-2 py-0.5 rounded-md inline-block">Sisa Limit</p>
-                               <h4 className="text-xl font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</h4>
-                             </div>
+                          
+                          <div className="relative z-10">
+                            <p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p>
+                            <p className="text-lg font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p>
+                          </div>
+
+                          <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2">
+                            <div>
+                              <p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p>
+                              <p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p>
+                            </div>
+                            <div className="text-right opacity-60">
+                              <span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span>
+                            </div>
                           </div>
                       </div>
                       <div className="flex gap-2">
