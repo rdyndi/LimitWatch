@@ -53,7 +53,8 @@ import {
   ShieldCheck,
   Info,
   HelpCircle,
-  Briefcase
+  Briefcase,
+  Loader2
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -111,6 +112,7 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [authInited, setAuthInited] = useState(false);
   const [data, setData] = useState<AppState>({
     cards: [],
     transactions: [],
@@ -160,6 +162,9 @@ const App: React.FC = () => {
   const [txIsInstallment, setTxIsInstallment] = useState(false);
   const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
   const [txUseSavings, setTxUseSavings] = useState(false);
+  // States for Payment Target Period
+  const [txTargetMonth, setTxTargetMonth] = useState(new Date().getMonth());
+  const [txTargetYear, setTxTargetYear] = useState(new Date().getFullYear());
 
   const [savingAmount, setSavingAmount] = useState('');
   const [savingNote, setSavingNote] = useState('');
@@ -178,7 +183,10 @@ const App: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuth(setUser);
+    const unsubscribe = subscribeToAuth((user) => {
+      setUser(user);
+      setAuthInited(true);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -272,6 +280,10 @@ const App: React.FC = () => {
     setTxCategory(t.category || TRANSACTION_CATEGORIES[0]);
     setTxIsInstallment(!!t.isInstallment);
     setTxUseSavings(false);
+    if (t.targetPeriod) {
+      setTxTargetMonth(t.targetPeriod.month);
+      setTxTargetYear(t.targetPeriod.year);
+    }
     setTransactionModalOpen(true);
   };
 
@@ -308,7 +320,17 @@ const App: React.FC = () => {
           return sum;
        }, 0);
 
-     return Math.ceil(expenses + installmentLoad);
+     // Subtract existing payments for the same period
+     const paid = data.transactions
+       .filter(t => 
+         t.cardId === cardId && 
+         t.type === TransactionType.PAYMENT && 
+         t.targetPeriod?.month === targetMonth && 
+         t.targetPeriod?.year === targetYear
+       )
+       .reduce((sum, t) => sum + t.amount, 0);
+
+     return Math.max(0, Math.ceil(expenses + installmentLoad - paid));
   };
 
   const filteredTransactions = useMemo(() => {
@@ -346,15 +368,7 @@ const App: React.FC = () => {
              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
              const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
-             const paidAmount = data.transactions
-                .filter(t => {
-                    const d = new Date(t.date);
-                    return t.cardId === c.id &&
-                           t.type === TransactionType.PAYMENT &&
-                           d.getMonth() === targetMonth &&
-                           d.getFullYear() === targetYear;
-                })
-                .reduce((sum, t) => sum + t.amount, 0);
+             // Note: getMonthlyBill already subtracts payments, so billAmount here is remainingBill
              
              const savedForThisMonth = data.savings
                 .filter(s => 
@@ -365,17 +379,15 @@ const App: React.FC = () => {
                 )
                 .reduce((sum, s) => sum + s.amount, 0);
 
-             const remainingDebtAfterPayment = Math.max(0, Math.ceil(billAmount - paidAmount));
-             const netGap = Math.max(0, Math.ceil(remainingDebtAfterPayment - savedForThisMonth));
-             const isCovered = savedForThisMonth >= remainingDebtAfterPayment && remainingDebtAfterPayment > 0;
+             const netGap = Math.max(0, Math.ceil(billAmount - savedForThisMonth));
+             const isCovered = savedForThisMonth >= billAmount && billAmount > 0;
              const progress = billAmount > 0 ? (savedForThisMonth / billAmount) * 100 : 0;
              
              return { 
                 ...c, 
                 daysLeft: diffDays, 
                 nextDueDate: dueDate, 
-                totalBill: billAmount,
-                remainingBill: remainingDebtAfterPayment,
+                remainingBill: billAmount,
                 netGap: netGap,
                 isCovered: isCovered,
                 progress: progress
@@ -408,18 +420,7 @@ const App: React.FC = () => {
         const cardsEstimates = data.cards.map(card => {
             const billTotal = getMonthlyBill(card.id, monthIdx, yearlySelectedYear);
             
-            // Logika Pembayaran: Hitung semua pembayaran yang dilakukan di bulan ini untuk kartu ini
-            const totalPaid = data.transactions
-              .filter(t => {
-                 const d = new Date(t.date);
-                 return t.cardId === card.id && 
-                        t.type === TransactionType.PAYMENT && 
-                        d.getMonth() === monthIdx && 
-                        d.getFullYear() === yearlySelectedYear;
-              })
-              .reduce((sum, t) => sum + t.amount, 0);
-
-            const netBill = Math.max(0, Math.ceil(billTotal - totalPaid));
+            // Note: getMonthlyBill already considers payments, so billTotal is net
 
             const saved = data.savings
                 .filter(s => 
@@ -433,10 +434,10 @@ const App: React.FC = () => {
             return {
                 cardName: card.name,
                 color: card.color,
-                bill: netBill,
-                isFullyPaid: billTotal > 0 && totalPaid >= billTotal,
+                bill: billTotal,
+                isFullyPaid: billTotal <= 0,
                 saved,
-                gap: Math.max(0, Math.ceil(netBill - saved))
+                gap: Math.max(0, Math.ceil(billTotal - saved))
             };
         }).filter(ce => ce.bill > 0 || ce.saved > 0 || ce.isFullyPaid);
 
@@ -509,8 +510,7 @@ const App: React.FC = () => {
           return billing.month === month && billing.year === year;
       });
       const cardPayments = data.transactions.filter(t => {
-          const d = new Date(t.date);
-          return t.cardId === cardId && t.type === TransactionType.PAYMENT && d.getMonth() === month && d.getFullYear() === year;
+          return t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === month && t.targetPeriod?.year === year;
       });
       const activeInstallments = data.installments.filter(inst => {
           const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
@@ -565,7 +565,7 @@ const App: React.FC = () => {
 
        finalAmount = totalPayment;
        // Keterangan tidak wajib untuk pembayaran
-       if (!finalDesc) finalDesc = "Pembayaran Tagihan";
+       if (!finalDesc) finalDesc = `Bayar Tagihan ${monthNames[txTargetMonth]} ${txTargetYear}`;
 
        if (txUseSavings) {
           // Tandai tabungan yang dipakai
@@ -589,11 +589,11 @@ const App: React.FC = () => {
     }
 
     if (editingTransaction) {
-      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment } : t);
+      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined } : t);
       saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
       setEditingTransaction(null);
     } else {
-      const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment };
+      const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
     }
     setTransactionModalOpen(false);
@@ -624,6 +624,26 @@ const App: React.FC = () => {
     setSavingAmount('');
     setSavingNote('');
   };
+
+  const currentDebtForPeriod = useMemo(() => {
+    if (!txCardId || txType !== TransactionType.PAYMENT) return 0;
+    return getMonthlyBill(txCardId, txTargetMonth, txTargetYear);
+  }, [txCardId, txTargetMonth, txTargetYear, txType, data.transactions, data.installments, data.cards]);
+
+  if (!authInited) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 shadow-xl"><Wallet size={40} /></div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">LimitWatch</h2>
+          <div className="flex items-center gap-2 text-slate-400 font-medium">
+             <Loader2 size={16} className="animate-spin" />
+             Menyiapkan data Anda...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -1402,15 +1422,40 @@ const App: React.FC = () => {
                         <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Bayar</label>
                         <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Kategori</label>
-                      <select value={txCategory} onChange={(e)=>setTxCategory(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">{TRANSACTION_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
-                    </div>
+                    {txType === TransactionType.PAYMENT ? (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Bulan Tagihan</label>
+                            <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">
+                              {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tahun Tagihan</label>
+                            <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center">
+                           <div>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sisa Tagihan Periode Ini</p>
+                             <p className="text-xl font-bold text-slate-800">{formatIDR(currentDebtForPeriod)}</p>
+                           </div>
+                           <button type="button" onClick={() => setTxAmount(formatIDR(currentDebtForPeriod))} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg active:scale-95 transition">Pilih Semua</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Kategori</label>
+                        <select value={txCategory} onChange={(e)=>setTxCategory(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">{TRANSACTION_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Keterangan {txType === TransactionType.PAYMENT && '(Opsional)'}</label>
