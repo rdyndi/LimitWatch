@@ -12,6 +12,7 @@ export interface CreditCard {
   type: DebtType;
   notes?: string;
   dueDay?: number; // Tanggal jatuh tempo (1-31)
+  eStatementFee?: number; // Biaya E-Statement bulanan
 }
 
 export enum TransactionType {

@@ -54,7 +54,9 @@ import {
   Info,
   HelpCircle,
   Briefcase,
-  Loader2
+  Loader2,
+  Receipt,
+  Plus
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -146,6 +148,7 @@ const App: React.FC = () => {
   const [cardDue, setCardDue] = useState('');
   const [cardColor, setCardColor] = useState(CARD_COLORS[0].value);
   const [cardType, setCardType] = useState<DebtType>(DebtType.CREDIT_CARD);
+  const [cardEStatementFee, setCardEStatementFee] = useState('');
 
   // Statement State
   const [activeStatementCard, setActiveStatementCard] = useState<CreditCardType | null>(null);
@@ -301,6 +304,8 @@ const App: React.FC = () => {
 
   const getMonthlyBill = (cardId: string, targetMonth: number, targetYear: number) => {
      const card = data.cards.find(c => c.id === cardId);
+     if (!card) return 0;
+
      const expenses = data.transactions
        .filter(t => {
           if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
@@ -320,6 +325,14 @@ const App: React.FC = () => {
           return sum;
        }, 0);
 
+     let billBeforeFees = Math.ceil(expenses + installmentLoad);
+     let finalBill = billBeforeFees;
+     
+     if (billBeforeFees > 0) {
+       if (card.eStatementFee) finalBill += card.eStatementFee;
+       if (finalBill >= 5000000) finalBill += 10000; // Biaya Materai
+     }
+
      // Subtract existing payments for the same period
      const paid = data.transactions
        .filter(t => 
@@ -330,7 +343,51 @@ const App: React.FC = () => {
        )
        .reduce((sum, t) => sum + t.amount, 0);
 
-     return Math.max(0, Math.ceil(expenses + installmentLoad - paid));
+     return Math.max(0, Math.ceil(finalBill - paid));
+  };
+
+  const getStatementData = (cardId: string, month: number, year: number) => {
+      const card = data.cards.find(c => c.id === cardId);
+      if (!card) return { transactions: [], installments: [], payments: [], savings: [], totalBill: 0, totalPaid: 0, totalSaved: 0, adminFee: 0, materai: 0 };
+      
+      const cardTransactions = data.transactions.filter(t => {
+          if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
+          const billing = getBillingPeriod(t.date, card?.dueDay);
+          return billing.month === month && billing.year === year;
+      });
+      const cardPayments = data.transactions.filter(t => {
+          return t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === month && t.targetPeriod?.year === year;
+      });
+      const cardSavings = data.savings.filter(s => {
+          return s.cardId === cardId && !s.isTransferred && s.targetPeriod?.month === month && s.targetPeriod?.year === year;
+      });
+      const activeInstallments = data.installments.filter(inst => {
+          const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
+          const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
+          return inst.cardId === cardId && monthDiff >= 0 && monthDiff < inst.totalMonths;
+      }).map(inst => {
+          const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
+          const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
+          return { ...inst, currentTenor: monthDiff + 1 };
+      });
+
+      const baseAmount = Math.ceil(cardTransactions.reduce((s, t) => s + t.amount, 0) + activeInstallments.reduce((s, i) => s + i.monthlyAmount, 0));
+      
+      let adminFee = 0;
+      let materai = 0;
+
+      if (baseAmount > 0) {
+        adminFee = card.eStatementFee || 0;
+        if ((baseAmount + adminFee) >= 5000000) {
+          materai = 10000;
+        }
+      }
+
+      const totalBill = Math.ceil(baseAmount + adminFee + materai);
+      const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
+      const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0));
+      
+      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, totalBill, totalPaid, totalSaved, adminFee, materai };
   };
 
   const filteredTransactions = useMemo(() => {
@@ -368,7 +425,6 @@ const App: React.FC = () => {
              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
              const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
-             // Note: getMonthlyBill already subtracts payments, so billAmount here is remainingBill
              
              const savedForThisMonth = data.savings
                 .filter(s => 
@@ -419,9 +475,6 @@ const App: React.FC = () => {
     return monthNames.map((monthName, monthIdx) => {
         const cardsEstimates = data.cards.map(card => {
             const billTotal = getMonthlyBill(card.id, monthIdx, yearlySelectedYear);
-            
-            // Note: getMonthlyBill already considers payments, so billTotal is net
-
             const saved = data.savings
                 .filter(s => 
                     s.cardId === card.id && 
@@ -502,40 +555,17 @@ const App: React.FC = () => {
       setStatementModalOpen(true);
   };
 
-  const getStatementData = (cardId: string, month: number, year: number) => {
-      const card = data.cards.find(c => c.id === cardId);
-      const cardTransactions = data.transactions.filter(t => {
-          if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
-          const billing = getBillingPeriod(t.date, card?.dueDay);
-          return billing.month === month && billing.year === year;
-      });
-      const cardPayments = data.transactions.filter(t => {
-          return t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === month && t.targetPeriod?.year === year;
-      });
-      const activeInstallments = data.installments.filter(inst => {
-          const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
-          const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
-          return inst.cardId === cardId && monthDiff >= 0 && monthDiff < inst.totalMonths;
-      }).map(inst => {
-          const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
-          const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
-          return { ...inst, currentTenor: monthDiff + 1 };
-      });
-      const totalBill = Math.ceil(cardTransactions.reduce((s, t) => s + t.amount, 0) + activeInstallments.reduce((s, i) => s + i.monthlyAmount, 0));
-      const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
-      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, totalBill, totalPaid };
-  };
-
   const handleSaveCard = (e: React.FormEvent) => {
     e.preventDefault();
     const limitVal = getNumericValue(cardLimit);
+    const estFeeVal = getNumericValue(cardEStatementFee);
     if (!cardName || limitVal <= 0) return;
     if (editingCard) {
-      const updatedCards = data.cards.map(c => c.id === editingCard.id ? { ...c, name: cardName, limit: limitVal, dueDay: cardDue ? parseInt(cardDue) : undefined, color: cardColor, type: cardType } : c);
+      const updatedCards = data.cards.map(c => c.id === editingCard.id ? { ...c, name: cardName, limit: limitVal, dueDay: cardDue ? parseInt(cardDue) : undefined, color: cardColor, type: cardType, eStatementFee: estFeeVal } : c);
       saveData({ ...data, cards: updatedCards });
       setEditingCard(null);
     } else {
-      const newCard: CreditCardType = { id: generateId(), name: cardName, limit: limitVal, color: cardColor, dueDay: cardDue ? parseInt(cardDue) : undefined, type: cardType };
+      const newCard: CreditCardType = { id: generateId(), name: cardName, limit: limitVal, color: cardColor, dueDay: cardDue ? parseInt(cardDue) : undefined, type: cardType, eStatementFee: estFeeVal };
       saveData({ ...data, cards: [...data.cards, newCard] });
     }
     setCardModalOpen(false);
@@ -648,7 +678,7 @@ const App: React.FC = () => {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-md">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"><Wallet size={32} /></div>
             <h1 className="text-2xl font-bold text-slate-800">LimitWatch</h1>
@@ -744,86 +774,6 @@ const App: React.FC = () => {
               <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxUseSavings(false); setTransactionModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg active:scale-95"><PlusCircle size={20} /> Transaksi</button>
            </header>
 
-           {mobileTab === 'yearly' && (
-              <div className="space-y-6 animate-in fade-in pb-10">
-                 <div className="grid grid-cols-4 gap-6 items-stretch">
-                    <div className="col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                       <div className="flex items-center gap-3 mb-4">
-                          <BarChart3 className="text-blue-600" size={24}/>
-                          <h3 className="font-bold text-slate-800">Filter Tahun</h3>
-                       </div>
-                       <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <button onClick={() => setYearlySelectedYear(yearlySelectedYear - 1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition"><ChevronLeft size={20}/></button>
-                          <span className="font-bold text-lg text-slate-700 flex-1 text-center">{yearlySelectedYear}</span>
-                          <button onClick={() => setYearlySelectedYear(yearlySelectedYear + 1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition"><ChevronRight size={20}/></button>
-                       </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tagihan Tahunan</p>
-                       <h3 className="text-2xl font-bold text-slate-800">{formatIDR(yearlySummary.totalYearBill)}</h3>
-                       <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400"><PieChart size={14}/> Akumulasi 12 Bulan</div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tabungan Terencana</p>
-                       <h3 className="text-2xl font-bold text-green-600">{formatIDR(yearlySummary.totalYearSaved)}</h3>
-                       <div className="mt-2 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500" style={{ width: `${yearlySummary.totalYearBill > 0 ? Math.min(100, (yearlySummary.totalYearSaved / yearlySummary.totalYearBill) * 100) : 0}%` }}></div>
-                       </div>
-                    </div>
-
-                    <div className="bg-red-50 p-6 rounded-2xl border border-red-100 shadow-sm">
-                       <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Sisa Kewajiban Tahunan</p>
-                       <h3 className="text-2xl font-bold text-red-600">{formatIDR(yearlySummary.totalYearGap)}</h3>
-                       <p className="text-[10px] text-red-400 mt-2 font-medium">Gap Pelunasan yang perlu dicari</p>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-3 gap-6">
-                    {yearlyData.map((month, idx) => (
-                       <div key={idx} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-                          <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                             <span className="font-bold text-slate-800">{month.monthName}</span>
-                             <span className={`text-xs font-bold px-2 py-1 rounded-full ${month.totalMonthGap > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                {month.totalMonthGap > 0 ? `Kurang: ${formatIDR(month.totalMonthGap)}` : 'Sesuai Target'}
-                             </span>
-                          </div>
-                          <div className="p-5 flex-1 space-y-4">
-                             {month.cardsEstimates.length === 0 ? (
-                                <p className="text-center py-10 text-slate-300 text-xs italic">Tidak ada tagihan bulan ini.</p>
-                             ) : (
-                                month.cardsEstimates.map((ce, cidx) => (
-                                   <div key={cidx} className="space-y-1.5">
-                                      <div className="flex justify-between text-[11px] font-bold">
-                                         <span className="text-slate-500">{ce.cardName}</span>
-                                         {ce.isFullyPaid ? (
-                                           <span className="text-green-600 uppercase text-[9px] font-black tracking-widest bg-green-50 px-1.5 py-0.5 rounded">Lunas</span>
-                                         ) : (
-                                           <span className="text-slate-700">{formatIDR(ce.bill)}</span>
-                                         )}
-                                      </div>
-                                      <div className="flex justify-between text-[10px] text-green-600 font-medium italic">
-                                         <span>Tabungan</span>
-                                         <span>- {formatIDR(ce.saved)}</span>
-                                      </div>
-                                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                         <div className={`h-full ${ce.gap > 0 ? 'bg-orange-400' : 'bg-green-500'}`} style={{ width: `${ce.bill > 0 ? Math.min(100, (ce.saved / ce.bill) * 100) : (ce.isFullyPaid ? 100 : 0)}%` }}></div>
-                                      </div>
-                                   </div>
-                                ))
-                             )}
-                          </div>
-                          <div className="px-5 py-3 border-t border-slate-50 flex justify-between items-center">
-                             <span className="text-[10px] font-bold text-slate-400 uppercase">Sisa Tagihan</span>
-                             <span className="font-bold text-slate-800">{formatIDR(month.totalMonthGap)}</span>
-                          </div>
-                       </div>
-                    ))}
-                 </div>
-              </div>
-           )}
-
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in duration-500">
                 <div className="grid grid-cols-3 gap-6">
@@ -900,7 +850,7 @@ const App: React.FC = () => {
              <div className="space-y-6 animate-in fade-in">
                 <div className="flex justify-between items-center">
                    <h2 className="text-xl font-bold text-slate-800">Daftar Kartu & Hutang</h2>
-                   <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition hover:bg-slate-900 shadow-md">
+                   <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition hover:bg-slate-900 shadow-md">
                       <PlusCircle size={18}/> Tambah Hutang
                    </button>
                 </div>
@@ -923,10 +873,13 @@ const App: React.FC = () => {
                               <FileText size={24} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <div className="relative z-10"><p className="text-[10px] opacity-60 uppercase font-bold tracking-widest mb-1">{card.type === DebtType.CREDIT_CARD ? 'Limit Kredit' : 'Total Pinjaman'}</p><h4 className="text-2xl font-bold">{formatIDR(card.limit)}</h4></div>
-                            <p className="text-xs opacity-60 relative z-10 font-medium">{card.dueDay ? `Jatuh Tempo: Tgl ${card.dueDay}` : 'Tempo: Belum diset'}</p>
+                            <div className="flex justify-between items-center relative z-10">
+                              <p className="text-xs opacity-60 font-medium">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tempo: Belum diset'}</p>
+                              {card.eStatementFee && <p className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold">Fee: {formatIDR(card.eStatementFee)}</p>}
+                            </div>
                         </div>
                         <div className="flex gap-3">
-                           <button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardModalOpen(true); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-2 hover:bg-slate-50 transition shadow-sm"><Pencil size={16}/> Edit</button>
+                           <button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-2 hover:bg-slate-50 transition shadow-sm"><Pencil size={16}/> Edit</button>
                            <button onClick={() => { if(window.confirm('Hapus item ini?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition shadow-sm"><Trash2 size={16}/> Hapus</button>
                         </div>
                       </div>
@@ -1058,85 +1011,6 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto no-scrollbar pb-24 px-5 pt-5 space-y-6" ref={scrollRef}>
-          {mobileTab === 'yearly' && (
-             <div className="space-y-6 animate-in fade-in pb-10">
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[32px] p-6 text-white shadow-xl space-y-5">
-                   <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                         <CalendarRange size={24} className="text-blue-400"/>
-                         <h4 className="font-bold text-lg">Tahun {yearlySelectedYear}</h4>
-                      </div>
-                      <div className="flex gap-2">
-                         <button onClick={() => setYearlySelectedYear(yearlySelectedYear - 1)} className="p-2 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronLeft size={18}/></button>
-                         <button onClick={() => setYearlySelectedYear(yearlySelectedYear + 1)} className="p-2 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronRight size={18}/></button>
-                      </div>
-                   </div>
-
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Sisa Tagihan</p>
-                         <p className="text-lg font-bold">{formatIDR(yearlySummary.totalYearBill)}</p>
-                      </div>
-                      <div className="space-y-1 text-right">
-                         <p className="text-[9px] text-green-400 font-bold uppercase tracking-widest">Dana Terkumpul</p>
-                         <p className="text-lg font-bold text-green-400">{formatIDR(yearlySummary.totalYearSaved)}</p>
-                      </div>
-                   </div>
-
-                   <div className="pt-2 border-t border-white/10">
-                      <div className="flex justify-between items-end mb-2">
-                         <p className="text-[10px] font-bold text-red-400 uppercase">Sisa Gap Tahunan</p>
-                         <p className="text-xl font-bold text-red-400">{formatIDR(yearlySummary.totalYearGap)}</p>
-                      </div>
-                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                         <div className="h-full bg-blue-500" style={{ width: `${yearlySummary.totalYearBill > 0 ? Math.min(100, (yearlySummary.totalYearSaved / yearlySummary.totalYearBill) * 100) : 0}%` }}></div>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="space-y-4">
-                   {yearlyData.map((month, idx) => (
-                      <div key={idx} className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden active:scale-[0.99] transition">
-                         <div className="p-4 flex justify-between items-center bg-slate-50/50">
-                            <h5 className="font-bold text-slate-800">{month.monthName}</h5>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${month.totalMonthGap > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                               {month.totalMonthGap > 0 ? `+${formatIDR(month.totalMonthGap)}` : 'Sesuai Target'}
-                            </span>
-                         </div>
-                         <div className="p-4 space-y-4">
-                            {month.cardsEstimates.length === 0 ? (
-                               <p className="text-center py-4 text-slate-300 text-[11px]">Tidak ada data siklus.</p>
-                            ) : (
-                               month.cardsEstimates.map((ce, cidx) => (
-                                  <div key={cidx} className="space-y-2">
-                                     <div className="flex justify-between items-end">
-                                        <div>
-                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{ce.cardName}</p>
-                                          {ce.isFullyPaid ? (
-                                             <p className="text-[10px] font-black text-green-600 bg-green-50 px-1.5 rounded w-fit uppercase">Lunas</p>
-                                          ) : (
-                                             <p className="text-xs font-bold text-slate-700">{formatIDR(ce.bill)}</p>
-                                          )}
-                                        </div>
-                                        <div className="text-right"><p className="text-[9px] text-green-600 font-bold mb-0.5">Dana Siap</p><p className="text-[11px] font-bold text-green-700">-{formatIDR(ce.saved)}</p></div>
-                                     </div>
-                                     <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                                        <div className={`h-full ${ce.gap > 0 ? 'bg-orange-400' : 'bg-green-500'}`} style={{ width: `${ce.bill > 0 ? Math.min(100, (ce.saved / ce.bill) * 100) : (ce.isFullyPaid ? 100 : 0)}%` }}></div>
-                                     </div>
-                                  </div>
-                               ))
-                            )}
-                         </div>
-                         <div className="p-4 bg-slate-50/30 border-t border-slate-50 flex justify-between items-center">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">Sisa Tagihan</span>
-                            <span className="font-bold text-slate-800 text-sm">{formatIDR(month.totalMonthGap)}</span>
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-          )}
-
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg">
@@ -1201,14 +1075,14 @@ const App: React.FC = () => {
                   <div className="w-full aspect-square bg-green-100 text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-active:scale-95 transition-all"><PiggyBank size={24}/></div>
                   <span className="text-[10px] font-bold text-slate-600">Nabung</span>
                 </button>
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group">
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group">
                   <div className="w-full aspect-square bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm group-active:scale-95 transition-all"><Briefcase size={24}/></div>
-                  <span className="text-[10px] font-bold text-slate-600">Item Hutang</span>
+                  <span className="text-[10px] font-bold text-slate-600">Hutang</span>
                 </button>
               </div>
 
               <div>
-                <h3 className="font-bold text-slate-800 text-sm mb-3">Item Hutang & Cicilan</h3>
+                <h3 className="font-bold text-slate-800 text-sm mb-3">Item Hutang & Kartu</h3>
                 <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                   {data.cards.map(card => (
                     <button key={card.id} onClick={() => openStatement(card)} className={`min-w-[200px] ${card.color || 'bg-slate-800'} p-4 rounded-xl text-white text-left shadow-md relative overflow-hidden active:scale-95 transition`}>
@@ -1219,98 +1093,10 @@ const App: React.FC = () => {
                        <p className="text-[9px] mt-2 opacity-60">Klik untuk Detail</p>
                     </button>
                   ))}
-                  <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="min-w-[200px] border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs font-bold gap-2"><PlusCircle size={20}/> Tambah Hutang</button>
+                  <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="min-w-[200px] border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs font-bold gap-2"><PlusCircle size={20}/> Tambah Hutang</button>
                 </div>
               </div>
             </div>
-          )}
-
-          {mobileTab === 'history' && (
-             <div className="space-y-4 animate-in fade-in pb-10">
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-                   <div className="flex items-center gap-2 text-primary font-bold text-xs mb-1"><Filter size={14}/> FILTER SIKLUS</div>
-                   <select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold">
-                      <option value="all">Semua Hutang</option>
-                      {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                   </select>
-                   <div className="grid grid-cols-2 gap-3">
-                      <select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold">
-                         {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                      </select>
-                      <input type="number" value={historyYearFilter} onChange={(e)=>setHistoryYearFilter(parseInt(e.target.value))} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-[11px] font-bold"/>
-                   </div>
-                </div>
-
-                <div className="space-y-3">
-                  {filteredTransactions.length === 0 ? (
-                    <div className="text-center py-20"><History size={48} className="mx-auto text-slate-200 mb-4"/><p className="text-slate-400 text-xs italic">Tidak ada transaksi pada filter ini.</p></div>
-                  ) : filteredTransactions.map(t => {
-                    const card = data.cards.find(c => c.id === t.cardId);
-                    const cardTheme = CARD_COLORS.find(cc => cc.value === card?.color) || CARD_COLORS[0];
-                    return (
-                      <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 active:scale-95 transition cursor-pointer">
-                        <div className="flex items-center justify-between">
-                           <div className="flex items-center gap-3 overflow-hidden">
-                              <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${t.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>{t.type === TransactionType.EXPENSE ? <ArrowUpRight size={18}/> : <ArrowDownLeft size={18}/>}</div>
-                              <div className="overflow-hidden">
-                                 <p className="font-bold text-slate-800 text-xs truncate mb-0.5">{t.description}</p>
-                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white ${card?.color || 'bg-slate-800'}`}>{card?.name || '??'}</span>
-                                    <span className="text-[9px] text-slate-400 font-medium">{t.category} • {new Date(t.date).toLocaleDateString('id-ID')}</span>
-                                 </div>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-3 shrink-0 ml-2">
-                              <div className="text-right">
-                                 <p className={`text-xs font-bold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-600'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'} {formatIDR(t.amount)}</p>
-                                 {t.isValidated && <p className={`text-[8px] font-bold uppercase tracking-wider ${cardTheme.text}`}>Dibukukan</p>}
-                              </div>
-                              <button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`transition transform active:scale-90 ${t.isValidated ? cardTheme.text : 'text-slate-200'}`}>
-                                 <CheckCircle2 size={26} fill={t.isValidated ? 'currentColor' : 'none'} className={t.isValidated ? 'fill-current opacity-20' : ''}/></button>
-                           </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-             </div>
-          )}
-
-          {mobileTab === 'savings' && (
-             <div className="space-y-6 animate-in fade-in pb-10">
-                <div className="flex justify-between items-center"><h3 className="font-bold text-lg text-slate-800">Tabungan</h3><button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg active:scale-95 transition">+ Tabung</button></div>
-                {data.cards.map(card => {
-                  const activeSavings = data.savings.filter(s => s.cardId === card.id && !s.isTransferred);
-                  const totalCardSaved = Math.ceil(activeSavings.reduce((s, v) => s + v.amount, 0));
-                  if (activeSavings.length === 0) return null;
-                  return (
-                    <div key={card.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                       <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center"><span className="font-bold text-slate-700 text-sm">{card.name}</span><span className="font-bold text-green-600">{formatIDR(totalCardSaved)}</span></div>
-                       {activeSavings.map(s => (
-                          <div key={s.id} className="relative overflow-hidden group">
-                             <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center w-20 bg-red-500 z-0">
-                                <button onClick={() => handleDeleteSaving(s.id)} className="text-white flex flex-col items-center gap-1 font-bold text-[10px]"><Trash2 size={20}/></button>
-                             </div>
-                             
-                             <div 
-                                onClick={() => openEditSaving(s)}
-                                className="relative z-10 bg-white p-4 border-b border-slate-50 last:border-0 flex justify-between items-center overflow-x-auto snap-x snap-mandatory no-scrollbar cursor-pointer active:bg-slate-50 transition"
-                             >
-                                <div className="min-w-full snap-start flex justify-between items-center pr-2">
-                                   <div><p className="text-xs font-bold text-slate-800">{s.note}</p><p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p></div>
-                                   <div className="flex items-center gap-2">
-                                      <span className="font-bold text-green-600 text-sm">{formatIDR(s.amount)}</span>
-                                      <ChevronRight size={14} className="text-slate-300 md:hidden"/>
-                                   </div>
-                                </div>
-                                <div className="min-w-[80px] snap-end"></div>
-                             </div>
-                          </div>
-                       ))}
-                    </div>
-                  )
-                })}
-             </div>
           )}
 
           {mobileTab === 'cards' && (
@@ -1327,47 +1113,24 @@ const App: React.FC = () => {
                           </div>
                           <FileText size={20} className="opacity-50" />
                         </div>
-                        <div><p className="text-[10px] opacity-60 uppercase mb-1">{card.type === DebtType.CREDIT_CARD ? 'Limit Kartu' : 'Total Hutang'}</p><h4 className="text-xl font-bold">{formatIDR(card.limit)}</h4></div>
-                        <p className="text-[10px] opacity-60">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tempo: Belum diset'}</p>
+                        <div><p className="text-[10px] opacity-60 uppercase mb-1">{card.type === DebtType.CREDIT_CARD ? 'Limit' : 'Total Pinjaman'}</p><h4 className="text-xl font-bold">{formatIDR(card.limit)}</h4></div>
+                        <div className="flex justify-between items-center"><p className="text-[10px] opacity-60">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tempo: Belum diset'}</p> {card.eStatementFee && <p className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-bold">Fee: {formatIDR(card.eStatementFee)}</p>}</div>
                     </div>
                     <div className="flex gap-2">
-                       <button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardModalOpen(true); }} className="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 flex items-center justify-center gap-2"><Pencil size={14}/> Edit</button>
+                       <button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 flex items-center justify-center gap-2"><Pencil size={14}/> Edit</button>
                        <button onClick={() => { if(window.confirm('Hapus item ini?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-2 bg-red-50 border border-red-100 rounded-xl text-[11px] font-bold text-red-600 flex items-center justify-center gap-2"><Trash2 size={14}/> Hapus</button>
                     </div>
                   </div>
                 ))}
              </div>
           )}
-
-          {mobileTab === 'profile' && (
-            <div className="space-y-6 animate-in fade-in pb-10">
-              <div className="bg-white p-6 rounded-3xl text-center shadow-sm border border-slate-100">
-                <div className="w-20 h-20 rounded-full bg-blue-50 mx-auto mb-4 border-4 border-white shadow-md overflow-hidden flex items-center justify-center">
-                  {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={32} className="text-blue-400"/>}
-                </div>
-                <h3 className="text-lg font-bold text-slate-800">{user.displayName || 'Pengguna'}</h3>
-                <p className="text-xs text-slate-500">{user.email}</p>
-              </div>
-
-              <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
-                 <MobileMenuButton icon={<Settings size={20}/>} label="Pengaturan Aplikasi" onClick={() => setSettingsModalOpen(true)} />
-                 <MobileMenuButton icon={<ShieldCheck size={20}/>} label="Keamanan & Data" onClick={() => alert('Fitur segera hadir!')} />
-                 <MobileMenuButton icon={<HelpCircle size={20}/>} label="Pusat Bantuan" onClick={() => alert('Fitur segera hadir!')} />
-                 <MobileMenuButton icon={<Info size={20}/>} label="Tentang LimitWatch" onClick={() => alert('LimitWatch v1.5.0')} />
-              </div>
-
-              <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
-                 <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Akun" onClick={handleLogout} danger />
-              </div>
-            </div>
-          )}
         </main>
 
         <nav className="flex-none h-[85px] bg-white border-t border-slate-100 px-6 flex justify-between items-center z-50">
           <button onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}><Home size={22} /><span className="text-[9px] font-bold">Home</span></button>
           <button onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'cards' ? 'text-blue-600' : 'text-slate-400'}`}><Briefcase size={22} /><span className="text-[9px] font-bold">Hutang</span></button>
+          <button onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`}><History size={22} /><span className="text-[9px] font-bold">Riwayat</span></button>
           <button onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'savings' ? 'text-blue-600' : 'text-slate-400'}`}><PiggyBank size={22} /><span className="text-[9px] font-bold">Tabung</span></button>
-          <button onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'yearly' ? 'text-blue-600' : 'text-slate-400'}`}><CalendarRange size={22} /><span className="text-[9px] font-bold">Tahunan</span></button>
           <button onClick={()=>setMobileTab('profile')} className={`flex flex-col items-center gap-1 transition ${mobileTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}><UserIcon size={22} /><span className="text-[9px] font-bold">Profil</span></button>
         </nav>
       </div>
@@ -1390,9 +1153,15 @@ const App: React.FC = () => {
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama {cardType === DebtType.CREDIT_CARD ? 'Kartu' : 'Pinjaman'}</label>
                     <input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Misal: BCA Everyday" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                  </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">{cardType === DebtType.CREDIT_CARD ? 'Limit Kredit' : 'Total Hutang'}</label>
-                    <input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500 transition"/>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">{cardType === DebtType.CREDIT_CARD ? 'Limit' : 'Total Hutang'}</label>
+                      <input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500 transition"/>
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-Statement Fee</label>
+                      <input type="text" value={cardEStatementFee} onChange={(e)=>handleCurrencyInput(e.target.value, setCardEStatementFee)} placeholder="Rp 0" className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500 transition"/>
+                   </div>
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tgl Jatuh Tempo (1-31)</label>
@@ -1422,7 +1191,7 @@ const App: React.FC = () => {
                         <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Bayar</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Transaksi</label>
                         <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                       </div>
                     </div>
@@ -1446,6 +1215,7 @@ const App: React.FC = () => {
                            <div>
                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sisa Tagihan Periode Ini</p>
                              <p className="text-xl font-bold text-slate-800">{formatIDR(currentDebtForPeriod)}</p>
+                             <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">*Sudah termasuk E-Fee & Materai (jika ada)</p>
                            </div>
                            <button type="button" onClick={() => setTxAmount(formatIDR(currentDebtForPeriod))} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg active:scale-95 transition">Pilih Semua</button>
                         </div>
@@ -1518,7 +1288,7 @@ const App: React.FC = () => {
                     <select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nominal (Dibulatkan)</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nominal Tabungan</label>
                     <input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-xl font-bold p-2 border-b-2 border-slate-100 outline-none focus:border-blue-500 transition"/>
                  </div>
                  <div className="space-y-1">
@@ -1540,27 +1310,68 @@ const App: React.FC = () => {
             <div className="bg-slate-50 w-full md:max-w-2xl h-[90vh] md:h-auto md:max-h-[90vh] md:rounded-[32px] rounded-t-[32px] overflow-hidden flex flex-col animate-in slide-in-from-bottom md:zoom-in duration-300">
                 <div className={`${activeStatementCard.color || 'bg-slate-800'} p-6 text-white shrink-0`}>
                     <div className="flex justify-between items-center mb-6"><button onClick={() => setStatementModalOpen(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><ChevronDown size={24}/></button><h3 className="font-bold text-lg">E-Statement</h3><div className="w-10"></div></div>
-                    <p className="text-[10px] opacity-70 uppercase tracking-widest font-bold">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Kartu Kredit' : 'Pinjaman Umum'}</p>
-                    <h4 className="text-xl font-bold mb-1">{activeStatementCard.name}</h4>
-                    <p className="text-xs opacity-80">{activeStatementCard.dueDay ? `Jatuh Tempo: Tgl ${activeStatementCard.dueDay}` : 'Tanpa tgl jatuh tempo tetap'}</p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] opacity-70 uppercase tracking-widest font-bold">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Kartu Kredit' : 'Pinjaman Umum'}</p>
+                        <h4 className="text-xl font-bold mb-1">{activeStatementCard.name}</h4>
+                        <p className="text-xs opacity-80">{activeStatementCard.dueDay ? `Jatuh Tempo: Tgl ${activeStatementCard.dueDay}` : 'Tanpa tgl jatuh tempo tetap'}</p>
+                      </div>
+                      <Receipt size={32} className="opacity-40" />
+                    </div>
                 </div>
                 <div className="bg-white p-4 border-b border-slate-100 flex gap-3 overflow-x-auto no-scrollbar shrink-0">
                     <div className="flex-1"><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Pilih Bulan</label><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="w-full text-sm font-bold bg-slate-50 p-2 rounded-lg outline-none">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select></div>
                     <div className="w-24"><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Tahun</label><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-full text-sm font-bold bg-slate-50 p-2 rounded-lg outline-none" /></div>
                 </div>
+                
+                <div className="bg-white p-4 border-b border-slate-50 flex gap-4 shrink-0 overflow-x-auto no-scrollbar">
+                   <button onClick={() => { setTxType(TransactionType.EXPENSE); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 active:scale-95 transition whitespace-nowrap"><Plus size={16}/> Pakai Kartu</button>
+                   <button onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(getMonthlyBill(activeStatementCard.id, statementMonth, statementYear))); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-2 rounded-xl text-xs font-bold text-blue-600 active:scale-95 transition whitespace-nowrap"><ArrowDownLeft size={16}/> Bayar Tagihan</button>
+                   <button onClick={() => { setSavingCardId(activeStatementCard.id); setSavingTargetMonth(statementMonth); setSavingTargetYear(statementYear); setSavingModalOpen(true); }} className="flex items-center gap-2 bg-green-50 border border-green-100 px-4 py-2 rounded-xl text-xs font-bold text-green-600 active:scale-95 transition whitespace-nowrap"><PiggyBank size={16}/> Tabung Dana</button>
+                </div>
+
                 <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar pb-24">
                     {(() => {
                        const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
                        const cardTheme = CARD_COLORS.find(cc => cc.value === activeStatementCard.color) || CARD_COLORS[0];
+                       const projection = Math.max(0, s.totalBill - s.totalPaid - s.totalSaved);
                        return (
                           <>
                              <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Tagihan Siklus</p><p className="text-lg font-bold text-red-500">{formatIDR(s.totalBill)}</p></div>
-                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Terbayar</p><p className="text-lg font-bold text-green-600">{formatIDR(s.totalPaid)}</p></div>
+                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Total Tagihan</p><p className="text-lg font-bold text-red-500">{formatIDR(s.totalBill)}</p></div>
+                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Sudah Dibayar</p><p className="text-lg font-bold text-blue-600">{formatIDR(s.totalPaid)}</p></div>
+                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Dana Tabungan</p><p className="text-lg font-bold text-green-600">{formatIDR(s.totalSaved)}</p></div>
+                                <div className="bg-slate-800 p-4 rounded-2xl text-white shadow-sm"><p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Proyeksi Sisa</p><p className="text-lg font-bold text-white">{formatIDR(projection)}</p></div>
                              </div>
-                             <section><h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Cicilan Siklus Ini</h5><div className="space-y-3">{s.installments.length === 0 ? <p className="text-xs text-slate-400 italic text-center py-4">Tidak ada cicilan.</p> : s.installments.map(inst => ( <div key={inst.id} className="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center"><div><p className="text-xs font-bold text-slate-800">{inst.name}</p><p className="text-[10px] text-indigo-600 font-bold">Ke-{inst.currentTenor} / {inst.totalMonths}</p></div><span className="font-bold text-slate-800 text-sm">{formatIDR(inst.monthlyAmount)}</span></div>))}</div></section>
+
+                             {/* Bagian Biaya-Biaya */}
+                             {(s.adminFee > 0 || s.materai > 0) && (
+                                <section className="bg-slate-100/50 p-4 rounded-2xl border border-slate-100">
+                                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Biaya & Admin Otomatis</h5>
+                                   <div className="space-y-2">
+                                      {s.adminFee > 0 && (
+                                         <div className="flex justify-between items-center text-xs">
+                                            <span className="text-slate-500 font-medium">E-Statement Fee</span>
+                                            <span className="font-bold text-slate-800">{formatIDR(s.adminFee)}</span>
+                                         </div>
+                                      )}
+                                      {s.materai > 0 && (
+                                         <div className="flex justify-between items-center text-xs">
+                                            <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Biaya Materai</span>
+                                               <span className="text-[8px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold uppercase">Tagihan >= 5JT</span>
+                                            </div>
+                                            <span className="font-bold text-slate-800">{formatIDR(s.materai)}</span>
+                                         </div>
+                                      )}
+                                   </div>
+                                </section>
+                             )}
+
+                             <section><h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Cicilan Aktif</h5><div className="space-y-3">{s.installments.length === 0 ? <p className="text-xs text-slate-400 italic text-center py-4">Tidak ada cicilan.</p> : s.installments.map(inst => ( <div key={inst.id} className="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center"><div><p className="text-xs font-bold text-slate-800">{inst.name}</p><p className="text-[10px] text-indigo-600 font-bold">Bulan ke-{inst.currentTenor} / {inst.totalMonths}</p></div><span className="font-bold text-slate-800 text-sm">{formatIDR(inst.monthlyAmount)}</span></div>))}</div></section>
+                             
                              <section>
-                                <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Transaksi Siklus Ini</h5>
+                                <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Rincian Transaksi Ritel</h5>
                                 <div className="space-y-3">
                                   {s.transactions.length === 0 ? (
                                     <p className="text-xs text-slate-400 italic text-center py-4">Tidak ada pemakaian ritel.</p>
