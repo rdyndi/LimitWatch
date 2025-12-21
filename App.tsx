@@ -556,24 +556,32 @@ const App: React.FC = () => {
     return { totalYearBill, totalYearSaved, totalYearGap };
   }, [yearlyData]);
 
-  // SINKRONISASI MATH HOME DENGAN TAHUNAN: Proyeksi Kumulatif
+  // SINKRONISASI MATH HOME DENGAN SELURUH PROYEKSI TAHUNAN
   const totalDebt = useMemo(() => {
     let globalTotalProyeksi = 0;
     data.cards.forEach(card => {
        const monthMap = new Map<string, number>();
+       
+       // 1. Ritel non-cicilan dipetakan ke bulan tagihannya
        data.transactions.filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE && !t.isInstallment).forEach(t => {
           const p = getBillingPeriod(t.date, card.dueDay);
           const key = `${p.year}-${p.month}`;
           monthMap.set(key, (monthMap.get(key) || 0) + t.amount);
        });
+
+       // 2. Cicilan aktif dipetakan ke seluruh bulan masa depannya
        data.installments.filter(i => i.cardId === card.id).forEach(inst => {
           const start = getBillingPeriod(inst.startDate, card.dueDay);
           for(let m=0; m<inst.totalMonths; m++) {
-             let curM = start.month + m; let curY = start.year + Math.floor(curM / 12); curM = curM % 12;
+             let curM = start.month + m; 
+             let curY = start.year + Math.floor(curM / 12); 
+             curM = curM % 12;
              const key = `${curY}-${curM}`;
              monthMap.set(key, (monthMap.get(key) || 0) + inst.monthlyAmount);
           }
        });
+
+       // 3. Hitung Biaya Admin & Materai per bulan yang memiliki aktivitas
        let cardTotalWithFees = 0;
        monthMap.forEach((baseAmount) => {
           let fee = 0; let materai = 0;
@@ -583,6 +591,8 @@ const App: React.FC = () => {
           }
           cardTotalWithFees += (baseAmount + fee + materai);
        });
+
+       // 4. Kurangi dengan total bayar yang pernah dilakukan pada kartu ini
        const totalPaidEver = data.transactions.filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT).reduce((s, t) => s + t.amount, 0);
        globalTotalProyeksi += Math.max(0, cardTotalWithFees - totalPaidEver);
     });
@@ -1037,7 +1047,13 @@ const App: React.FC = () => {
                       return (
                         <>
                           <div className="grid grid-cols-2 gap-5"><div className="bg-white p-6 rounded-[32px] border border-slate-50 shadow-sm"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TOTAL TAGIHAN</p><p className="text-xl font-black text-danger">{showAmounts ? formatIDR(s.totalBill) : '••••••••'}</p></div><div className="bg-white p-6 rounded-[32px] border border-slate-50 shadow-sm"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">SISA PROYEKSI</p><p className="text-xl font-black text-slate-800">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••••••'}</p></div></div>
-                          {(s.adminFee > 0 || s.materai > 0) && (<div className="bg-slate-100/50 p-6 rounded-[32px] border border-slate-100 space-y-3"><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">BIAYA OTOMATIS</p>{s.adminFee > 0 && <div className="flex justify-between text-xs font-bold"><span>E-Statement Fee</span><span className="font-black">{showAmounts ? formatIDR(s.adminFee) : '••••••••'}</span></div>}{s.materai > 0 && <div className="flex justify-between text-xs font-bold"><span>Biaya Materai (>= 5JT)</span><span className="font-black">{showAmounts ? formatIDR(s.materai) : '••••••••'}</span></div>}</div>)}
+                          {(s.adminFee > 0 || s.materai > 0) && (
+                            <div className="bg-slate-100/50 p-6 rounded-[32px] border border-slate-100 space-y-3">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">BIAYA OTOMATIS</p>
+                              {s.adminFee > 0 && <div className="flex justify-between text-xs font-bold"><span>E-Statement Fee</span><span className="font-black">{showAmounts ? formatIDR(s.adminFee) : '••••••••'}</span></div>}
+                              {s.materai > 0 && <div className="flex justify-between text-xs font-bold"><span>Biaya Materai (&ge; 5JT)</span><span className="font-black">{showAmounts ? formatIDR(s.materai) : '••••••••'}</span></div>}
+                            </div>
+                          )}
                           <section><h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5 ml-2">CICILAN AKTIF</h5><div className="space-y-4">{s.installments.map(inst => (<div key={inst.id} className="bg-white p-5 rounded-3xl border border-slate-50 shadow-sm flex justify-between items-center"><div><p className="text-xs font-black text-slate-800 uppercase tracking-tight">{inst.name}</p><p className="text-[10px] text-primary font-black uppercase mt-1">TENOR {inst.currentTenor}/{inst.totalMonths}</p></div><span className="font-black text-slate-800">{showAmounts ? formatIDR(inst.monthlyAmount) : '••••••••'}</span></div>))}{s.installments.length === 0 && <p className="text-xs text-slate-300 italic text-center py-4">Tidak ada cicilan aktif.</p>}</div></section>
                         </>
                       )
