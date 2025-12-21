@@ -1,15 +1,21 @@
 
+export enum DebtType {
+  CREDIT_CARD = 'CREDIT_CARD',
+  OTHER_DEBT = 'OTHER_DEBT', // Misal: Pinjaman, Hutang Teman, dll.
+}
+
 export interface CreditCard {
   id: string;
   name: string;
   limit: number;
   color: string;
+  type: DebtType;
   notes?: string;
   dueDay?: number; // Tanggal jatuh tempo (1-31)
 }
 
 export enum TransactionType {
-  EXPENSE = 'EXPENSE', // Pemakaian Kartu
+  EXPENSE = 'EXPENSE', // Pemakaian Kartu / Penambahan Hutang
   PAYMENT = 'PAYMENT', // Pembayaran Tagihan (Mengurangi Hutang)
 }
 
@@ -31,7 +37,7 @@ export interface Installment {
   cardId: string;
   name: string;
   totalAmount: number; // Total harga barang
-  monthlyAmount: number; // Cicilan per bulan
+  monthlyAmount: number; // Cicilan per bulan (Selalu dibulatkan ke atas)
   totalMonths: number;
   monthsPaid: number;
   startDate: string;
