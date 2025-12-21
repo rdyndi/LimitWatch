@@ -33,7 +33,7 @@ import {
   Calendar,
   Pencil, 
   Trash2,
-  PiggyBank,
+  Vault,
   ArrowUpRight,
   ArrowDownLeft,
   ChevronDown,
@@ -903,7 +903,7 @@ const App: React.FC = () => {
            <nav className="p-4 space-y-1 flex-1">
               <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
               <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu & Hutang" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
-              <DesktopNavItem icon={<PiggyBank size={20}/>} label="Tabungan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
+              <DesktopNavItem icon={<Vault size={20}/>} label="Tabungan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
               <DesktopNavItem icon={<CalendarRange size={20}/>} label="Tahunan" active={mobileTab === 'yearly'} onClick={() => setMobileTab('yearly')} />
               <DesktopNavItem icon={<History size={20}/>} label="Riwayat" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
            </nav>
@@ -1179,7 +1179,7 @@ const App: React.FC = () => {
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Catat</span>
                 </button>
                 <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="flex flex-col items-center gap-2 group">
-                  <div className="w-full aspect-square bg-emerald-50 text-success rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><PiggyBank size={28}/></div>
+                  <div className="w-full aspect-square bg-emerald-50 text-success rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Vault size={28}/></div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Nabung</span>
                 </button>
                 <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group">
@@ -1387,7 +1387,7 @@ const App: React.FC = () => {
                  ))}
                  {savingsYearlyData.every(m => m.totalMonth === 0) && (
                     <div className="text-center py-20">
-                       <PiggyBank size={56} className="mx-auto text-slate-100 mb-3" />
+                       <Vault size={56} className="mx-auto text-slate-100 mb-3" />
                        <p className="text-slate-400 font-bold text-sm">Tidak ada tabungan tahun {savingsSelectedYear}</p>
                     </div>
                  )}
@@ -1419,7 +1419,7 @@ const App: React.FC = () => {
         <nav className="flex-none h-[90px] bg-white border-t border-slate-100 px-6 flex justify-between items-center z-50">
           <button onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary scale-110' : 'text-slate-300'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Home</span></button>
           <button onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary scale-110' : 'text-slate-300'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
-          <button onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary scale-110' : 'text-slate-300'}`}><PiggyBank size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
+          <button onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary scale-110' : 'text-slate-300'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
           <button onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary scale-110' : 'text-slate-300'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
           <button onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary scale-110' : 'text-slate-300'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
         </nav>
@@ -1481,7 +1481,7 @@ const App: React.FC = () => {
                      <div key={item.id} onClick={() => openEditSaving(item)} className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex justify-between items-center active:scale-[0.98] transition cursor-pointer">
                         <div className="flex items-center gap-4">
                            <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-success shadow-sm">
-                              <PiggyBank size={20}/>
+                              <Vault size={20}/>
                            </div>
                            <div>
                               <p className="text-sm font-black text-slate-800">{item.note}</p>
