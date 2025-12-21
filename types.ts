@@ -59,7 +59,10 @@ export interface AppState {
   transactions: Transaction[];
   installments: Installment[];
   savings: Saving[];
-  securityPin?: string; // PIN 6 digit keamanan
+  security?: {
+    pin: string | null;
+    isPinEnabled: boolean;
+  };
 }
 
 export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT';
