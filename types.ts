@@ -60,6 +60,7 @@ export interface AppState {
   transactions: Transaction[];
   installments: Installment[];
   savings: Saving[];
+  theme?: 'light' | 'dark';
   security?: {
     pin: string | null;
     isPinEnabled: boolean;
