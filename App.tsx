@@ -136,6 +136,7 @@ const App: React.FC = () => {
   const [setupPinStep, setSetupPinStep] = useState<'OFF' | 'ENTER_NEW' | 'CONFIRM_NEW'>('OFF');
   const [tempPin, setTempPin] = useState("");
   const [lastActivity, setLastActivity] = useState(Date.now());
+  const [isMobileDevice, setIsMobileDevice] = useState(window.innerWidth < 768);
   
   const [showAmounts, setShowAmounts] = useState(true);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -195,6 +196,13 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Resize Listener to handle orientation changes or desktop resizing
+  useEffect(() => {
+    const handleResize = () => setIsMobileDevice(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
       setUser(user);
@@ -207,8 +215,8 @@ const App: React.FC = () => {
     if (user) {
       const unsubscribe = subscribeToAppState(user.uid, (newState) => {
         setData(newState);
-        // Lock screen on load if PIN is enabled
-        if (newState.security?.isPinEnabled && newState.security?.pin) {
+        // Lock screen on load if PIN is enabled AND it is a mobile device
+        if (isMobileDevice && newState.security?.isPinEnabled && newState.security?.pin) {
           setIsLocked(true);
         }
       });
@@ -216,11 +224,11 @@ const App: React.FC = () => {
     } else {
       setData({ cards: [], transactions: [], installments: [], savings: [], security: { pin: null, isPinEnabled: false } });
     }
-  }, [user]);
+  }, [user, isMobileDevice]);
 
-  // Inactivity Timer (5 Minutes)
+  // Inactivity Timer (5 Minutes) - Only for Mobile
   useEffect(() => {
-    if (!user || !data.security?.isPinEnabled || isLocked) return;
+    if (!user || !data.security?.isPinEnabled || isLocked || !isMobileDevice) return;
 
     const checkInactivity = () => {
       const now = Date.now();
@@ -243,7 +251,7 @@ const App: React.FC = () => {
       window.removeEventListener('keypress', updateActivity);
       window.removeEventListener('touchstart', updateActivity);
     };
-  }, [user, data.security?.isPinEnabled, isLocked, lastActivity]);
+  }, [user, data.security?.isPinEnabled, isLocked, lastActivity, isMobileDevice]);
 
   const handlePinInput = (num: string) => {
     if (pinInput.length >= 6) return;
@@ -804,8 +812,8 @@ const App: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50"><Loader2 size={40} className="animate-spin text-primary" /></div>
   );
 
-  // LOCK SCREEN OVERLAY
-  if (isLocked) {
+  // LOCK SCREEN OVERLAY - MOBILE ONLY
+  if (isLocked && isMobileDevice) {
     return (
       <div className="fixed inset-0 z-[1000] bg-white/80 backdrop-blur-xl flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
         <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center mb-10 shadow-xl">
@@ -827,8 +835,8 @@ const App: React.FC = () => {
     );
   }
 
-  // PIN SETUP MODAL
-  if (setupPinStep !== 'OFF') {
+  // PIN SETUP MODAL - MOBILE ONLY
+  if (setupPinStep !== 'OFF' && isMobileDevice) {
     return (
       <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-8 animate-in slide-in-from-bottom duration-500">
         <button onClick={() => { setSetupPinStep('OFF'); setPinInput(""); }} className="absolute top-10 right-10 p-3 hover:bg-slate-100 rounded-full transition"><X size={24}/></button>
@@ -921,7 +929,7 @@ const App: React.FC = () => {
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in">
                 <div className="grid grid-cols-3 gap-6">
-                   <div className="bg-gradient-to-br from-primary to-indigo-700 p-6 rounded-2xl text-white shadow-lg">
+                   <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg">
                       <div className="flex justify-between items-start mb-1">
                         <p className="opacity-70 text-sm">Total Hutang Berjalan</p>
                         <button onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">
@@ -1090,11 +1098,16 @@ const App: React.FC = () => {
       <div className="md:hidden flex flex-col h-screen bg-slate-50 font-sans overflow-hidden">
         <header className="flex-none bg-white px-5 pt-8 pb-4 z-50">
           <div className="flex justify-between items-center">
-            <div>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">LIMITWATCH</p>
-              <h2 className="text-2xl font-black text-slate-800">
-                {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
-              </h2>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg">
+                <Wallet size={20} />
+              </div>
+              <div>
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-none mb-1">LIMITWATCH</p>
+                <h2 className="text-xl font-black text-slate-800 leading-none">
+                  {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
+                </h2>
+              </div>
             </div>
             <div className="flex items-center gap-3">
                 <button className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-slate-600 border border-slate-100 shadow-sm relative active:scale-95 transition">
@@ -1110,7 +1123,7 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto no-scrollbar pb-24 px-5 pt-4 space-y-6" ref={scrollRef}>
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in">
-              <div className="bg-gradient-to-br from-primary to-indigo-700 rounded-[32px] p-6 text-white shadow-xl relative">
+              <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative">
                 <div className="flex justify-between items-start mb-1">
                   <p className="text-blue-100 text-sm">Total Hutang Berjalan</p>
                   <button onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">
@@ -1438,15 +1451,17 @@ const App: React.FC = () => {
                 <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{user.email}</p>
               </div>
               <div className="p-3">
-                <MobileMenuButton 
-                  icon={<ShieldCheck size={20}/>} 
-                  label="Pengamanan PIN" 
-                  rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'NONAKTIF'}</span>}
-                  onClick={() => {
-                    setSetupPinStep('ENTER_NEW');
-                    setPinInput("");
-                  }} 
-                />
+                {isMobileDevice && (
+                  <MobileMenuButton 
+                    icon={<ShieldCheck size={20}/>} 
+                    label="Pengamanan PIN" 
+                    rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'NONAKTIF'}</span>}
+                    onClick={() => {
+                      setSetupPinStep('ENTER_NEW');
+                      setPinInput("");
+                    }} 
+                  />
+                )}
                 <MobileMenuButton icon={<Settings size={20}/>} label="Pengaturan Akun" onClick={() => alert('Fitur Segera Hadir')} />
                 <div className="mt-2 border-t border-slate-50">
                   <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger />
@@ -1458,7 +1473,7 @@ const App: React.FC = () => {
 
       {savingsHistoryModalOpen && selectedSavingsHistory && (
          <div className="fixed inset-0 z-[150] bg-black/70 flex items-end md:items-center md:justify-center p-0 md:p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
+            <div className="bg-white w-full max-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
                <div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}>
                   <div className="flex justify-between items-center mb-6">
                      <button onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
