@@ -914,9 +914,14 @@ const App: React.FC = () => {
                     {m.cardsEstimates.map((ce, i) => (
                       <div key={i} className="space-y-2">
                         <div className="flex justify-between items-end">
-                          <div className="space-y-0.5">
+                          <div className="space-y-1">
                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{ce.cardName}</p>
-                            <p className="text-xs font-black text-slate-800">{formatIDR(ce.bill)}</p>
+                            <div className="flex items-center gap-2">
+                               <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${ce.bill <= 0 ? 'bg-success/10 text-success' : 'bg-orange-50 text-orange-600'}`}>
+                                 {ce.bill <= 0 ? 'LUNAS' : 'PAKAI'}
+                               </span>
+                               <span className="text-xs font-black text-slate-700">{formatIDR(ce.bill)}</span>
+                            </div>
                           </div>
                           <div className="text-right space-y-0.5">
                             <p className="text-[10px] font-bold text-success uppercase tracking-tight">Dana Siap</p>
@@ -932,7 +937,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sisa Tagihan</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Sisa Tagihan</p>
                     <p className="text-lg font-black text-slate-800">{formatIDR(m.totalMonthBill)}</p>
                   </div>
                 </div>
@@ -1185,7 +1190,7 @@ const App: React.FC = () => {
                             <div className="bg-slate-100/50 p-6 rounded-[32px] border border-slate-100 space-y-3">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">BIAYA OTOMATIS</p>
                               {s.adminFee > 0 && <div className="flex justify-between text-xs font-bold"><span>E-Statement Fee</span><span className="font-black">{formatIDR(s.adminFee)}</span></div>}
-                              {s.materai > 0 && <div className="flex justify-between text-xs font-bold"><span>Biaya Materai (>=5JT)</span><span className="font-black">{formatIDR(s.materai)}</span></div>}
+                              {s.materai > 0 && <div className="flex justify-between text-xs font-bold"><span>Biaya Materai ({" >= 5JT "})</span><span className="font-black">{formatIDR(s.materai)}</span></div>}
                             </div>
                           )}
                           <section>
