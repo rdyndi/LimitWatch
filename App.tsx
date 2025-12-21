@@ -57,7 +57,9 @@ import {
   Receipt,
   Plus,
   Eye,
-  EyeOff
+  EyeOff,
+  ChevronUp,
+  Clock
 } from "lucide-react";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -128,6 +130,8 @@ const App: React.FC = () => {
   const [savingModalOpen, setSavingModalOpen] = useState(false);
   const [statementModalOpen, setStatementModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [savingsHistoryModalOpen, setSavingsHistoryModalOpen] = useState(false);
+  const [selectedSavingsHistory, setSelectedSavingsHistory] = useState<{ cardName: string, cardColor: string, monthName: string, year: number, items: Saving[] } | null>(null);
   
   const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'yearly' | 'history'>('home');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -138,6 +142,7 @@ const App: React.FC = () => {
   const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
   const [historyYearFilter, setHistoryYearFilter] = useState<number>(new Date().getFullYear());
   const [yearlySelectedYear, setYearlySelectedYear] = useState<number>(new Date().getFullYear());
+  const [savingsSelectedYear, setSavingsSelectedYear] = useState<number>(new Date().getFullYear());
 
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
@@ -254,6 +259,15 @@ const App: React.FC = () => {
     if (window.confirm("Hapus catatan tabungan ini?")) {
       const updatedSavings = data.savings.filter(s => s.id !== id);
       saveData({ ...data, savings: updatedSavings });
+      if (selectedSavingsHistory) {
+        const filteredItems = selectedSavingsHistory.items.filter(item => item.id !== id);
+        if (filteredItems.length === 0) {
+          setSavingsHistoryModalOpen(false);
+          setSelectedSavingsHistory(null);
+        } else {
+          setSelectedSavingsHistory({ ...selectedSavingsHistory, items: filteredItems });
+        }
+      }
       setSavingModalOpen(false);
       setEditingSaving(null);
     }
@@ -436,7 +450,7 @@ const App: React.FC = () => {
              const savedForThisMonth = data.savings
                 .filter(s => s.cardId === c.id && !s.isTransferred && s.targetPeriod?.month === targetMonth && s.targetPeriod?.year === targetYear)
                 .reduce((sum, s) => sum + s.amount, 0);
-             return { ...c, daysLeft: diffDays, remainingBill: billAmount, netGap: Math.max(0, billAmount - savedForThisMonth), isCovered: savedForThisMonth >= billAmount && billAmount > 0, progress: billAmount > 0 ? (savedForThisMonth / billAmount) * 100 : 0 };
+             return { ...c, daysLeft: diffDays, remainingBill: billAmount, savedForThisMonth, netGap: Math.max(0, billAmount - savedForThisMonth), isCovered: savedForThisMonth >= billAmount && billAmount > 0, progress: billAmount > 0 ? (savedForThisMonth / billAmount) * 100 : 0 };
           })
           .filter(c => c.remainingBill > 100)
           .sort((a, b) => a.daysLeft - b.daysLeft);
@@ -492,6 +506,37 @@ const App: React.FC = () => {
         return { monthName, cardsEstimates, totalMonthGap, totalMonthBill, totalMonthSaved };
     });
   }, [data, yearlySelectedYear]);
+
+  const savingsYearlyData = useMemo(() => {
+    return monthNames.map((monthName, monthIdx) => {
+       const monthlySavings = data.savings.filter(s => 
+         !s.isTransferred && 
+         s.targetPeriod?.month === monthIdx && 
+         s.targetPeriod?.year === savingsSelectedYear
+       );
+       
+       const cardGroups: Record<string, { cardId: string, cardName: string, cardColor: string, amount: number, items: Saving[] }> = {};
+       
+       monthlySavings.forEach(s => {
+         const card = data.cards.find(c => c.id === s.cardId);
+         if (!card) return;
+         if (!cardGroups[s.cardId]) {
+           cardGroups[s.cardId] = { cardId: s.cardId, cardName: card.name, cardColor: card.color, amount: 0, items: [] };
+         }
+         cardGroups[s.cardId].amount += s.amount;
+         cardGroups[s.cardId].items.push(s);
+       });
+       
+       const totalMonth = monthlySavings.reduce((sum, s) => sum + s.amount, 0);
+       return { monthName, monthIdx, cardGroups: Object.values(cardGroups), totalMonth };
+    });
+  }, [data, savingsSelectedYear]);
+
+  const totalYearSavings = useMemo(() => {
+    return data.savings
+      .filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear)
+      .reduce((sum, s) => sum + s.amount, 0);
+  }, [data.savings, savingsSelectedYear]);
 
   const yearlySummary = useMemo(() => {
     let totalYearBill = 0;
@@ -587,6 +632,10 @@ const App: React.FC = () => {
     if (editingSaving) {
       const updatedSavings = data.savings.map(s => s.id === editingSaving.id ? { ...s, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : s);
       saveData({ ...data, savings: updatedSavings });
+      if (selectedSavingsHistory) {
+         const newItems = selectedSavingsHistory.items.map(item => item.id === editingSaving.id ? { ...item, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : item);
+         setSelectedSavingsHistory({ ...selectedSavingsHistory, items: newItems });
+      }
       setEditingSaving(null);
     } else {
       const newSaving: Saving = { id: generateId(), cardId: savingCardId, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: savingNote || 'Tabungan Rutin', targetPeriod: { month: savingTargetMonth, year: savingTargetYear }, isTransferred: false };
@@ -725,13 +774,64 @@ const App: React.FC = () => {
            )}
 
            {mobileTab === 'savings' && (
-             <div className="space-y-6 animate-in fade-in">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-bold text-slate-800">Tabungan Pelunasan</h2><button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="bg-success text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><PiggyBank size={18}/> Tabung Dana</button></div>
-                <div className="grid grid-cols-2 gap-8">{data.cards.map(card => {
-                      const activeSavings = data.savings.filter(s => s.cardId === card.id && !s.isTransferred);
-                      if (activeSavings.length === 0) return null;
-                      return (<div key={card.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-fit"><div className="p-6 bg-slate-50 flex justify-between items-center"><div><p className="text-[10px] font-bold text-slate-400 uppercase">Target Pelunasan</p><h4 className="font-bold text-slate-800">{card.name}</h4></div><span className="text-xl font-bold text-success">{showAmounts ? formatIDR(activeSavings.reduce((s, v) => s + v.amount, 0)) : '••••••••'}</span></div><div className="divide-y divide-slate-50">{activeSavings.map(s => (<div key={s.id} onClick={() => openEditSaving(s)} className="p-4 flex justify-between items-center hover:bg-slate-50 transition cursor-pointer"><div><p className="text-sm font-bold text-slate-800">{s.note}</p><p className="text-[10px] text-slate-400">{new Date(s.date).toLocaleDateString('id-ID')}</p></div><span className="font-bold text-slate-800">{showAmounts ? formatIDR(s.amount) : '••••••••'}</span></div>))}</div></div>)
-                   })}</div>
+             <div className="space-y-8 animate-in fade-in">
+                <div className="flex justify-between items-end">
+                   <div>
+                      <h2 className="text-2xl font-bold text-slate-800">Tabungan Tahunan</h2>
+                      <p className="text-slate-500">Breakdown tabungan pelunasan tahun {savingsSelectedYear}</p>
+                   </div>
+                   <div className="flex items-center gap-4">
+                      <input type="number" value={savingsSelectedYear} onChange={(e)=>setSavingsSelectedYear(parseInt(e.target.value))} className="bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold w-32 shadow-sm focus:ring-2 focus:ring-primary outline-none" />
+                      <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="bg-success hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg active:scale-95"><PlusCircle size={20}/> Tambah Tabungan</button>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6">
+                   <div className="bg-gradient-to-br from-success to-emerald-700 p-6 rounded-3xl text-white shadow-lg">
+                      <p className="opacity-70 text-[10px] font-bold uppercase tracking-widest mb-1">Total Tabungan {savingsSelectedYear}</p>
+                      <h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
+                   </div>
+                   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Bulan Aktif</p>
+                      <h3 className="text-2xl font-bold text-slate-800">{savingsYearlyData.filter(m => m.totalMonth > 0).length} Bulan</h3>
+                   </div>
+                   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Rata-rata / Bulan</p>
+                      <h3 className="text-2xl font-bold text-slate-800">{showAmounts ? formatIDR(totalYearSavings / 12) : '••••••••'}</h3>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
+                      <div key={idx} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-fit">
+                         <div className="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                            <h4 className="font-bold text-slate-800">{m.monthName}</h4>
+                            <span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••••••'}</span>
+                         </div>
+                         <div className="p-2 space-y-1">
+                            {m.cardGroups.map((group, i) => (
+                               <button 
+                                 key={i} 
+                                 onClick={() => {
+                                   setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items });
+                                   setSavingsHistoryModalOpen(true);
+                                 }}
+                                 className="w-full flex justify-between items-center p-3 hover:bg-slate-50 rounded-2xl transition group"
+                               >
+                                  <div className="flex items-center gap-3">
+                                     <div className={`w-2 h-2 rounded-full ${group.cardColor}`}></div>
+                                     <span className="text-xs text-slate-600 font-bold group-hover:text-primary">{group.cardName}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                     <span className="text-xs font-bold text-slate-800">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span>
+                                     <ChevronRight size={14} className="text-slate-300" />
+                                  </div>
+                               </button>
+                            ))}
+                         </div>
+                      </div>
+                   ))}
+                </div>
              </div>
            )}
 
@@ -798,20 +898,6 @@ const App: React.FC = () => {
                             </div>
                           ))}
                        </div>
-                       <div className="p-5 bg-slate-50/50 border-t border-slate-100 space-y-2">
-                          <div className="flex justify-between items-center">
-                             <span className="text-[10px] font-bold text-slate-400 uppercase">Tabungan Bulan Ini</span>
-                             <span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonthSaved) : '••••••••'}</span>
-                          </div>
-                          <div className="flex justify-between items-center mb-1">
-                             <span className="text-[10px] font-bold text-slate-400 uppercase">Sisa Gap</span>
-                             <span className={`text-xs font-black ${m.totalMonthGap > 0 ? 'text-danger' : 'text-success'}`}>{showAmounts ? formatIDR(m.totalMonthGap) : '••••••••'}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                             <span className="text-[10px] font-bold text-slate-400 uppercase">Total Tagihan</span>
-                             <span className="text-sm font-black text-slate-800">{showAmounts ? formatIDR(m.totalMonthBill) : '••••••••'}</span>
-                          </div>
-                       </div>
                     </div>
                   ))}
                 </div>
@@ -827,7 +913,7 @@ const App: React.FC = () => {
             <div>
               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">LIMITWATCH</p>
               <h2 className="text-2xl font-black text-slate-800">
-                {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabung' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
+                {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
               </h2>
             </div>
             <div className="flex items-center gap-3">
@@ -857,6 +943,56 @@ const App: React.FC = () => {
                   <div className="text-right"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest mb-1">Item Hutang</p><p className="font-bold text-lg">{data.cards.length}</p></div>
                 </div>
               </div>
+
+              {/* Reminder Tagihan Mendatang (Horizontal Sliding) */}
+              {upcomingBills.length > 0 && (
+                <div className="space-y-4 animate-in slide-in-from-top duration-500">
+                   <div className="flex justify-between items-center">
+                      <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Pengingat Tagihan</h3>
+                      <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-full">
+                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                         <span className="text-[10px] font-black text-primary uppercase tracking-tighter">Geser Kartu</span>
+                      </div>
+                   </div>
+                   <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 snap-x snap-mandatory">
+                      {upcomingBills.map(bill => (
+                         <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[280px] bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm flex flex-col gap-4 snap-center active:scale-95 transition-all group border-b-4 border-b-slate-100">
+                            <div className="flex justify-between items-center">
+                               <div className="flex items-center gap-3">
+                                  <div className={`w-10 h-10 ${bill.color} rounded-2xl flex items-center justify-center text-white shadow-sm`}>
+                                     <AlertCircle size={18}/>
+                                  </div>
+                                  <span className="text-sm font-black text-slate-800 tracking-tight">{bill.name}</span>
+                               </div>
+                               <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 text-danger' : 'bg-orange-50 text-orange-600'}`}>
+                                  {bill.daysLeft} Hari
+                               </span>
+                            </div>
+                            
+                            <div className="space-y-2.5 bg-slate-50/50 p-4 rounded-2xl">
+                               <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tagihan</span>
+                                  <span className="font-black text-slate-700">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
+                               </div>
+                               <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Tabungan</span>
+                                  <span className="font-black text-success">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
+                               </div>
+                               <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                                  <span className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Sisa Perlu</span>
+                                  <span className="font-black text-danger text-sm">{showAmounts ? formatIDR(bill.netGap) : '••••••••'}</span>
+                               </div>
+                            </div>
+
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                               <div className={`h-full transition-all duration-700 ${bill.progress >= 100 ? 'bg-success' : 'bg-indigo-500'}`} style={{ width: `${Math.min(100, bill.progress)}%` }}></div>
+                            </div>
+                         </div>
+                      ))}
+                   </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-4">
                 <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="flex flex-col items-center gap-2 group">
                   <div className="w-full aspect-square bg-blue-50 text-primary rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><PlusCircle size={28}/></div>
@@ -901,7 +1037,6 @@ const App: React.FC = () => {
 
           {mobileTab === 'yearly' && (
             <div className="space-y-6 animate-in fade-in pb-10">
-              {/* Yearly Header Summary Card */}
               <div className="bg-[#1a2332] rounded-[32px] p-7 text-white shadow-2xl space-y-7">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
@@ -936,7 +1071,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Monthly Breakdowns */}
               {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
                 <div key={idx} className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-50 space-y-6">
                   <div className="flex justify-between items-center">
@@ -966,7 +1100,6 @@ const App: React.FC = () => {
                             <p className="text-sm font-black text-slate-800">{showAmounts ? formatIDR(ce.saved) : '••••••••'}</p>
                           </div>
                         </div>
-                        {/* Monthly item progress bar */}
                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                            <div className={`h-full transition-all duration-700 ${ce.progress >= 100 ? 'bg-success' : 'bg-indigo-500'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
                         </div>
@@ -1024,34 +1157,61 @@ const App: React.FC = () => {
           )}
 
           {mobileTab === 'savings' && (
-            <div className="space-y-4 animate-in fade-in">
-              {data.cards.map(card => {
-                const activeSavings = data.savings.filter(s => s.cardId === card.id && !s.isTransferred);
-                if (activeSavings.length === 0) return null;
-                return (
-                  <div key={card.id} className="bg-white rounded-[32px] border border-slate-50 shadow-sm p-6 space-y-4">
-                    <div className="flex justify-between items-center border-b border-slate-50 pb-4">
-                      <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target</p><h4 className="font-black text-slate-800">{card.name}</h4></div>
-                      <span className="font-black text-xl text-success">{showAmounts ? formatIDR(activeSavings.reduce((s, v) => s + v.amount, 0)) : '••••••••'}</span>
+            <div className="space-y-6 animate-in fade-in pb-10">
+              <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 text-white shadow-xl">
+                 <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                       <Calendar size={20} className="text-emerald-200"/>
+                       <span className="text-lg font-black tracking-tight">Tahun {savingsSelectedYear}</span>
                     </div>
-                    <div className="space-y-3">
-                      {activeSavings.map(s => (<div key={s.id} onClick={()=>openEditSaving(s)} className="flex justify-between items-center text-xs p-3 bg-slate-50 rounded-2xl active:scale-95 transition">
-                        <div className="space-y-1">
-                          <span className="text-slate-800 font-bold block">{s.note}</span>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">{new Date(s.date).toLocaleDateString('id-ID')}</span>
-                        </div>
-                        <span className="font-black text-slate-800">{showAmounts ? formatIDR(s.amount) : '••••••••'}</span>
-                      </div>))}
+                    <div className="flex gap-2">
+                       <button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button>
+                       <button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button>
                     </div>
-                  </div>
-                )
-              })}
-              {data.savings.filter(s=>!s.isTransferred).length === 0 && (
-                <div className="text-center py-24">
-                   <PiggyBank size={64} className="mx-auto text-slate-200 mb-4" />
-                   <p className="text-slate-400 font-bold">Belum ada tabungan terkumpul.</p>
-                </div>
-              )}
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">Total Tabungan</p>
+                    <h3 className="text-3xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                 {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
+                    <div key={idx} className="bg-white rounded-[32px] shadow-sm border border-slate-50 p-5">
+                       <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-3">
+                          <h4 className="font-black text-slate-800">{m.monthName}</h4>
+                          <span className="text-xs font-black text-success bg-success/5 px-3 py-1 rounded-full">{showAmounts ? formatIDR(m.totalMonth) : '••••••••'}</span>
+                       </div>
+                       <div className="space-y-2">
+                          {m.cardGroups.map((group, i) => (
+                             <button 
+                                key={i} 
+                                onClick={() => {
+                                   setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items });
+                                   setSavingsHistoryModalOpen(true);
+                                }}
+                                className="w-full flex justify-between items-center p-3 bg-slate-50 rounded-2xl active:bg-slate-100 active:scale-[0.98] transition group"
+                             >
+                                <div className="flex items-center gap-2">
+                                   <div className={`w-2 h-2 rounded-full ${group.cardColor}`}></div>
+                                   <span className="text-xs font-bold text-slate-600">{group.cardName}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                   <span className="text-xs font-black text-slate-800">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span>
+                                   <ChevronRight size={14} className="text-slate-300"/>
+                                </div>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                 ))}
+                 {savingsYearlyData.every(m => m.totalMonth === 0) && (
+                    <div className="text-center py-20">
+                       <PiggyBank size={56} className="mx-auto text-slate-100 mb-3" />
+                       <p className="text-slate-400 font-bold text-sm">Tidak ada tabungan tahun {savingsSelectedYear}</p>
+                    </div>
+                 )}
+              </div>
             </div>
           )}
 
@@ -1071,7 +1231,6 @@ const App: React.FC = () => {
                     <span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••••••'}</span>
                   </div>
                 ))}
-                {filteredTransactions.length === 0 && <p className="text-center py-20 text-slate-400 text-xs italic">Tidak ada transaksi pada periode ini.</p>}
               </div>
             </div>
           )}
@@ -1086,7 +1245,7 @@ const App: React.FC = () => {
         </nav>
       </div>
 
-      {/* --- UNIVERSAL MODALS --- */}
+      {/* MODALS */}
       {profileModalOpen && (
          <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
@@ -1108,9 +1267,52 @@ const App: React.FC = () => {
          </div>
       )}
 
+      {savingsHistoryModalOpen && selectedSavingsHistory && (
+         <div className="fixed inset-0 z-[150] bg-black/70 flex items-end md:items-center md:justify-center p-0 md:p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
+               <div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}>
+                  <div className="flex justify-between items-center mb-6">
+                     <button onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Riwayat Tabungan</span>
+                     <div className="w-8"></div>
+                  </div>
+                  <div className="flex justify-between items-end">
+                     <div>
+                        <h4 className="text-2xl font-black">{selectedSavingsHistory.cardName}</h4>
+                        <p className="text-xs font-bold opacity-70 uppercase mt-1">{selectedSavingsHistory.monthName} {selectedSavingsHistory.year}</p>
+                     </div>
+                     <div className="text-right">
+                        <p className="text-[10px] font-bold opacity-60 uppercase mb-1">Total Terkumpul</p>
+                        <h3 className="text-xl font-black">{showAmounts ? formatIDR(selectedSavingsHistory.items.reduce((s, i) => s + i.amount, 0)) : '••••••••'}</h3>
+                     </div>
+                  </div>
+               </div>
+               <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-10">
+                  {selectedSavingsHistory.items.map(item => (
+                     <div key={item.id} onClick={() => openEditSaving(item)} className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex justify-between items-center active:scale-[0.98] transition cursor-pointer">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-success shadow-sm">
+                              <PiggyBank size={20}/>
+                           </div>
+                           <div>
+                              <p className="text-sm font-black text-slate-800">{item.note}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('id-ID')}</p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-sm font-black text-success">{showAmounts ? formatIDR(item.amount) : '••••••••'}</p>
+                           <span className="text-[9px] font-black text-slate-300 uppercase tracking-tight flex items-center gap-1 justify-end mt-0.5"><Clock size={10}/> Edit</span>
+                        </div>
+                     </div>
+                  ))}
+               </div>
+            </div>
+         </div>
+      )}
+
       {cardModalOpen && (
          <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200">
+           <div className="bg-white w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200">
              <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800">{editingCard ? 'Edit Hutang' : 'Tambah Hutang'}</h3><button onClick={() => setCardModalOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-full active:scale-90"><X size={20}/></button></div>
              <form onSubmit={handleSaveCard} className="space-y-5">
                  <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.CREDIT_CARD ? 'bg-white shadow-sm text-primary' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.OTHER_DEBT ? 'bg-white shadow-sm text-primary' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
@@ -1193,7 +1395,7 @@ const App: React.FC = () => {
       )}
 
       {savingModalOpen && (
-         <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
+         <div className="fixed inset-0 z-[160] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200">
              <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800">Nabung Yuk</h3><button onClick={() => setSavingModalOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-full active:scale-90"><X size={20}/></button></div>
              <form onSubmit={handleSaveSaving} className="space-y-6">
@@ -1209,7 +1411,14 @@ const App: React.FC = () => {
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode</label>
                     <div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 rounded-2xl text-xs font-bold"/></div>
                  </div>
-                 <button type="submit" className="w-full py-5 bg-success text-white font-black rounded-[24px] shadow-xl active:scale-95 transition mt-4">Simpan Dana</button>
+                 <div className="space-y-3 pt-4">
+                    <button type="submit" className="w-full py-5 bg-success text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Simpan Dana</button>
+                    {editingSaving && (
+                      <button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full py-5 bg-red-50 text-danger font-black rounded-[24px] border border-red-100 flex items-center justify-center gap-2 active:bg-red-100">
+                         <Trash2 size={18}/> Hapus Catatan
+                      </button>
+                    )}
+                 </div>
              </form>
            </div>
          </div>
@@ -1223,7 +1432,7 @@ const App: React.FC = () => {
                     <div className="flex justify-between items-start"><div><p className="text-[10px] opacity-70 uppercase tracking-[0.3em] font-black mb-2">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'KREDIT' : 'DEBT'}</p><h4 className="text-2xl font-black">{activeStatementCard.name}</h4></div><Receipt size={40} className="opacity-30" /></div>
                 </div>
                 <div className="bg-white p-5 border-b border-slate-100 flex gap-4 shrink-0 shadow-sm"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-slate-50 p-3 rounded-2xl active:bg-slate-100 transition outline-none">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-28 text-sm font-black bg-slate-50 p-3 rounded-2xl outline-none" /></div>
-                <div className="bg-white p-5 border-b border-slate-50 flex gap-3 shrink-0 overflow-x-auto no-scrollbar">
+                <div className="bg-white p-5 border-b border-slate-100 flex gap-3 shrink-0 overflow-x-auto no-scrollbar">
                    <button onClick={() => { setTxType(TransactionType.EXPENSE); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-slate-100 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-slate-200 transition">Pakai</button>
                    <button onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(getMonthlyBill(activeStatementCard.id, statementMonth, statementYear))); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 text-primary px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-blue-100 transition">Bayar</button>
                    <button onClick={() => { setSavingCardId(activeStatementCard.id); setSavingTargetMonth(statementMonth); setSavingTargetYear(statementYear); setSavingModalOpen(true); }} className="flex items-center gap-2 bg-emerald-50 text-success px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-emerald-100 transition">Tabung</button>
