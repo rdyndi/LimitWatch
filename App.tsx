@@ -101,6 +101,23 @@ const CARD_COLORS = [
   { label: 'Violet', value: 'bg-violet-700', text: 'text-violet-700' }
 ];
 
+const getLogoForCard = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('tokopedia')) return 'https://assets.tokopedia.net/assets-footer/images/icon-tokopedia.png';
+  if (n.includes('shopee')) return 'https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg';
+  if (n.includes('bca')) return 'https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg';
+  if (n.includes('mandiri')) return 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg';
+  if (n.includes('bni')) return 'https://upload.wikimedia.org/wikipedia/id/5/55/BNI_logo.svg';
+  if (n.includes('bri')) return 'https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_Logo.svg';
+  if (n.includes('visa')) return 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg';
+  if (n.includes('mastercard')) return 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg';
+  if (n.includes('jcb')) return 'https://upload.wikimedia.org/wikipedia/commons/4/40/JCB_logo.svg';
+  if (n.includes('gopay') || n.includes('gojek')) return 'https://upload.wikimedia.org/wikipedia/commons/8/86/Gojek_logo_2019.svg';
+  if (n.includes('grab')) return 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Grab_logo.svg';
+  if (n.includes('ovo')) return 'https://upload.wikimedia.org/wikipedia/commons/e/eb/Logo_ovo_purple.svg';
+  return null;
+};
+
 const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, year: number } => {
   const date = new Date(dateStr);
   let month = date.getMonth();
@@ -214,22 +231,22 @@ const App: React.FC = () => {
     if (user) {
       const unsubscribe = subscribeToAppState(user.uid, (newState) => {
         setData(newState);
-        if (isMobileDevice && newState.security?.isPinEnabled && newState.security?.pin) {
-          setIsLocked(true);
-        }
+        // Requirement: Do not lock on reload
+        // So we removed the automatic setIsLocked(true) here
       });
       return () => unsubscribe();
     } else {
       setData({ cards: [], transactions: [], installments: [], savings: [], security: { pin: null, isPinEnabled: false } });
     }
-  }, [user, isMobileDevice]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !data.security?.isPinEnabled || isLocked || !isMobileDevice) return;
     const checkInactivity = () => {
       const now = Date.now();
-      const fiveMinutes = 5 * 60 * 1000;
-      if (now - lastActivity > fiveMinutes) {
+      // Requirement: 10 minutes inactivity
+      const tenMinutes = 10 * 60 * 1000;
+      if (now - lastActivity > tenMinutes) {
         setIsLocked(true);
       }
     };
@@ -344,8 +361,19 @@ const App: React.FC = () => {
 
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm("Hapus transaksi ini secara permanen?")) {
+      const targetTx = data.transactions.find(t => t.id === id);
+      let updatedInstallments = [...data.installments];
+      
+      // Requirement: "membatalkan yang sudah jadi cicilan"
+      // If the transaction being deleted was an installment, remove the linked installment too.
+      if (targetTx?.isInstallment) {
+        updatedInstallments = data.installments.filter(inst => 
+          !(inst.cardId === targetTx.cardId && inst.name === targetTx.description && inst.totalAmount === targetTx.amount)
+        );
+      }
+
       const updatedTx = data.transactions.filter(t => t.id !== id);
-      saveData({ ...data, transactions: updatedTx });
+      saveData({ ...data, transactions: updatedTx, installments: updatedInstallments });
       setTransactionModalOpen(false);
       setEditingTransaction(null);
     }
@@ -545,13 +573,15 @@ const App: React.FC = () => {
     return { totalYearBill, totalYearSaved, totalYearGap };
   }, [yearlyData]);
   
-  const totalDebt = useMemo(() => {
+  const totalDebtAcrossAllTime = useMemo(() => {
     const expenses = data.transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, c) => s + c.amount, 0);
     const payments = data.transactions.filter(t => t.type === TransactionType.PAYMENT).reduce((s, c) => s + c.amount, 0);
     return Math.ceil(expenses - payments);
   }, [data.transactions]);
 
-  const totalSavings = useMemo(() => Math.ceil(data.savings.filter(s => !s.isTransferred).reduce((s, c) => s + c.amount, 0)), [data.savings]);
+  const totalSavingsAcrossAllTime = useMemo(() => {
+    return Math.ceil(data.savings.filter(s => !s.isTransferred).reduce((s, c) => s + c.amount, 0));
+  }, [data.savings]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault(); setAuthLoading(true); setAuthError("");
@@ -659,6 +689,51 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Fix: Explicitly typing PhysicalCardMobile as a React.FC to handle 'key' prop correctly in JSX when used in a list
+  const PhysicalCardMobile: React.FC<{ card: CreditCardType, balance: number, remaining: number, onClick: () => void }> = ({ card, balance, remaining, onClick }) => {
+    const logoUrl = getLogoForCard(card.name);
+    return (
+      <button onClick={onClick} className={`min-w-[300px] ${card.color} p-4 rounded-[28px] text-white text-left shadow-lg relative overflow-hidden active:scale-95 transition h-44 flex flex-col justify-between group border-b-4 border-black/10`}>
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-2xl"></div>
+        <div className="relative z-10 flex justify-between items-start">
+           <div className="space-y-0.5">
+              <p className="text-[8px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Electronic Use Only' : 'Debt Manager'}</p>
+              <h4 className="text-sm font-black tracking-tight drop-shadow-sm">{card.name}</h4>
+           </div>
+           {logoUrl ? (
+             <div className="h-8 flex items-center bg-white/10 px-2 rounded-lg backdrop-blur-md">
+                <img src={logoUrl} alt="logo" className="h-5 object-contain filter brightness-0 invert" />
+             </div>
+           ) : (
+             <div className="w-8 h-6 bg-white/20 rounded backdrop-blur-sm"></div>
+           )}
+        </div>
+        <div className="relative z-10 flex items-center gap-2">
+           <div className="w-9 h-7 bg-gradient-to-br from-amber-200 to-amber-50 rounded-md shadow-inner flex flex-col gap-1 p-1">
+              <div className="flex gap-1 h-1/2"><div className="w-full border-r border-amber-600/20"></div><div className="w-full"></div></div>
+              <div className="border-t border-amber-600/20"></div>
+           </div>
+           <p className="text-sm font-black tracking-[0.15em] opacity-80">**** **** ****</p>
+        </div>
+        <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2 mt-auto">
+           <div className="space-y-1">
+              <p className="text-[7px] opacity-60 uppercase font-black tracking-tighter">Available Limit</p>
+              <p className="text-sm font-black tracking-tight">{showAmounts ? formatIDR(remaining) : '••••••••'}</p>
+           </div>
+           <div className="text-right space-y-1">
+              <p className="text-[7px] opacity-60 uppercase font-black tracking-tighter">Total Debt</p>
+              <p className="text-xs font-black opacity-100">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p>
+           </div>
+           <div className="text-right flex items-center gap-1.5 opacity-60">
+              <span className="text-[8px] font-bold uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span>
+              <ArrowUpRight size={12}/>
+           </div>
+        </div>
+      </button>
+    );
+  };
+
   if (!authInited) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50"><Loader2 size={40} className="animate-spin text-primary" /></div>
   );
@@ -728,8 +803,8 @@ const App: React.FC = () => {
            {mobileTab === 'home' && (
              <div className="space-y-8 animate-in fade-in">
                 <div className="grid grid-cols-3 gap-6">
-                   <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg"><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Total Hutang Berjalan</p><button onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
-                   <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p className="text-slate-400 text-sm mb-1">Total Tabungan</p><h3 className="text-3xl font-bold text-slate-800">{showAmounts ? formatIDR(totalSavings) : '••••••••'}</h3></div>
+                   <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg"><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Total Hutang Berjalan</p><button onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebtAcrossAllTime) : '••••••••'}</h3></div>
+                   <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p className="text-slate-400 text-sm mb-1">Total Tabungan</p><h3 className="text-3xl font-bold text-slate-800">{showAmounts ? formatIDR(totalSavingsAcrossAllTime) : '••••••••'}</h3></div>
                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p className="text-slate-400 text-sm mb-1">Bulan Ini (Pengeluaran)</p><h3 className="text-3xl font-bold text-danger">{showAmounts ? formatIDR(categoryGrouping.reduce((sum, [, val]) => sum + val, 0)) : '••••••••'}</h3></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -801,10 +876,16 @@ const App: React.FC = () => {
                   <p className="text-blue-100 text-sm">Total Hutang Berjalan</p>
                   <button onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button>
                 </div>
-                <h3 className="text-3xl font-black mb-6">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
+                <h3 className="text-3xl font-black mb-6">{showAmounts ? formatIDR(totalDebtAcrossAllTime) : '••••••••'}</h3>
                 <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5">
-                  <div><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest mb-1">Tabungan</p><p className="font-bold text-lg">{showAmounts ? formatIDR(totalSavings) : '••••••••'}</p></div>
-                  <div className="text-right"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest mb-1">Sisa Tagihan (Gap)</p><p className="font-bold text-lg text-red-300">{showAmounts ? formatIDR(Math.max(0, totalDebt - totalSavings)) : '••••••••'}</p></div>
+                  <div>
+                    <p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest mb-1">Tabungan</p>
+                    <p className="font-bold text-lg">{showAmounts ? formatIDR(totalSavingsAcrossAllTime) : '••••••••'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest mb-1">Sisa Gap</p>
+                    <p className="font-bold text-lg text-red-300">{showAmounts ? formatIDR(Math.max(0, totalDebtAcrossAllTime - totalSavingsAcrossAllTime)) : '••••••••'}</p>
+                  </div>
                 </div>
               </div>
               {upcomingBills.length > 0 && (
@@ -815,7 +896,7 @@ const App: React.FC = () => {
                 <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-emerald-50 text-success rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Vault size={28}/></div><span className="text-[10px] font-bold text-slate-500 uppercase">Nabung</span></button>
                 <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Briefcase size={28}/></div><span className="text-[10px] font-bold text-slate-500 uppercase">Hutang</span></button>
               </div>
-              <div><h3 className="font-bold text-slate-800 text-sm mb-4">Item Hutang & Kartu</h3><div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">{data.cards.map(card => { const balance = getCardBalance(card.id), remaining = card.limit - balance; return (<button key={card.id} onClick={() => openStatement(card)} className={`min-w-[300px] ${card.color} p-4 rounded-[28px] text-white text-left shadow-lg relative overflow-hidden active:scale-95 transition h-40 flex flex-col justify-between group`}><div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div><div className="relative z-10 flex justify-between items-start"><div><p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p><h4 className="text-sm font-black tracking-tight">{card.name}</h4></div><div className="w-7 h-5 bg-white/20 rounded backdrop-blur-sm"></div></div><div className="relative z-10"><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p><p className="text-lg font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div><div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2"><div><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div><div className="text-right flex items-center gap-1.5 opacity-60"><span className="text-[9px] font-bold uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span><ArrowUpRight size={12}/></div></div></button>); })} {data.cards.length === 0 && <p className="text-slate-400 text-xs italic">Belum ada item ditambahkan.</p>}</div></div>
+              <div><h3 className="font-bold text-slate-800 text-sm mb-4">Item Hutang & Kartu</h3><div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">{data.cards.map(card => { const balance = getCardBalance(card.id), remaining = card.limit - balance; return <PhysicalCardMobile key={card.id} card={card} balance={balance} remaining={remaining} onClick={() => openStatement(card)} />; })} {data.cards.length === 0 && <p className="text-slate-400 text-xs italic">Belum ada item ditambahkan.</p>}</div></div>
             </div>
           )}
           {mobileTab === 'yearly' && (
@@ -826,7 +907,7 @@ const App: React.FC = () => {
           )}
           {mobileTab === 'cards' && (
              <div className="space-y-4 animate-in fade-in">
-                {data.cards.map(card => { const balance = getCardBalance(card.id), remaining = card.limit - balance; return (<div key={card.id} className="space-y-3"><div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-4 rounded-[28px] text-white shadow-lg relative h-40 flex flex-col justify-between overflow-hidden cursor-pointer active:opacity-90 transition`}><div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div><div className="relative z-10 flex justify-between items-start"><div><p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p><h4 className="text-sm font-black tracking-tight">{card.name}</h4></div><div className="w-7 h-5 bg-white/20 rounded backdrop-blur-sm"></div></div><div className="relative z-10"><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p><p className="text-lg font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div><div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-2"><div><p className="text-[8px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div><div className="text-right opacity-60"><span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span></div></div></div><div className="flex gap-2"><button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-600 flex items-center justify-center gap-2 active:bg-slate-50"><Pencil size={16}/> Edit</button><button onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 active:bg-red-100"><Trash2 size={16}/> Hapus</button></div></div>); })}
+                {data.cards.map(card => { const balance = getCardBalance(card.id), remaining = card.limit - balance; return (<div key={card.id} className="space-y-3"><PhysicalCardMobile card={card} balance={balance} remaining={remaining} onClick={() => openStatement(card)} /><div className="flex gap-2"><button onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold text-slate-600 flex items-center justify-center gap-2 active:bg-slate-50"><Pencil size={16}/> Edit</button><button onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 active:bg-red-100"><Trash2 size={16}/> Hapus</button></div></div>); })}
                 <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardModalOpen(true); }} className="w-full py-5 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold flex items-center justify-center gap-2 active:bg-slate-50 transition"><Plus size={20}/> Tambah Hutang Baru</button>
              </div>
           )}
@@ -853,7 +934,7 @@ const App: React.FC = () => {
       </div>
 
       {profileModalOpen && (
-         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white w-full max-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300"><div className="bg-slate-50 p-8 flex flex-col items-center border-b border-slate-100 relative"><button onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-28 h-28 rounded-full border-[6px] border-white shadow-xl overflow-hidden flex items-center justify-center mb-5 ring-1 ring-slate-100">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-2xl font-black text-slate-800">{user.displayName || 'User'}</h3><p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{user.email}</p></div><div className="p-3"> {isMobileDevice && (<MobileMenuButton icon={<ShieldCheck size={20}/>} label="Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'NONAKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />)}<MobileMenuButton icon={<Settings size={20}/>} label="Pengaturan Akun" onClick={() => alert('Fitur Segera Hadir')} /><div className="mt-2 border-t border-slate-50"><MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger /></div></div></div></div>
+         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300"><div className="bg-slate-50 p-8 flex flex-col items-center border-b border-slate-100 relative"><button onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-28 h-28 rounded-full border-[6px] border-white shadow-xl overflow-hidden flex items-center justify-center mb-5 ring-1 ring-slate-100">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-2xl font-black text-slate-800">{user.displayName || 'User'}</h3><p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{user.email}</p></div><div className="p-3"> {isMobileDevice && (<MobileMenuButton icon={<ShieldCheck size={20}/>} label="Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'NONAKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />)}<MobileMenuButton icon={<Settings size={20}/>} label="Pengaturan Akun" onClick={() => alert('Fitur Segera Hadir')} /><div className="mt-2 border-t border-slate-50"><MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger /></div></div></div></div>
       )}
       {savingsHistoryModalOpen && selectedSavingsHistory && (
          <div className="fixed inset-0 z-[150] bg-black/70 flex items-end md:items-center md:justify-center p-0 md:p-4 backdrop-blur-sm"><div className="bg-white w-full max-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]"><div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}><div className="flex justify-between items-center mb-6"><button onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button><span className="text-[10px] font-black uppercase tracking-[0.2em]">Riwayat Tabungan</span><div className="w-8"></div></div><div className="flex justify-between items-end"><div><h4 className="text-2xl font-black">{selectedSavingsHistory.cardName}</h4><p className="text-xs font-bold opacity-70 uppercase mt-1">{selectedSavingsHistory.monthName} {selectedSavingsHistory.year}</p></div><div className="text-right"><p className="text-[10px] font-bold opacity-60 uppercase mb-1">Total Terkumpul</p><h3 className="text-xl font-black">{showAmounts ? formatIDR(selectedSavingsHistory.items.reduce((s, i) => s + i.amount, 0)) : '••••••••'}</h3></div></div></div><div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-10">{selectedSavingsHistory.items.map(item => (<div key={item.id} onClick={() => openEditSaving(item)} className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex justify-between items-center active:scale-[0.98] transition cursor-pointer"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-success shadow-sm"><Vault size={20}/></div><div><p className="text-sm font-black text-slate-800">{item.note}</p><p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('id-ID')}</p></div></div><div className="text-right"><p className="text-sm font-black text-success">{showAmounts ? formatIDR(item.amount) : '••••••••'}</p><span className="text-[9px] font-black text-slate-300 uppercase tracking-tight flex items-center gap-1 justify-end mt-0.5"><Clock size={10}/> Edit</span></div></div>))}</div></div></div>
