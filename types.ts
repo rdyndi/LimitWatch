@@ -42,6 +42,7 @@ export interface Installment {
   totalMonths: number;
   monthsPaid: number;
   startDate: string;
+  validatedTenors?: string[]; // Format: "YYYY-MM" untuk menandai cicilan bulan tersebut sudah dicek
 }
 
 export interface Saving {

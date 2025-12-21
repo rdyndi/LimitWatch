@@ -329,6 +329,21 @@ const App: React.FC = () => {
     saveData({ ...data, transactions: updated });
   };
 
+  const toggleInstallmentValidation = (id: string, month: number, year: number) => {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    const updated = data.installments.map(inst => {
+      if (inst.id === id) {
+        const validated = inst.validatedTenors || [];
+        const newValidated = validated.includes(key) 
+          ? validated.filter(v => v !== key) 
+          : [...validated, key];
+        return { ...inst, validatedTenors: newValidated };
+      }
+      return inst;
+    });
+    saveData({ ...data, installments: updated });
+  };
+
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm("Hapus transaksi ini secara permanen?")) {
       const updatedTx = data.transactions.filter(t => t.id !== id);
@@ -465,7 +480,12 @@ const App: React.FC = () => {
       }).map(inst => {
           const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
           const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
-          return { ...inst, currentTenor: monthDiff + 1 };
+          const key = `${year}-${String(month).padStart(2, '0')}`;
+          return { 
+            ...inst, 
+            currentTenor: monthDiff + 1, 
+            isValidated: inst.validatedTenors?.includes(key) || false 
+          };
       });
       const baseAmount = Math.ceil(cardTransactions.reduce((s, t) => s + t.amount, 0) + activeInstallments.reduce((s, i) => s + i.monthlyAmount, 0));
       let adminFee = 0; let materai = 0;
@@ -556,20 +576,15 @@ const App: React.FC = () => {
     return { totalYearBill, totalYearSaved, totalYearGap };
   }, [yearlyData]);
 
-  // SINKRONISASI MATH HOME DENGAN SELURUH PROYEKSI TAHUNAN
   const totalDebt = useMemo(() => {
     let globalTotalProyeksi = 0;
     data.cards.forEach(card => {
        const monthMap = new Map<string, number>();
-       
-       // 1. Ritel non-cicilan dipetakan ke bulan tagihannya
        data.transactions.filter(t => t.cardId === card.id && t.type === TransactionType.EXPENSE && !t.isInstallment).forEach(t => {
           const p = getBillingPeriod(t.date, card.dueDay);
           const key = `${p.year}-${p.month}`;
           monthMap.set(key, (monthMap.get(key) || 0) + t.amount);
        });
-
-       // 2. Cicilan aktif dipetakan ke seluruh bulan masa depannya
        data.installments.filter(i => i.cardId === card.id).forEach(inst => {
           const start = getBillingPeriod(inst.startDate, card.dueDay);
           for(let m=0; m<inst.totalMonths; m++) {
@@ -580,8 +595,6 @@ const App: React.FC = () => {
              monthMap.set(key, (monthMap.get(key) || 0) + inst.monthlyAmount);
           }
        });
-
-       // 3. Hitung Biaya Admin & Materai per bulan yang memiliki aktivitas
        let cardTotalWithFees = 0;
        monthMap.forEach((baseAmount) => {
           let fee = 0; let materai = 0;
@@ -591,8 +604,6 @@ const App: React.FC = () => {
           }
           cardTotalWithFees += (baseAmount + fee + materai);
        });
-
-       // 4. Kurangi dengan total bayar yang pernah dilakukan pada kartu ini
        const totalPaidEver = data.transactions.filter(t => t.cardId === card.id && t.type === TransactionType.PAYMENT).reduce((s, t) => s + t.amount, 0);
        globalTotalProyeksi += Math.max(0, cardTotalWithFees - totalPaidEver);
     });
@@ -806,7 +817,7 @@ const App: React.FC = () => {
                   <td className="px-6 py-4"><p className="text-sm font-bold text-slate-800">{t.description}</p><p className="text-[10px] text-slate-400">{t.category}</p></td>
                   <td className="px-6 py-4"><span className={`text-[9px] font-bold px-2 py-1 rounded-full text-white ${data.cards.find(c=>c.id===t.cardId)?.color || 'bg-slate-800'}`}>{data.cards.find(c=>c.id===t.cardId)?.name}</span></td>
                   <td className={`px-6 py-4 text-sm font-bold text-right ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{showAmounts ? formatIDR(t.amount) : '••••••••'}</td>
-                  <td className="px-6 py-4 text-center" onClick={(e)=>e.stopPropagation()}><button onClick={()=>toggleTransactionValidation(t.id)} className={`transition transform active:scale-90 ${t.isValidated ? 'text-primary' : 'text-slate-200'}`}><CheckCircle2 size={24}/></button></td>
+                  <td className="px-6 py-4 text-center" onClick={(e)=>e.stopPropagation()}><button onClick={(e)=>{ e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`transition transform active:scale-90 ${t.isValidated ? 'text-primary' : 'text-slate-200'}`}><CheckCircle2 size={24}/></button></td>
                 </tr>))}</tbody></table></div>
              </div>
            )}
@@ -898,7 +909,7 @@ const App: React.FC = () => {
                 {filteredTransactions.length > 0 ? filteredTransactions.map(t => {
                   const card = data.cards.find(c => c.id === t.cardId);
                   return (
-                    <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white p-5 rounded-[28px] border border-slate-50 shadow-sm flex justify-between items-center active:scale-[0.98] transition group relative overflow-hidden"><div className={`absolute left-0 top-0 bottom-0 w-1.5 ${card?.color || 'bg-slate-800'}`}></div><div className="space-y-1 pl-2"><p className="text-sm font-black text-slate-800 group-active:text-primary leading-tight">{t.description}</p><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{new Date(t.date).toLocaleDateString('id-ID')}</span><span className="text-slate-200 text-xs">•</span><span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 uppercase tracking-tighter`}>{card?.name}</span></div></div><div className="flex flex-col items-end gap-1"><span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••••••'}</span>{t.isValidated && <CheckCircle2 size={14} className="text-primary"/>}</div></div>
+                    <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white p-5 rounded-[28px] border border-slate-50 shadow-sm flex justify-between items-center active:scale-[0.98] transition group relative overflow-hidden"><div className={`absolute left-0 top-0 bottom-0 w-1.5 ${card?.color || 'bg-slate-800'}`}></div><div className="space-y-1 pl-2"><p className="text-sm font-black text-slate-800 group-active:text-primary leading-tight">{t.description}</p><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{new Date(t.date).toLocaleDateString('id-ID')}</span><span className="text-slate-200 text-xs">•</span><span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 uppercase tracking-tighter`}>{card?.name}</span></div></div><div className="flex items-center gap-3"><div className="flex flex-col items-end gap-1"><span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.EXPENSE ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••••••'}</span></div><button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 text-primary' : 'bg-slate-50 text-slate-200'}`}><CheckCircle2 size={24}/></button></div></div>
                   );
                 }) : (<div className="text-center py-20"><History size={48} className="mx-auto text-slate-100 mb-4" /><p className="text-slate-400 font-bold text-sm">Tidak ada transaksi ditemukan.</p></div>)}
               </div>
@@ -1047,6 +1058,7 @@ const App: React.FC = () => {
                       return (
                         <>
                           <div className="grid grid-cols-2 gap-5"><div className="bg-white p-6 rounded-[32px] border border-slate-50 shadow-sm"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TOTAL TAGIHAN</p><p className="text-xl font-black text-danger">{showAmounts ? formatIDR(s.totalBill) : '••••••••'}</p></div><div className="bg-white p-6 rounded-[32px] border border-slate-50 shadow-sm"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">SISA PROYEKSI</p><p className="text-xl font-black text-slate-800">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••••••'}</p></div></div>
+                          
                           {(s.adminFee > 0 || s.materai > 0) && (
                             <div className="bg-slate-100/50 p-6 rounded-[32px] border border-slate-100 space-y-3">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">BIAYA OTOMATIS</p>
@@ -1054,7 +1066,60 @@ const App: React.FC = () => {
                               {s.materai > 0 && <div className="flex justify-between text-xs font-bold"><span>Biaya Materai (&ge; 5JT)</span><span className="font-black">{showAmounts ? formatIDR(s.materai) : '••••••••'}</span></div>}
                             </div>
                           )}
-                          <section><h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5 ml-2">CICILAN AKTIF</h5><div className="space-y-4">{s.installments.map(inst => (<div key={inst.id} className="bg-white p-5 rounded-3xl border border-slate-50 shadow-sm flex justify-between items-center"><div><p className="text-xs font-black text-slate-800 uppercase tracking-tight">{inst.name}</p><p className="text-[10px] text-primary font-black uppercase mt-1">TENOR {inst.currentTenor}/{inst.totalMonths}</p></div><span className="font-black text-slate-800">{showAmounts ? formatIDR(inst.monthlyAmount) : '••••••••'}</span></div>))}{s.installments.length === 0 && <p className="text-xs text-slate-300 italic text-center py-4">Tidak ada cicilan aktif.</p>}</div></section>
+
+                          <section>
+                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5 ml-2">TRANSAKSI RITEL</h5>
+                            <div className="space-y-4">
+                              {s.transactions.map(t => (
+                                <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white p-4 rounded-3xl border border-slate-50 shadow-sm flex justify-between items-center active:scale-[0.98] transition cursor-pointer">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><FileText size={18}/></div>
+                                    <div><p className="text-xs font-black text-slate-800 uppercase tracking-tight">{t.description}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{new Date(t.date).toLocaleDateString('id-ID')}</p></div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-black text-danger text-sm">{showAmounts ? formatIDR(t.amount) : '••••••••'}</span>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${t.isValidated ? 'bg-blue-50 text-primary' : 'bg-slate-50 text-slate-200'}`}><CheckCircle2 size={20}/></button>
+                                  </div>
+                                </div>
+                              ))}
+                              {s.transactions.length === 0 && <p className="text-[10px] text-slate-300 italic text-center py-2">Tidak ada transaksi ritel.</p>}
+                            </div>
+                          </section>
+
+                          <section>
+                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5 ml-2">CICILAN AKTIF</h5>
+                            <div className="space-y-4">
+                              {s.installments.map(inst => (
+                                <div key={inst.id} className="bg-white p-5 rounded-3xl border border-slate-50 shadow-sm flex justify-between items-center">
+                                  <div><p className="text-xs font-black text-slate-800 uppercase tracking-tight">{inst.name}</p><p className="text-[10px] text-primary font-black uppercase mt-1">TENOR {inst.currentTenor}/{inst.totalMonths}</p></div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-black text-slate-800">{showAmounts ? formatIDR(inst.monthlyAmount) : '••••••••'}</span>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleInstallmentValidation(inst.id, statementMonth, statementYear); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${inst.isValidated ? 'bg-blue-50 text-primary' : 'bg-slate-50 text-slate-200'}`}><CheckCircle2 size={20}/></button>
+                                  </div>
+                                </div>
+                              ))}
+                              {s.installments.length === 0 && <p className="text-[10px] text-slate-300 italic text-center py-2">Tidak ada cicilan aktif.</p>}
+                            </div>
+                          </section>
+
+                          <section>
+                            <h5 className="text-[10px] font-black text-success uppercase tracking-[0.3em] mb-5 ml-2">PEMBAYARAN MASUK</h5>
+                            <div className="space-y-4">
+                              {s.payments.map(p => (
+                                <div key={p.id} onClick={() => openEditTransaction(p)} className="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100 shadow-sm flex justify-between items-center active:scale-[0.98] transition cursor-pointer">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-success"><ArrowDownLeft size={18}/></div>
+                                    <div><p className="text-xs font-black text-slate-800 uppercase tracking-tight">{p.description}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{new Date(p.date).toLocaleDateString('id-ID')}</p></div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-black text-success text-sm">{showAmounts ? formatIDR(p.amount) : '••••••••'}</span>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(p.id); }} className={`p-1.5 rounded-full transition transform active:scale-90 ${p.isValidated ? 'bg-blue-50 text-primary' : 'bg-slate-50 text-slate-200'}`}><CheckCircle2 size={20}/></button>
+                                  </div>
+                                </div>
+                              ))}
+                              {s.payments.length === 0 && <p className="text-[10px] text-slate-300 italic text-center py-2">Belum ada pembayaran.</p>}
+                            </div>
+                          </section>
                         </>
                       )
                    })()}
