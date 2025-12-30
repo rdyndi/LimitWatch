@@ -121,7 +121,7 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
   return { month, year };
 };
 
-// --- Sub-components (Moved outside App to fix Mobile Click issues) ---
+// --- Sub-components ---
 
 const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
   <button type="button" onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
@@ -272,7 +272,6 @@ const App: React.FC = () => {
   const toggleTheme = () => {
     const newTheme = data.theme === 'dark' ? 'light' : 'dark';
     const newData = { ...data, theme: newTheme };
-    // Optimistic UI update
     setData(newData);
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -418,13 +417,11 @@ const App: React.FC = () => {
     }
   };
 
-  // Fix: Added missing handleDeleteSaving function to handle deletion of saving records
   const handleDeleteSaving = (id: string) => {
     if (window.confirm("Hapus catatan tabungan ini?")) {
       const updatedSavings = data.savings.filter(s => s.id !== id);
       saveData({ ...data, savings: updatedSavings });
       
-      // Update selected history state if it was open
       if (selectedSavingsHistory) {
          const newItems = selectedSavingsHistory.items.filter(item => item.id !== id);
          if (newItems.length === 0) {
@@ -833,6 +830,38 @@ const App: React.FC = () => {
              </div>
            )}
 
+           {mobileTab === 'savings' && (
+             <div className="space-y-8 animate-in fade-in">
+                <div className="flex justify-between items-end">
+                   <div><h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Tabungan Pelunasan</h2><p className="text-slate-500 dark:text-slate-400">Kelola dana cadangan untuk setiap kartu.</p></div>
+                   <div className="flex items-center gap-3">
+                     <button type="button" onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><ChevronLeft size={18}/></button>
+                     <span className="font-black text-slate-800 dark:text-slate-100 px-2">{savingsSelectedYear}</span>
+                     <button type="button" onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><ChevronRight size={18}/></button>
+                   </div>
+                </div>
+                <div className="bg-gradient-to-br from-success to-emerald-700 p-8 rounded-[32px] text-white shadow-xl flex justify-between items-center">
+                   <div><p className="opacity-70 text-sm font-bold uppercase tracking-widest mb-1">Total Tabungan Tahun {savingsSelectedYear}</p><h3 className="text-4xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3></div>
+                   <button type="button" onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="bg-white text-success px-6 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg active:scale-95 transition"><Plus size={18}/> Tambah Simpanan</button>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                   {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
+                      <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-fit">
+                         <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center"><h4 className="font-black text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••••••'}</span></div>
+                         <div className="p-5 space-y-2">
+                            {m.cardGroups.map((group, i) => (
+                               <button key={i} type="button" onClick={() => { setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items }); setSavingsHistoryModalOpen(true); }} className="w-full flex justify-between items-center p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition group text-left">
+                                  <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-700 dark:text-slate-300">{group.cardName}</span></div>
+                                  <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span><ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:translate-x-1 transition-transform"/></div>
+                               </button>
+                            ))}
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+           )}
+
            {mobileTab === 'history' && (
              <div className="space-y-6 animate-in fade-in">
                 <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm grid grid-cols-3 gap-4">
@@ -864,12 +893,36 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
                     <div key={idx} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-fit">
-                       <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center"><h4 className="font-bold text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{m.cardsEstimates.length} Item</span></div>
-                       <div className="p-5 space-y-3 flex-1">
+                       <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                          <div>
+                            <h4 className="font-bold text-slate-800 dark:text-slate-100">{m.monthName}</h4>
+                            {m.totalMonthGap > 0 ? (
+                              <p className="text-[10px] font-black text-danger uppercase mt-0.5 tracking-tight">Sisa Kekurangan: {showAmounts ? formatIDR(m.totalMonthGap) : '••••'}</p>
+                            ) : m.totalMonthBill > 0 ? (
+                              <p className="text-[10px] font-black text-success uppercase mt-0.5 tracking-tight">Sudah Tercover Lunas</p>
+                            ) : null}
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{m.cardsEstimates.length} Item</span>
+                       </div>
+                       <div className="p-5 space-y-5 flex-1">
                           {m.cardsEstimates.map((ce, i) => (
-                            <div key={i} className="flex justify-between items-center">
-                               <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${ce.color}`}></div><span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{ce.cardName}</span></div>
-                               <div className="text-right"><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(ce.bill) : '••••••••'}</p>{ce.saved > 0 && <p className="text-[9px] font-bold text-success">Simpan: {showAmounts ? formatIDR(ce.saved) : '••••••••'}</p>}</div>
+                            <div key={i} className="space-y-2 pb-2 border-b border-slate-50 dark:border-slate-800 last:border-0 last:pb-0">
+                               <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                     <div className={`w-2 h-2 rounded-full ${ce.color}`}></div>
+                                     <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">{ce.cardName}</span>
+                                  </div>
+                                  {ce.gap > 0 ? (
+                                    <span className="text-[9px] font-black text-danger bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded uppercase">GAP: {showAmounts ? formatIDR(ce.gap) : '••••'}</span>
+                                  ) : (
+                                    <span className="text-[9px] font-black text-success bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded uppercase">LUNAS</span>
+                                  )}
+                               </div>
+                               <div className="flex justify-between text-[10px]">
+                                  <div className="flex flex-col"><span className="text-slate-400 font-bold uppercase text-[8px]">Hutang</span><span className="font-bold text-slate-700 dark:text-slate-300">{showAmounts ? formatIDR(ce.bill) : '••••'}</span></div>
+                                  <div className="flex flex-col items-center"><span className="text-slate-400 font-bold uppercase text-[8px]">Tabung</span><span className="font-bold text-success">{showAmounts ? formatIDR(ce.saved) : '••••'}</span></div>
+                                  <div className="flex flex-col items-end"><span className="text-slate-400 font-bold uppercase text-[8px]">Sisa</span><span className={`font-black ${ce.gap > 0 ? 'text-danger' : 'text-slate-400'}`}>{showAmounts ? formatIDR(ce.gap) : '••••'}</span></div>
+                               </div>
                             </div>
                           ))}
                        </div>
@@ -993,7 +1046,7 @@ const App: React.FC = () => {
           )}
         </main>
 
-        <nav className="flex-none h-[90px] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-[60]">
+        <nav className="flex-none h-[calc(70px+var(--sab))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-[60] pb-[var(--sab)] shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
           <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
           <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
           <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
