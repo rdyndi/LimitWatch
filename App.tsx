@@ -1191,7 +1191,26 @@ const App: React.FC = () => {
                       const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
                       return (
                         <>
-                          <div className="grid grid-cols-2 gap-5"><div className="bg-white dark:bg-slate-800 p-6 rounded-[32px] border border-slate-50 dark:border-slate-700 shadow-sm"><p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">TOTAL TAGIHAN</p><p className="text-xl font-black text-danger">{showAmounts ? formatIDR(s.totalBill) : '••••••••'}</p></div><div className="bg-white dark:bg-slate-800 p-6 rounded-[32px] border border-slate-50 dark:border-slate-700 shadow-sm"><p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">SISA PROYEKSI</p><p className="text-xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••••••'}</p></div></div>
+                          <div className="grid grid-cols-1 gap-4">
+                            <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col gap-4">
+                              <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Tagihan (Kotor)</span>
+                                <span className="text-lg font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••••••'}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-black text-success uppercase tracking-widest">Sudah Dibayar</span>
+                                <span className="text-sm font-black text-success">-{showAmounts ? formatIDR(s.totalPaid) : '••••'}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Tabungan Siap Pakai</span>
+                                <span className="text-sm font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••••'}</span>
+                              </div>
+                              <div className="flex justify-between items-center pt-1">
+                                <span className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Tagihan (Bersih)</span>
+                                <span className="text-xl font-black text-danger">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••••••'}</span>
+                              </div>
+                            </div>
+                          </div>
                           
                           {(s.adminFee > 0 || s.materai > 0) && (
                             <div className="bg-slate-100/50 dark:bg-slate-800/50 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 space-y-3">
