@@ -956,7 +956,7 @@ const App: React.FC = () => {
       {/* --- MOBILE VIEW --- */}
       <div className="md:hidden flex flex-col h-full bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
         {/* Header with Top Safe Area */}
-        <header className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" style={{ paddingTop: 'var(--sat)' }}>
+        <header className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" style={{ paddingTop: 'calc(var(--sat) + 4px)' }}>
           <div className="px-5 h-16 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg"><Wallet size={20} /></div>
@@ -1077,14 +1077,14 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Bottom Navigation with Safe Area */}
-        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 z-[60] shadow-[0_-4px_10px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'var(--sab)' }}>
-          <div className="h-16 flex justify-between items-center">
-            <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-            <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
-            <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
-            <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahunan</span></button>
-            <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
+        {/* Bottom Navigation with Optimized Safe Area Padding */}
+        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 z-[60] shadow-[0_-4px_10px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'calc(var(--sab) + 12px)', paddingTop: '12px' }}>
+          <div className="flex justify-between items-center">
+            <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
+            <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
+            <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
+            <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahunan</span></button>
+            <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
           </div>
         </nav>
       </div>

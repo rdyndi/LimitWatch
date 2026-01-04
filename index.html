@@ -55,7 +55,6 @@
 
     <style>
       :root {
-        /* Default safe areas if browser doesn't support env() */
         --sat: env(safe-area-inset-top, 0px);
         --sab: env(safe-area-inset-bottom, 0px);
       }
@@ -68,6 +67,7 @@
         height: 100dvh;
         width: 100%;
         overflow: hidden;
+        overscroll-behavior: none; /* Mencegah tarikan layar di mobile */
       }
       
       .dark body {
@@ -77,6 +77,7 @@
       html {
         height: 100dvh;
         overflow: hidden;
+        overscroll-behavior: none;
       }
 
       #root {
@@ -97,7 +98,7 @@
       * {
         transition-property: background-color, border-color, color, fill, stroke;
         transition-duration: 200ms;
-        -webkit-tap-highlight-color: transparent;
+        -webkit-tap-highlight-color: transparent; /* Menghapus highlight biru saat klik di mobile */
       }
     </style>
   <script type="importmap">
