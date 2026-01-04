@@ -955,14 +955,14 @@ const App: React.FC = () => {
 
       {/* --- MOBILE VIEW --- */}
       <div className="md:hidden flex flex-col h-screen bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
-        <header className="flex-none bg-white dark:bg-slate-900 px-5 pt-8 pb-4 z-[60] shadow-sm border-b dark:border-slate-800">
+        <header className="flex-none bg-white dark:bg-slate-900 px-5 pb-4 z-[60] shadow-sm border-b dark:border-slate-800" style={{ paddingTop: 'calc(1.5rem + var(--sat))' }}>
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3"><div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg"><Wallet size={20} /></div><div><p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-none mb-1">LIMITWATCH</p><h2 className="text-xl font-black text-slate-800 dark:text-slate-100 leading-none">{mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}</h2></div></div>
             <div className="flex items-center gap-3"><button type="button" className="w-11 h-11 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm relative active:scale-95 transition"><Bell size={22} /></button><button type="button" onClick={() => setProfileModalOpen(true)} className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={22} className="text-slate-400"/>}</button></div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 space-y-6" style={{ paddingBottom: 'calc(90px + var(--sab))' }} ref={scrollRef}>
+        <main className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 space-y-6" style={{ paddingBottom: 'calc(100px + var(--sab))' }} ref={scrollRef}>
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in">
               <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative">
@@ -1065,12 +1065,12 @@ const App: React.FC = () => {
           )}
         </main>
 
-        <nav className="flex-none h-[calc(65px+var(--sab))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-start pt-2 z-[60] pb-[var(--sab)] shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
-          <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
-          <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
-          <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
-          <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
-          <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
+        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-[60] shadow-[0_-1px_10px_rgba(0,0,0,0.05)]" style={{ height: 'calc(65px + var(--sab))', paddingBottom: 'var(--sab)' }}>
+          <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={26} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
+          <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={26} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
+          <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={26} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
+          <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={26} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
+          <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={26} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
         </nav>
       </div>
 
