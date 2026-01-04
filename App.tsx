@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   AppState, 
@@ -219,7 +218,6 @@ const App: React.FC = () => {
   const [txDesc, setTxDesc] = useState('');
   const [txCardId, setTxCardId] = useState('');
   const [txCategory, setTxCategory] = useState(TRANSACTION_CATEGORIES[0]);
-  // Fix: Renamed setter and corrected variable usage for txDate state to fix "Cannot find name 'txCategoryAsDate'" error
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txIsInstallment, setTxIsInstallment] = useState(false);
   const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
@@ -451,7 +449,6 @@ const App: React.FC = () => {
     setTxAmount(formatIDR(t.amount));
     setTxDesc(t.description);
     setTxCardId(t.cardId);
-    // Fix: Updated setter call to use setTxDate
     setTxDate(t.date.split('T')[0]);
     setTxCategory(t.category || TRANSACTION_CATEGORIES[0]);
     setTxIsInstallment(!!t.isInstallment);
@@ -801,6 +798,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
+      {/* --- DESKTOP VIEW --- */}
       <div className="hidden md:flex h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
         <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20 shadow-sm">
            <div className="h-20 flex items-center px-8 border-b border-slate-50 dark:border-slate-800"><div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center mr-3 shadow-md"><Wallet size={18} /></div><span className="font-bold text-xl text-slate-800 dark:text-slate-100">LimitWatch</span></div>
@@ -830,7 +828,7 @@ const App: React.FC = () => {
              <div className="space-y-8 animate-in fade-in">
                 <div className="grid grid-cols-3 gap-6">
                    <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
-                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
+                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
                       <div className="mt-4 pt-4 border-t border-white/20"><div className="flex justify-between text-xs opacity-80 mb-1"><span>Total Tabungan</span><span>{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</span></div><div className="flex justify-between text-sm font-black"><span>Sisa Hutang (Gap)</span><span>{showAmounts ? formatIDR(currentDebtGap) : '••••'}</span></div></div>
                    </div>
                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center"><p className="text-slate-400 dark:text-slate-500 text-sm mb-1">Total Tabungan (Tersedia)</p><h3 className="text-3xl font-bold text-success">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}</h3></div>
@@ -956,15 +954,20 @@ const App: React.FC = () => {
       </div>
 
       {/* --- MOBILE VIEW --- */}
-      <div className="md:hidden flex flex-col h-full bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
-        {/* Header with Top Safe Area */}
-        <header className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" style={{ paddingTop: 'calc(var(--sat) + 4px)' }}>
+      <div className="md:hidden flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+        {/* Header: Locked to Top with Safe Area */}
+        <header 
+          className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" 
+          style={{ paddingTop: 'var(--sat)' }}
+        >
           <div className="px-5 h-16 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg"><Wallet size={20} /></div>
               <div>
                 <p className="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] leading-none mb-1">LIMITWATCH</p>
-                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}</h2>
+                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">
+                  {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
+                </h2>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -974,13 +977,17 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Scrollable Main Area */}
-        <main className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 space-y-6" ref={scrollRef}>
+        {/* Scrollable Content: Isolated from Bottom Nav and Safe Area */}
+        <main 
+          className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4" 
+          style={{ paddingBottom: '80px' }} // 56px nav + 24px extra buffer
+          ref={scrollRef}
+        >
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in pb-8">
               <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
                 <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</button></div>
+                <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button></div>
                 <h3 className="text-3xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
                 <div className="space-y-3 pt-5 border-t border-white/10 relative z-10">
                   <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest">Total Simpanan</p><p className="font-bold text-base">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
@@ -1079,8 +1086,11 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Improved Bottom Navigation Flush with iOS Safe Area */}
-        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'calc(var(--sab) + 16px)' }}>
+        {/* Bottom Navigation: Positioned FIXED at absolute bottom */}
+        <nav 
+          className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
+          style={{ height: 'calc(56px + var(--sab))', paddingBottom: 'var(--sab)' }}
+        >
           <div className="h-[56px] px-6 flex justify-between items-center">
             <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
             <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
