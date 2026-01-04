@@ -219,6 +219,7 @@ const App: React.FC = () => {
   const [txDesc, setTxDesc] = useState('');
   const [txCardId, setTxCardId] = useState('');
   const [txCategory, setTxCategory] = useState(TRANSACTION_CATEGORIES[0]);
+  // Fix: Renamed setter and corrected variable usage for txDate state to fix "Cannot find name 'txCategoryAsDate'" error
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txIsInstallment, setTxIsInstallment] = useState(false);
   const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
@@ -450,6 +451,7 @@ const App: React.FC = () => {
     setTxAmount(formatIDR(t.amount));
     setTxDesc(t.description);
     setTxCardId(t.cardId);
+    // Fix: Updated setter call to use setTxDate
     setTxDate(t.date.split('T')[0]);
     setTxCategory(t.category || TRANSACTION_CATEGORIES[0]);
     setTxIsInstallment(!!t.isInstallment);
@@ -828,7 +830,7 @@ const App: React.FC = () => {
              <div className="space-y-8 animate-in fade-in">
                 <div className="grid grid-cols-3 gap-6">
                    <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
-                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
+                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
                       <div className="mt-4 pt-4 border-t border-white/20"><div className="flex justify-between text-xs opacity-80 mb-1"><span>Total Tabungan</span><span>{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</span></div><div className="flex justify-between text-sm font-black"><span>Sisa Hutang (Gap)</span><span>{showAmounts ? formatIDR(currentDebtGap) : '••••'}</span></div></div>
                    </div>
                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center"><p className="text-slate-400 dark:text-slate-500 text-sm mb-1">Total Tabungan (Tersedia)</p><h3 className="text-3xl font-bold text-success">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}</h3></div>
@@ -978,7 +980,7 @@ const App: React.FC = () => {
             <div className="space-y-6 animate-in fade-in pb-8">
               <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
                 <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button></div>
+                <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</button></div>
                 <h3 className="text-3xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
                 <div className="space-y-3 pt-5 border-t border-white/10 relative z-10">
                   <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest">Total Simpanan</p><p className="font-bold text-base">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
@@ -1077,14 +1079,14 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Improved Bottom Navigation for iOS PWA */}
-        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 z-[60] shadow-[0_-4px_10px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'max(var(--sab), 12px)' }}>
-          <div className="h-[64px] flex justify-between items-center">
-            <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-            <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
-            <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
-            <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahunan</span></button>
-            <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
+        {/* Improved Bottom Navigation Flush with iOS Safe Area */}
+        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'calc(var(--sab) + 16px)' }}>
+          <div className="h-[56px] px-6 flex justify-between items-center">
+            <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
+            <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
+            <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
+            <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahunan</span></button>
+            <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
           </div>
         </nav>
       </div>

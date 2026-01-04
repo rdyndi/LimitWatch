@@ -55,8 +55,9 @@
 
     <style>
       :root {
-        --sat: env(safe-area-inset-top, 0px);
-        --sab: env(safe-area-inset-bottom, 0px);
+        /* Support for both modern env() and older constant() for iOS */
+        --sat: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
+        --sab: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
       }
 
       body {
