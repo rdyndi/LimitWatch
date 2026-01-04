@@ -222,7 +222,7 @@ const App: React.FC = () => {
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txIsInstallment, setTxIsInstallment] = useState(false);
   const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
-  const [txUseSavings, setTxUseSavings] = useState(false);
+  const [txUseSavings, setTxUseSavings] = useState(true);
   const [txTargetMonth, setTxTargetMonth] = useState(new Date().getMonth());
   const [txTargetYear, setTxTargetYear] = useState(new Date().getFullYear());
 
@@ -437,10 +437,12 @@ const App: React.FC = () => {
     }
   };
 
-  const availableSavingsForCard = useMemo(() => {
+  const availableSavingsForPeriod = useMemo(() => {
     if (!txCardId) return 0;
-    return data.savings.filter(s => s.cardId === txCardId && !s.isTransferred).reduce((sum, s) => sum + s.amount, 0);
-  }, [data.savings, txCardId]);
+    return data.savings
+      .filter(s => s.cardId === txCardId && !s.isTransferred && s.targetPeriod?.month === txTargetMonth && s.targetPeriod?.year === txTargetYear)
+      .reduce((sum, s) => sum + s.amount, 0);
+  }, [data.savings, txCardId, txTargetMonth, txTargetYear]);
 
   const openEditTransaction = (t: Transaction) => {
     setEditingTransaction(t);
@@ -451,7 +453,7 @@ const App: React.FC = () => {
     setTxDate(t.date.split('T')[0]);
     setTxCategory(t.category || TRANSACTION_CATEGORIES[0]);
     setTxIsInstallment(!!t.isInstallment);
-    setTxUseSavings(false);
+    setTxUseSavings(true);
     if (t.targetPeriod) {
       setTxTargetMonth(t.targetPeriod.month);
       setTxTargetYear(t.targetPeriod.year);
@@ -694,16 +696,32 @@ const App: React.FC = () => {
     e.preventDefault(); const amountVal = getNumericValue(txAmount); if (!txCardId) return;
     let finalAmount = Math.ceil(amountVal); let finalDesc = txDesc;
     let updatedSavings = [...data.savings]; let updatedInstallments = [...data.installments];
-    if (txType === TransactionType.EXPENSE) { if (amountVal <= 0 || !txDesc) return; }
-    else {
-       const totalPayment = Math.ceil(amountVal + (txUseSavings ? availableSavingsForCard : 0));
-       if (totalPayment <= 0) return; finalAmount = totalPayment;
+    
+    if (txType === TransactionType.EXPENSE) { 
+       if (amountVal <= 0 || !txDesc) return; 
+    } else {
+       // Logika Pembayaran
+       const savingsUsed = txUseSavings ? availableSavingsForPeriod : 0;
+       const totalPaymentReduction = Math.ceil(amountVal + savingsUsed);
+       if (totalPaymentReduction <= 0) return; 
+       
+       finalAmount = totalPaymentReduction;
        if (!finalDesc) finalDesc = `Bayar Tagihan ${monthNames[txTargetMonth]} ${txTargetYear}`;
-       if (txUseSavings) updatedSavings = data.savings.map(s => s.cardId === txCardId ? { ...s, isTransferred: true } : s);
+       
+       // Mark specific period savings as transferred
+       if (txUseSavings && savingsUsed > 0) {
+          updatedSavings = data.savings.map(s => 
+            (s.cardId === txCardId && !s.isTransferred && s.targetPeriod?.month === txTargetMonth && s.targetPeriod?.year === txTargetYear) 
+            ? { ...s, isTransferred: true } 
+            : s
+          );
+       }
     }
+    
     if (txIsInstallment && txType === TransactionType.EXPENSE && (!editingTransaction || !editingTransaction.isInstallment)) {
           updatedInstallments = [{ id: generateId(), cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / txInstallmentMonths), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString() }, ...updatedInstallments];
     }
+    
     if (editingTransaction) {
       const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined } : t);
       saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
@@ -897,31 +915,29 @@ const App: React.FC = () => {
                           <div>
                             <h4 className="font-bold text-slate-800 dark:text-slate-100">{m.monthName}</h4>
                             {m.totalMonthGap > 0 ? (
-                              <p className="text-[10px] font-black text-danger uppercase mt-0.5 tracking-tight">Sisa Kekurangan: {showAmounts ? formatIDR(m.totalMonthGap) : '••••'}</p>
+                              <p className="text-[10px] font-black text-danger uppercase mt-0.5 tracking-tight">Kekurangan: {showAmounts ? formatIDR(m.totalMonthGap) : '••••'}</p>
                             ) : m.totalMonthBill > 0 ? (
-                              <p className="text-[10px] font-black text-success uppercase mt-0.5 tracking-tight">Sudah Tercover Lunas</p>
+                              <p className="text-[10px] font-black text-success uppercase mt-0.5 tracking-tight">Tercover Lunas</p>
                             ) : null}
                           </div>
                           <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{m.cardsEstimates.length} Item</span>
                        </div>
-                       <div className="p-5 space-y-5 flex-1">
+                       <div className="p-5 space-y-4 flex-1">
                           {m.cardsEstimates.map((ce, i) => (
                             <div key={i} className="space-y-2 pb-2 border-b border-slate-50 dark:border-slate-800 last:border-0 last:pb-0">
                                <div className="flex justify-between items-center">
                                   <div className="flex items-center gap-2">
-                                     <div className={`w-2 h-2 rounded-full ${ce.color}`}></div>
+                                     <div className={`w-2.5 h-2.5 rounded-full ${ce.color}`}></div>
                                      <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">{ce.cardName}</span>
                                   </div>
                                   {ce.gap > 0 ? (
-                                    <span className="text-[9px] font-black text-danger bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded uppercase">GAP: {showAmounts ? formatIDR(ce.gap) : '••••'}</span>
+                                    <span className="text-[10px] font-black text-danger">Sisa: {showAmounts ? formatIDR(ce.gap) : '••••'}</span>
                                   ) : (
-                                    <span className="text-[9px] font-black text-success bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded uppercase">LUNAS</span>
+                                    <span className="text-[10px] font-black text-success">LUNAS</span>
                                   )}
                                </div>
-                               <div className="flex justify-between text-[10px]">
-                                  <div className="flex flex-col"><span className="text-slate-400 font-bold uppercase text-[8px]">Hutang</span><span className="font-bold text-slate-700 dark:text-slate-300">{showAmounts ? formatIDR(ce.bill) : '••••'}</span></div>
-                                  <div className="flex flex-col items-center"><span className="text-slate-400 font-bold uppercase text-[8px]">Tabung</span><span className="font-bold text-success">{showAmounts ? formatIDR(ce.saved) : '••••'}</span></div>
-                                  <div className="flex flex-col items-end"><span className="text-slate-400 font-bold uppercase text-[8px]">Sisa</span><span className={`font-black ${ce.gap > 0 ? 'text-danger' : 'text-slate-400'}`}>{showAmounts ? formatIDR(ce.gap) : '••••'}</span></div>
+                               <div className="w-full h-1.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div className={`h-full transition-all duration-700 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
                                </div>
                             </div>
                           ))}
@@ -1102,11 +1118,41 @@ const App: React.FC = () => {
                  {txType === TransactionType.PAYMENT ? (
                     <div className="space-y-6 animate-in slide-in-from-top-2">
                        <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Bulan</label><select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select></div><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Tahun</label><input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold" /></div></div>
-                       <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 flex justify-between items-center"><div><p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Tagihan Periode Ini</p><p className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(getMonthlyBill(txCardId, txTargetMonth, txTargetYear)) : '••••••••'}</p></div><button type="button" onClick={() => setTxAmount(formatIDR(getMonthlyBill(txCardId, txTargetMonth, txTargetYear)))} className="text-xs font-black text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 rounded-[16px] active:scale-95 transition">Pilih Semua</button></div>
+                       <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 flex flex-col gap-4">
+                          <div className="flex justify-between items-center">
+                             <div><p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Tagihan Periode Ini</p><p className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(getMonthlyBill(txCardId, txTargetMonth, txTargetYear)) : '••••••••'}</p></div>
+                             <button type="button" onClick={() => {
+                                const bill = getMonthlyBill(txCardId, txTargetMonth, txTargetYear);
+                                const available = availableSavingsForPeriod;
+                                setTxAmount(formatIDR(Math.max(0, bill - available)));
+                                setTxUseSavings(true);
+                             }} className="text-xs font-black text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 rounded-[16px] active:scale-95 transition">Pilih Sisa</button>
+                          </div>
+                          {availableSavingsForPeriod > 0 && (
+                            <label className="flex items-center gap-3 p-4 bg-white dark:bg-slate-700 rounded-2xl cursor-pointer border-2 border-transparent hover:border-primary transition group">
+                               <div className="relative flex items-center">
+                                  <input type="checkbox" checked={txUseSavings} onChange={(e)=>setTxUseSavings(e.target.checked)} className="peer h-5 w-5 opacity-0 absolute cursor-pointer" />
+                                  <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition peer-checked:bg-primary peer-checked:border-primary ${txUseSavings ? 'bg-primary border-primary' : 'border-slate-300 dark:border-slate-500'}`}>
+                                     {txUseSavings && <Check size={14} className="text-white" />}
+                                  </div>
+                               </div>
+                               <div className="flex-1 flex justify-between items-center">
+                                  <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase">Gunakan Tabungan:</span>
+                                  <span className="text-xs font-black text-success">{formatIDR(availableSavingsForPeriod)}</span>
+                               </div>
+                            </label>
+                          )}
+                       </div>
                     </div>
                  ) : (<div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Kategori</label><select value={txCategory} onChange={(e)=>setTxCategory(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{TRANSACTION_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>)}
+                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">{txType === TransactionType.PAYMENT ? 'Nominal Tambahan (Sisa)' : 'Nominal'}</label><input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className="w-full text-4xl font-black p-2 border-b-[4px] border-slate-50 dark:border-slate-800 outline-none focus:border-primary bg-transparent text-slate-800 dark:text-slate-100" /></div>
+                 {txType === TransactionType.PAYMENT && (
+                    <div className="text-right">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL PELUNASAN RECORDED:</p>
+                       <p className="text-lg font-black text-primary">{formatIDR(getNumericValue(txAmount) + (txUseSavings ? availableSavingsForPeriod : 0))}</p>
+                    </div>
+                 )}
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Keterangan</label><input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder="Misal: Makan Siang" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-transparent border-2 focus:border-primary outline-none transition font-bold" /></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nominal</label><input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className="w-full text-4xl font-black p-2 border-b-[4px] border-slate-50 dark:border-slate-800 outline-none focus:border-primary bg-transparent text-slate-800 dark:text-slate-100" /></div>
                  <div className="space-y-4 pt-6"><button type="submit" className="w-full py-5 bg-primary text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Konfirmasi Transaksi</button>{editingTransaction && (<button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-5 bg-red-50 dark:bg-red-900/20 text-danger font-black rounded-[24px] border border-red-100 dark:border-red-900/40 flex items-center justify-center gap-2 active:bg-red-100 dark:active:bg-red-900/50 transition"><Trash2 size={20}/> Hapus Transaksi</button>)}</div>
              </form>
            </div>
@@ -1120,7 +1166,7 @@ const App: React.FC = () => {
              <form onSubmit={handleSaveSaving} className="space-y-6">
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Pelunasan</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nominal</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-2xl font-black p-2 border-b-[3px] border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100" /></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold"/></div></div>
+                 <div className="space-y-1"><label className="text-[10px) font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold"/></div></div>
                  <div className="space-y-3 pt-4"><button type="submit" className="w-full py-5 bg-success text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Amankan Dana</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full py-5 bg-red-50 dark:bg-red-900/20 text-danger font-black rounded-[24px] border border-red-100 dark:border-red-900/40 flex items-center justify-center gap-2 active:bg-red-100 dark:active:bg-red-900/50 transition"><Trash2 size={18}/> Hapus Catatan</button>)}</div>
              </form>
            </div>
@@ -1134,7 +1180,7 @@ const App: React.FC = () => {
                 <div className="bg-white dark:bg-slate-900 p-5 border-b border-slate-100 dark:border-slate-800 flex gap-4 shrink-0 shadow-sm"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-28 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none" /></div>
                 <div className="bg-white dark:bg-slate-900 p-5 border-b border-slate-100 dark:border-slate-800 flex gap-3 shrink-0 overflow-x-auto no-scrollbar">
                    <button type="button" onClick={() => { setTxType(TransactionType.EXPENSE); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 dark:text-slate-200 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-slate-200 dark:active:bg-slate-700 transition">Pakai</button>
-                   <button type="button" onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(getMonthlyBill(activeStatementCard.id, statementMonth, statementYear))); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-blue-100 dark:active:bg-blue-900/50 transition">Bayar</button>
+                   <button type="button" onClick={() => { setTxType(TransactionType.PAYMENT); setTxCardId(activeStatementCard.id); setTxTargetMonth(statementMonth); setTxTargetYear(statementYear); setTxAmount(formatIDR(Math.max(0, getMonthlyBill(activeStatementCard.id, statementMonth, statementYear) - (data.savings.filter(s => s.cardId === activeStatementCard.id && !s.isTransferred && s.targetPeriod?.month === statementMonth && s.targetPeriod?.year === statementYear).reduce((sum, s) => sum + s.amount, 0))))); setTxUseSavings(true); setTransactionModalOpen(true); }} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-blue-100 dark:active:bg-blue-900/50 transition">Bayar</button>
                    <button type="button" onClick={() => { setSavingCardId(activeStatementCard.id); setSavingTargetMonth(statementMonth); setSavingTargetYear(statementYear); setSavingModalOpen(true); }} className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 px-5 py-3 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap active:bg-emerald-100 dark:active:bg-emerald-900/50 transition">Tabung</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-24 bg-white dark:bg-slate-900">
@@ -1175,7 +1221,7 @@ const App: React.FC = () => {
                             <h5 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-5 ml-2">CICILAN AKTIF</h5>
                             <div className="space-y-4">
                               {s.installments.map(inst => (
-                                <div key={inst.id} className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-50 dark:border-slate-700 shadow-sm flex justify-between items-center">
+                                <div key={inst.id} className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex justify-between items-center">
                                   <div><p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{inst.name}</p><p className="text-[10px] text-primary dark:text-blue-400 font-black uppercase mt-1">TENOR {inst.currentTenor}/{inst.totalMonths}</p></div>
                                   <div className="flex items-center gap-3">
                                     <span className="font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(inst.monthlyAmount) : '••••••••'}</span>
