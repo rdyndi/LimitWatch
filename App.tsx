@@ -155,8 +155,8 @@ const PinKeypad = ({ onAction }: { onAction: (val: string) => void }) => {
   );
 };
 
-const PinIndicators = ({ length, isError }: { length: number, isError: boolean }) => (
-  <div className={`flex gap-5 justify-center mt-6 ${isError ? 'animate-shake' : ''}`}>
+const PinIndicators = ({ length, iError }: { length: number, iError: boolean }) => (
+  <div className={`flex gap-5 justify-center mt-6 ${iError ? 'animate-shake' : ''}`}>
     {[...Array(6)].map((_, i) => (<div key={i} className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${i < length ? 'bg-slate-800 dark:bg-slate-100 border-slate-800 dark:border-slate-100 scale-110' : 'border-slate-300 dark:border-slate-700'}`}></div>))}
   </div>
 );
@@ -526,8 +526,11 @@ const App: React.FC = () => {
           if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
           const billing = getBillingPeriod(t.date, card?.dueDay);
           return billing.month === month && billing.year === year;
-      });
-      const cardPayments = data.transactions.filter(t => t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === month && t.targetPeriod?.year === year);
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const cardPayments = data.transactions.filter(t => t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === month && t.targetPeriod?.year === year)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
       const cardSavings = data.savings.filter(s => s.cardId === cardId && !s.isTransferred && s.targetPeriod?.month === month && s.targetPeriod?.year === year);
       const activeInstallments = data.installments.filter(inst => {
           const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
@@ -758,7 +761,7 @@ const App: React.FC = () => {
         <div className="w-16 h-16 bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-950 rounded-2xl flex items-center justify-center mb-10 shadow-xl"><Lock size={32} /></div>
         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Masukkan PIN</h2>
         <p className={`text-sm font-bold mt-2 transition-colors ${pinError ? 'text-danger' : 'text-slate-400 dark:text-slate-500'}`}>{pinError ? 'PIN Salah, coba lagi' : 'Sesi terkunci karena tidak ada aktivitas'}</p>
-        <PinIndicators length={pinInput.length} isError={pinError} /><PinKeypad onAction={(val) => val === "DEL" ? deletePinInput() : handlePinInput(val)} />
+        <PinIndicators length={pinInput.length} iError={pinError} /><PinKeypad onAction={(val) => val === "DEL" ? deletePinInput() : handlePinInput(val)} />
         <button type="button" onClick={handleLogout} className="mt-12 text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest hover:text-danger transition">Keluar Sesi</button>
       </div>
     );
@@ -771,7 +774,7 @@ const App: React.FC = () => {
         <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mb-10 shadow-xl"><ShieldCheck size={32} /></div>
         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{setupPinStep === 'ENTER_NEW' ? 'Set PIN Baru' : 'Konfirmasi PIN'}</h2>
         <p className="text-sm font-bold text-slate-400 dark:text-slate-500 mt-2">{setupPinStep === 'ENTER_NEW' ? 'Gunakan PIN 6-digit untuk keamanan' : 'Masukkan kembali PIN yang Anda buat'}</p>
-        <PinIndicators length={pinInput.length} isError={false} /><PinKeypad onAction={(val) => val === "DEL" ? deletePinInput() : handleSetupPin(val)} />
+        <PinIndicators length={pinInput.length} iError={false} /><PinKeypad onAction={(val) => val === "DEL" ? deletePinInput() : handleSetupPin(val)} />
       </div>
     );
   }
@@ -1166,7 +1169,7 @@ const App: React.FC = () => {
              <form onSubmit={handleSaveSaving} className="space-y-6">
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Pelunasan</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nominal</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-2xl font-black p-2 border-b-[3px] border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100" /></div>
-                 <div className="space-y-1"><label className="text-[10px) font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold"/></div></div>
+                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold"/></div></div>
                  <div className="space-y-3 pt-4"><button type="submit" className="w-full py-5 bg-success text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Amankan Dana</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full py-5 bg-red-50 dark:bg-red-900/20 text-danger font-black rounded-[24px] border border-red-100 dark:border-red-900/40 flex items-center justify-center gap-2 active:bg-red-100 dark:active:bg-red-900/50 transition"><Trash2 size={18}/> Hapus Catatan</button>)}</div>
              </form>
            </div>
