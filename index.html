@@ -55,40 +55,35 @@
 
     <style>
       :root {
-        --sab: env(safe-area-inset-bottom, 0px);
+        /* Default safe areas if browser doesn't support env() */
         --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
       }
 
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f8fafc;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        overflow: hidden;
         margin: 0;
         padding: 0;
+        height: 100dvh;
+        width: 100%;
+        overflow: hidden;
       }
       
       .dark body {
         background-color: #020617;
       }
 
-      ::-webkit-scrollbar {
-        display: none;
-      }
-
-      html, body {
-        height: 100%;
+      html {
         height: 100dvh;
-        width: 100%;
-        position: fixed;
         overflow: hidden;
       }
 
       #root {
         height: 100%;
         width: 100%;
-        overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
 
       .no-scrollbar::-webkit-scrollbar {
@@ -102,6 +97,7 @@
       * {
         transition-property: background-color, border-color, color, fill, stroke;
         transition-duration: 200ms;
+        -webkit-tap-highlight-color: transparent;
       }
     </style>
   <script type="importmap">
