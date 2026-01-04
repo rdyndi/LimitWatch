@@ -962,7 +962,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto no-scrollbar pb-24 px-5 pt-4 space-y-6" ref={scrollRef}>
+        <main className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 space-y-6" style={{ paddingBottom: 'calc(90px + var(--sab))' }} ref={scrollRef}>
           {mobileTab === 'home' && (
             <div className="space-y-6 animate-in fade-in">
               <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative">
@@ -996,7 +996,7 @@ const App: React.FC = () => {
           )}
 
           {mobileTab === 'history' && (
-            <div className="space-y-6 animate-in fade-in pb-10">
+            <div className="space-y-6 animate-in fade-in">
               <div className="space-y-4">
                 <div className="flex items-center justify-between"><h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight flex items-center gap-2"><Filter size={16} className="text-primary"/> Filter Riwayat</h3><span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-lg">{filteredTransactions.length} Transaksi</span></div>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -1017,7 +1017,7 @@ const App: React.FC = () => {
           )}
 
           {mobileTab === 'yearly' && (
-            <div className="space-y-6 animate-in fade-in pb-10">
+            <div className="space-y-6 animate-in fade-in">
               <div className="bg-[#1a2332] rounded-[32px] p-7 text-white shadow-2xl space-y-7">
                 <div className="flex justify-between items-center"><div className="flex items-center gap-3"><Calendar className="text-blue-400" size={24} /><span className="text-lg font-black tracking-tight">Tahun {yearlySelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setYearlySelectedYear(y => y - 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronLeft size={18}/></button><button type="button" onClick={() => setYearlySelectedYear(y => y + 1)} className="p-2.5 bg-white/10 rounded-xl active:bg-white/20 transition"><ChevronRight size={18}/></button></div></div>
                 <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Proyeksi</p><p className="text-xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••••••'}</p></div><div className="text-right space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dana Siap</p><p className="text-xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••••••'}</p></div></div>
@@ -1050,7 +1050,7 @@ const App: React.FC = () => {
           )}
 
           {mobileTab === 'savings' && (
-            <div className="space-y-6 animate-in fade-in pb-10">
+            <div className="space-y-6 animate-in fade-in">
               <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 text-white shadow-xl">
                  <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-lg font-black tracking-tight">Tahun {savingsSelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button><button type="button" onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button></div></div>
                  <div className="space-y-1"><p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">Total Simpanan Tahun Ini</p><h3 className="text-3xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3></div>
@@ -1065,12 +1065,12 @@ const App: React.FC = () => {
           )}
         </main>
 
-        <nav className="flex-none h-[calc(70px+var(--sab))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-center z-[60] pb-[var(--sab)] shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
-          <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
-          <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
-          <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
-          <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
-          <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
+        <nav className="flex-none h-[calc(65px+var(--sab))] bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex justify-between items-start pt-2 z-[60] pb-[var(--sab)] shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+          <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Beranda</span></button>
+          <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Hutang</span></button>
+          <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tabung</span></button>
+          <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Tahunan</span></button>
+          <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400 scale-110' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter">Riwayat</span></button>
         </nav>
       </div>
 
