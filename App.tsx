@@ -800,7 +800,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
-      {/* --- DESKTOP VIEW (Preserved) --- */}
+      {/* --- DESKTOP VIEW --- */}
       <div className="hidden md:flex h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
         <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20 shadow-sm">
            <div className="h-20 flex items-center px-8 border-b border-slate-50 dark:border-slate-800"><div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center mr-3 shadow-md"><Wallet size={18} /></div><span className="font-bold text-xl text-slate-800 dark:text-slate-100">LimitWatch</span></div>
@@ -955,9 +955,9 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* --- MOBILE VIEW (Revised Layout for iOS PWA) --- */}
-      <div className="md:hidden flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
-        {/* Header: Locked with Safe-Area Top */}
+      {/* --- MOBILE VIEW (Revised Layout for iOS PWA Stability) --- */}
+      <div className="md:hidden flex flex-col h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
+        {/* Header: Fixed Height + Safe-Area Top */}
         <header 
           className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" 
           style={{ paddingTop: 'var(--sat)' }}
@@ -979,10 +979,10 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Main: The only scrollable area. Isolated from safe-area bottom. */}
+        {/* Main: The only scrollable area. Isolated padding bottom to clear fixed nav. */}
         <main 
           className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4" 
-          style={{ paddingBottom: '80px' }} 
+          style={{ paddingBottom: 'calc(56px + var(--sab) + 20px)' }}
           ref={scrollRef}
         >
           {mobileTab === 'home' && (
@@ -1088,7 +1088,7 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Bottom Navigation: Positioned FIXED outside flex flow */}
+        {/* Bottom Navigation: Fixed Position + Safe-Area Padding Bottom */}
         <nav 
           className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
           style={{ height: 'calc(56px + var(--sab))', paddingBottom: 'var(--sab)' }}
@@ -1103,7 +1103,7 @@ const App: React.FC = () => {
         </nav>
       </div>
 
-      {/* --- MODALS (Preserved) --- */}
+      {/* --- MODALS --- */}
       {profileModalOpen && (
          <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">

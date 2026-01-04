@@ -54,8 +54,8 @@
 
     <style>
       :root {
-        --sat: env(safe-area-inset-top);
-        --sab: env(safe-area-inset-bottom);
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
       }
 
       html, body {
@@ -63,7 +63,7 @@
         width: 100%;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: hidden; /* Lock root scrolling */
         background-color: #f8fafc;
         font-family: 'Inter', sans-serif;
         -webkit-tap-highlight-color: transparent;
