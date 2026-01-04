@@ -954,8 +954,8 @@ const App: React.FC = () => {
       </div>
 
       {/* --- MOBILE VIEW --- */}
-      <div className="md:hidden flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
-        {/* Header: Locked to Top with Safe Area */}
+      <div className="md:hidden flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
+        {/* Header with safe-area top */}
         <header 
           className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" 
           style={{ paddingTop: 'var(--sat)' }}
@@ -977,10 +977,10 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Scrollable Content: Isolated from Bottom Nav and Safe Area */}
+        {/* Scrollable Main Area (Isolated from nav and safe-area bottom) */}
         <main 
           className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4" 
-          style={{ paddingBottom: '80px' }} // 56px nav + 24px extra buffer
+          style={{ paddingBottom: '80px' }} 
           ref={scrollRef}
         >
           {mobileTab === 'home' && (
@@ -1086,7 +1086,7 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Bottom Navigation: Positioned FIXED at absolute bottom */}
+        {/* Bottom Navigation with safe-area bottom */}
         <nav 
           className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
           style={{ height: 'calc(56px + var(--sab))', paddingBottom: 'var(--sab)' }}
@@ -1101,7 +1101,7 @@ const App: React.FC = () => {
         </nav>
       </div>
 
-      {/* --- MODALS --- */}
+      {/* --- MODALS (Unchanged Logic) --- */}
       {profileModalOpen && (
          <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
            <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">
