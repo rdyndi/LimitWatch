@@ -1077,9 +1077,9 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* Bottom Navigation with Optimized Safe Area Padding */}
-        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 z-[60] shadow-[0_-4px_10px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'calc(var(--sab) + 12px)', paddingTop: '12px' }}>
-          <div className="flex justify-between items-center">
+        {/* Improved Bottom Navigation for iOS PWA */}
+        <nav className="flex-none bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 z-[60] shadow-[0_-4px_10px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'max(var(--sab), 12px)' }}>
+          <div className="h-[64px] flex justify-between items-center">
             <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
             <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
             <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1.5 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={26} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
@@ -1092,7 +1092,7 @@ const App: React.FC = () => {
       {/* --- MODALS --- */}
       {profileModalOpen && (
          <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">
+           <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-8 flex flex-col items-center border-b border-slate-100 dark:border-slate-800 relative"><button type="button" onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-24 h-24 rounded-full border-[6px] border-white dark:border-slate-900 shadow-xl overflow-hidden flex items-center justify-center mb-5">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'User'}</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{user.email}</p></div>
               <div className="p-3">
                  <MobileMenuButton icon={data.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>} label={data.theme === 'dark' ? 'Gunakan Light Mode' : 'Gunakan Dark Mode'} onClick={toggleTheme} />
