@@ -1,4 +1,3 @@
-
 export enum DebtType {
   CREDIT_CARD = 'CREDIT_CARD',
   OTHER_DEBT = 'OTHER_DEBT', // Misal: Pinjaman, Hutang Teman, dll.
@@ -67,4 +66,16 @@ export interface AppState {
   };
 }
 
-export type ViewMode = 'DASHBOARD' | 'TRANSACTIONS' | 'SAVINGS' | 'CARDS' | 'INSTALLMENTS' | 'YEARLY' | 'ACCOUNT';
+export type ViewMode = 
+  | 'DASHBOARD' 
+  | 'TRANSACTIONS' 
+  | 'SAVINGS' 
+  | 'CARDS' 
+  | 'INSTALLMENTS' 
+  | 'YEARLY' 
+  | 'ACCOUNT'
+  | 'FORM_TRANSACTION'
+  | 'FORM_CARD'
+  | 'FORM_SAVING'
+  | 'VIEW_STATEMENT'
+  | 'VIEW_PROFILE';

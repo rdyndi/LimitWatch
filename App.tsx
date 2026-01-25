@@ -6,7 +6,8 @@ import {
   TransactionType,
   CreditCard as CreditCardType,
   Saving,
-  DebtType
+  DebtType,
+  ViewMode
 } from "./types";
 import { 
   loginWithGoogle, 
@@ -33,38 +34,27 @@ import {
   Pencil, 
   Trash2,
   Vault,
-  ArrowUpRight,
-  ArrowDownLeft,
-  ChevronDown,
   AlertCircle,
   Bell,
-  Check,
-  FileText,
-  Filter,
   CheckCircle2,
-  Coins,
   CalendarRange,
-  TrendingUp,
   ChevronLeft,
-  BarChart3,
   PieChart,
-  Settings,
   ShieldCheck,
-  Info,
-  HelpCircle,
   Briefcase,
   Loader2,
   Receipt,
   Plus,
   Eye,
   EyeOff,
-  ChevronUp,
-  Clock,
+  ChevronDown,
   Lock,
   Delete,
-  RotateCcw,
   Moon,
-  Sun
+  Sun,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Info
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -122,19 +112,37 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 
 // --- Sub-components ---
 
+const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
+  <header className={`flex-none bg-white dark:bg-slate-900 border-b dark:border-slate-800 z-[60] sticky top-0 ${className}`} style={{ paddingTop: 'var(--sat, 0px)' }}>
+    <div className="px-5 md:px-8 h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
+      <div className="flex items-center gap-3">
+        {onBack && (
+          <button onClick={onBack} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+            <ChevronLeft size={24} />
+          </button>
+        )}
+        <h2 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 leading-none truncate max-w-[200px] md:max-w-md">{title}</h2>
+      </div>
+      <div className="flex items-center gap-2">
+        {rightElement}
+      </div>
+    </div>
+  </header>
+);
+
 const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
-  <button type="button" onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
+  <button type="button" onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 translate-x-1' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
     <span className={active ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}>{icon}</span>{label}
   </button>
 );
 
 const MobileMenuButton = ({ icon, label, onClick, danger = false, rightElement }: { icon: React.ReactNode, label: string, onClick: () => void, danger?: boolean, rightElement?: React.ReactNode }) => (
-  <button type="button" onClick={(e) => { e.preventDefault(); onClick(); }} className={`w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800 last:border-0 active:bg-slate-100 dark:active:bg-slate-800 transition`}>
-     <div className="flex items-center gap-4 pointer-events-none">
+  <button type="button" onClick={onClick} className={`w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800 last:border-0 active:bg-slate-100 dark:active:bg-slate-800 transition`}>
+     <div className="flex items-center gap-4">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-red-50 dark:bg-red-900/20 text-danger' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>{icon}</div>
         <span className={`text-sm font-bold ${danger ? 'text-danger' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
      </div>
-     <div className="flex items-center gap-2 pointer-events-none">
+     <div className="flex items-center gap-2">
         {rightElement}
         <ChevronRight size={18} className={danger ? 'text-red-300 dark:text-red-800' : 'text-slate-300 dark:text-slate-600'} />
      </div>
@@ -183,15 +191,10 @@ const App: React.FC = () => {
   const [isMobileDevice, setIsMobileDevice] = useState(window.innerWidth < 768);
   
   const [showAmounts, setShowAmounts] = useState(true);
-  const [transactionModalOpen, setTransactionModalOpen] = useState(false);
-  const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [savingModalOpen, setSavingModalOpen] = useState(false);
-  const [statementModalOpen, setStatementModalOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [savingsHistoryModalOpen, setSavingsHistoryModalOpen] = useState(false);
-  const [selectedSavingsHistory, setSelectedSavingsHistory] = useState<{ cardName: string, cardColor: string, monthName: string, year: number, items: Saving[] } | null>(null);
   
-  const [mobileTab, setMobileTab] = useState<'home' | 'cards' | 'savings' | 'yearly' | 'history'>('home');
+  const [currentView, setCurrentView] = useState<ViewMode>('DASHBOARD');
+  const [viewStack, setViewStack] = useState<ViewMode[]>(['DASHBOARD']);
+
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
@@ -238,7 +241,28 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // Navigation Logic
+  const pushView = (view: ViewMode) => {
+    setViewStack(prev => [...prev, view]);
+    setCurrentView(view);
+  };
+
+  const popView = () => {
+    if (viewStack.length > 1) {
+      const newStack = [...viewStack];
+      newStack.pop();
+      setViewStack(newStack);
+      setCurrentView(newStack[newStack.length - 1]);
+    } else {
+      setCurrentView('DASHBOARD');
+      setViewStack(['DASHBOARD']);
+    }
+  };
+
+  const navigateToRoot = (view: ViewMode) => {
+    setCurrentView(view);
+    setViewStack([view]);
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobileDevice(window.innerWidth < 768);
@@ -374,7 +398,7 @@ const App: React.FC = () => {
     if (window.confirm("Apakah Anda yakin ingin keluar?")) {
       await logout();
       setUser(null);
-      setProfileModalOpen(false);
+      navigateToRoot('DASHBOARD');
       setData({ cards: [], transactions: [], installments: [], savings: [], theme: 'light', security: { pin: null, isPinEnabled: false } });
       document.documentElement.classList.remove('dark');
     }
@@ -392,26 +416,11 @@ const App: React.FC = () => {
     saveData({ ...data, transactions: updated });
   };
 
-  const toggleInstallmentValidation = (id: string, month: number, year: number) => {
-    const key = `${year}-${String(month).padStart(2, '0')}`;
-    const updated = data.installments.map(inst => {
-      if (inst.id === id) {
-        const validated = inst.validatedTenors || [];
-        const newValidated = validated.includes(key) 
-          ? validated.filter(v => v !== key) 
-          : [...validated, key];
-        return { ...inst, validatedTenors: newValidated };
-      }
-      return inst;
-    });
-    saveData({ ...data, installments: updated });
-  };
-
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm("Hapus transaksi ini secara permanen?")) {
       const updatedTx = data.transactions.filter(t => t.id !== id);
       saveData({ ...data, transactions: updatedTx });
-      setTransactionModalOpen(false);
+      popView();
       setEditingTransaction(null);
     }
   };
@@ -420,18 +429,7 @@ const App: React.FC = () => {
     if (window.confirm("Hapus catatan tabungan ini?")) {
       const updatedSavings = data.savings.filter(s => s.id !== id);
       saveData({ ...data, savings: updatedSavings });
-      
-      if (selectedSavingsHistory) {
-         const newItems = selectedSavingsHistory.items.filter(item => item.id !== id);
-         if (newItems.length === 0) {
-           setSavingsHistoryModalOpen(false);
-           setSelectedSavingsHistory(null);
-         } else {
-           setSelectedSavingsHistory({ ...selectedSavingsHistory, items: newItems });
-         }
-      }
-      
-      setSavingModalOpen(false);
+      popView();
       setEditingSaving(null);
     }
   };
@@ -457,7 +455,7 @@ const App: React.FC = () => {
       setTxTargetMonth(t.targetPeriod.month);
       setTxTargetYear(t.targetPeriod.year);
     }
-    setTransactionModalOpen(true);
+    pushView('FORM_TRANSACTION');
   };
 
   const openEditSaving = (s: Saving) => {
@@ -469,7 +467,7 @@ const App: React.FC = () => {
       setSavingTargetMonth(s.targetPeriod.month);
       setSavingTargetYear(s.targetPeriod.year);
     }
-    setSavingModalOpen(true);
+    pushView('FORM_SAVING');
   };
 
   const openStatement = (card: CreditCardType) => {
@@ -485,7 +483,7 @@ const App: React.FC = () => {
         setStatementMonth(today.getMonth());
         setStatementYear(today.getFullYear());
     }
-    setStatementModalOpen(true);
+    pushView('VIEW_STATEMENT');
   };
 
   const getCardBalance = (cardId: string) => {
@@ -691,7 +689,7 @@ const App: React.FC = () => {
       const newCard: CreditCardType = { id: generateId(), name: cardName, limit: limitVal, color: cardColor, dueDay: cardDue ? parseInt(cardDue) : undefined, type: cardType, eStatementFee: estFeeVal };
       saveData({ ...data, cards: [...data.cards, newCard] });
     }
-    setCardModalOpen(false);
+    popView();
   };
 
   const handleSaveTransaction = (e: React.FormEvent) => {
@@ -702,15 +700,13 @@ const App: React.FC = () => {
     if (txType === TransactionType.EXPENSE) { 
        if (amountVal <= 0 || !txDesc) return; 
     } else {
-       // Logika Pembayaran
        const savingsUsed = txUseSavings ? availableSavingsForPeriod : 0;
        const totalPaymentReduction = Math.ceil(amountVal + savingsUsed);
        if (totalPaymentReduction <= 0) return; 
        
        finalAmount = totalPaymentReduction;
-       if (!finalDesc) finalDesc = `Bayar Tagihan ${monthNames[txTargetMonth]} ${txTargetYear}`;
+       if (!finalDesc) finalDesc = `Pelunasan ${monthNames[txTargetMonth]} ${txTargetYear}`;
        
-       // Mark specific period savings as transferred
        if (txUseSavings && savingsUsed > 0) {
           updatedSavings = data.savings.map(s => 
             (s.cardId === txCardId && !s.isTransferred && s.targetPeriod?.month === txTargetMonth && s.targetPeriod?.year === txTargetYear) 
@@ -732,7 +728,7 @@ const App: React.FC = () => {
       const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
     }
-    setTransactionModalOpen(false);
+    popView();
   };
 
   const handleSaveSaving = (e: React.FormEvent) => {
@@ -740,16 +736,371 @@ const App: React.FC = () => {
     if (editingSaving) {
       const updatedSavings = data.savings.map(s => s.id === editingSaving.id ? { ...s, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : s);
       saveData({ ...data, savings: updatedSavings });
-      if (selectedSavingsHistory) {
-         const newItems = selectedSavingsHistory.items.map(item => item.id === editingSaving.id ? { ...item, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : item);
-         setSelectedSavingsHistory({ ...selectedSavingsHistory, items: newItems });
-      }
       setEditingSaving(null);
     } else {
       const newSaving: Saving = { id: generateId(), cardId: savingCardId, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: savingNote || 'Tabungan Rutin', targetPeriod: { month: savingTargetMonth, year: savingTargetYear }, isTransferred: false };
       saveData({ ...data, savings: [newSaving, ...data.savings] });
     }
-    setSavingModalOpen(false); setSavingAmount(''); setSavingNote('');
+    popView(); setSavingAmount(''); setSavingNote('');
+  };
+
+  // Shared content rendering function for both mobile and desktop
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'DASHBOARD':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+            <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 md:p-10 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute -right-8 -top-8 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm md:text-base font-bold uppercase tracking-wider">Total Liabilitas</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={24} /> : <EyeOff size={24} />}</button></div>
+              <h3 className="text-3xl md:text-5xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
+              <div className="space-y-3 pt-6 border-t border-white/10 relative z-10 grid md:grid-cols-2 md:gap-10">
+                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan Pelunasan</p><p className="font-bold text-base md:text-xl">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
+                <div className="flex justify-between items-center"><p className="text-white text-[10px] md:text-xs uppercase font-black tracking-widest">Sisa Hutang</p><p className="font-black text-xl md:text-2xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 md:gap-8">
+              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
+              <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
+              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
+            </div>
+
+            {upcomingBills.length > 0 && (
+              <div className="space-y-4">
+                 <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm md:text-base uppercase tracking-tight">Tagihan Terdekat</h3>
+                 <div className="flex gap-4 md:gap-6 overflow-x-auto no-scrollbar pb-2 snap-x snap-mandatory">
+                    {upcomingBills.map(bill => (
+                       <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[85vw] md:min-w-[400px] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-4 snap-center active:scale-[0.98] hover:border-primary transition-all cursor-pointer">
+                          <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className={`w-10 h-10 ${bill.color} rounded-xl flex items-center justify-center text-white shadow-sm`}><AlertCircle size={18}/></div><span className="text-sm md:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{bill.name}</span></div><span className={`text-[9px] md:text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 dark:bg-red-900/30 text-danger dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>{bill.daysLeft} Hari Lagi</span></div>
+                          <div className="grid grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl"><div className="flex flex-col"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tagihan</span><span className="font-black text-slate-700 dark:text-slate-200 text-xs md:text-sm">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span></div><div className="flex flex-col text-right"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tabungan</span><span className="font-black text-success text-xs md:text-sm">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span></div></div>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-8 flex items-center gap-3"><PieChart size={24} /> Pengeluaran Kelompok Bulan Ini</h3>
+              <div className="grid md:grid-cols-2 gap-x-12 gap-y-6">
+                {categoryGrouping.map(([cat, val], idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex justify-between items-end"><span className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-300">{cat}</span><span className="text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500">{showAmounts ? formatIDR(val) : '••••'}</span></div>
+                    <div className="w-full h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(val / (categoryGrouping.reduce((s, [, v]) => s + v, 0) || 1)) * 100}%` }}></div></div>
+                  </div>
+                ))}
+              </div>
+              {categoryGrouping.length === 0 && <p className="text-center py-10 text-slate-400 font-medium">Belum ada pengeluaran yang dicatat bulan ini.</p>}
+            </div>
+          </div>
+        );
+      case 'CARDS':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {data.cards.map(card => {
+                  const balance = getCardBalance(card.id); const remaining = card.limit - balance;
+                  return (
+                    <div key={card.id} className="space-y-3">
+                      <div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-6 rounded-[32px] text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden active:scale-[0.98] transition hover:shadow-2xl cursor-pointer group`}>
+                          <div className="absolute top-0 right-0 p-16 bg-white/5 rounded-full -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
+                          <div className="relative z-10 flex justify-between items-start"><div><p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p><h4 className="text-xl font-black tracking-tight">{card.name}</h4></div></div>
+                          <div className="relative z-10"><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Limit/Plafon</p><p className="text-2xl font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div>
+                          <div className="relative z-10 flex justify-between items-end pt-3 border-t border-white/10"><div><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-sm font-black">{showAmounts ? formatIDR(remaining) : '••••'}</p></div><div className="text-right opacity-60"><span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span></div></div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); pushView('FORM_CARD'); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><Pencil size={14}/> Edit</button>
+                        <button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/10 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/20 transition"><Trash2 size={14}/> Hapus</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
+             </div>
+          </div>
+        );
+      case 'SAVINGS':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+            <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between">
+               <div className="space-y-2">
+                 <p className="text-emerald-100 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Dana Tahun {savingsSelectedYear}</p>
+                 <h3 className="text-3xl md:text-5xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
+               </div>
+               <div className="flex items-center gap-6 mt-6 md:mt-0 bg-white/10 p-4 rounded-2xl">
+                 <div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-xl font-black">{savingsSelectedYear}</span></div>
+                 <div className="flex gap-2">
+                   <button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
+                   <button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
+                 </div>
+               </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-6 space-y-4">
+                   <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
+                   <div className="space-y-2.5">
+                     {m.cardGroups.map((group, i) => (
+                       <button key={i} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
+                         <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
+                         <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
+                       </button>
+                     ))}
+                   </div>
+                </div>
+              ))}
+            </div>
+            {data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear).length === 0 && (
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
+                <Vault size={48} className="mx-auto text-slate-200 mb-4" />
+                <p className="text-slate-400 font-bold">Belum ada tabungan untuk tahun ini.</p>
+              </div>
+            )}
+          </div>
+        );
+      case 'YEARLY':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+            <div className="bg-[#1a2332] rounded-[32px] p-8 md:p-12 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+              <div className="flex items-center gap-6"><div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400"><Calendar size={32} /></div><div className="flex flex-col"><span className="text-3xl font-black">{yearlySelectedYear}</span><span className="text-xs text-slate-400 uppercase tracking-widest font-bold">Ringkasan Anggaran</span></div></div>
+              <div className="grid grid-cols-2 gap-x-12 md:gap-x-20 border-l border-white/10 pl-8"><div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estimasi Tagihan</p><p className="text-xl md:text-2xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div><div className="text-right space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dana Terkumpul</p><p className="text-xl md:text-2xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div></div>
+              <div className="flex gap-2"><button onClick={() => setYearlySelectedYear(y => y - 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={24}/></button><button onClick={() => setYearlySelectedYear(y => y + 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={24}/></button></div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-sm border border-slate-50 dark:border-slate-800 space-y-5">
+                  <div className="flex justify-between items-center"><h4 className="font-black text-lg text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 dark:bg-red-900/20 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span></div>
+                  <div className="space-y-5">
+                    {m.cardsEstimates.map((ce, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 uppercase tracking-tighter">{ce.cardName}</span><span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span></div>
+                        <div className="h-2 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case 'TRANSACTIONS':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-5xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+            <div className="flex flex-col md:flex-row gap-4">
+              <select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl text-sm font-bold shadow-sm dark:text-slate-200 outline-none hover:border-primary transition cursor-pointer"><option value="all">💳 Semua Item Kartu/Hutang</option>{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="md:w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl text-sm font-bold shadow-sm dark:text-slate-200 outline-none hover:border-primary transition cursor-pointer">{monthNames.map((m, i) => <option key={i} value={i}>📅 {m}</option>)}</select>
+            </div>
+            <div className="space-y-3">
+              {filteredTransactions.map(t => {
+                const card = data.cards.find(c => c.id === t.cardId);
+                return (
+                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-50 dark:border-slate-800 shadow-sm flex justify-between items-center active:scale-[0.99] hover:border-primary transition group relative overflow-hidden cursor-pointer">
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${card?.color || 'bg-slate-800'}`}></div>
+                    <div className="pl-3 space-y-1">
+                      <p className="text-sm md:text-base font-black text-slate-800 dark:text-slate-100 leading-tight">{t.description}</p>
+                      <div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(t.date).toLocaleDateString('id-ID')}</span><span className="text-[10px] text-slate-300">•</span><span className="text-[10px] text-slate-400 font-bold uppercase">{card?.name}</span></div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-base font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{t.type === TransactionType.PAYMENT ? '-' : ''}{showAmounts ? formatIDR(t.amount) : '••••'}</span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${t.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}><CheckCircle2 size={24}/></button>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredTransactions.length === 0 && (
+                <div className="text-center py-32 text-slate-400 flex flex-col items-center gap-4">
+                  <History size={64} className="text-slate-100 dark:text-slate-900" />
+                  <p className="font-bold">Tidak ada riwayat transaksi untuk kriteria ini.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      case 'FORM_CARD':
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+             <form onSubmit={handleSaveCard} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Label Identitas</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Platinum Card" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-primary transition font-bold text-lg" /></div>
+               <div className="grid md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Limit/Plafon</label><input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-black text-lg" /></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tgl Jatuh Tempo</label><input type="number" min="1" max="31" value={cardDue} onChange={(e)=>setCardDue(e.target.value)} placeholder="Misal: 15" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-bold text-lg" /></div></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warna Kartu</label><div className="flex gap-4 flex-wrap pt-2">{CARD_COLORS.map(c => (<button key={c.value} type="button" onClick={() => setCardColor(c.value)} className={`w-12 h-12 rounded-full ${c.value} ${cardColor === c.value ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-slate-900' : 'hover:scale-110'} transition-all`}></button>))}</div></div>
+               <div className="pt-4"><button type="submit" className="w-full py-6 bg-primary text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-blue-700 active:scale-95 transition-all">Simpan Konfigurasi</button></div>
+             </form>
+          </div>
+        );
+      case 'FORM_TRANSACTION':
+        const currentBillEstimate = getMonthlyBill(txCardId, txTargetMonth, txTargetYear);
+        const totalImpact = Math.ceil(getNumericValue(txAmount) + (txUseSavings ? availableSavingsForPeriod : 0));
+        
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+             <form onSubmit={handleSaveTransaction} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               {/* TYPE TOGGLE */}
+               <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[24px]">
+                 <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowUpCircle size={18}/> PAKAI</button>
+                 <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowDownCircle size={18}/> BAYAR</button>
+               </div>
+
+               {/* CARD SELECT */}
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Sumber Dana / Kartu</label>
+                 <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary transition">
+                   {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                 </select>
+               </div>
+
+               {/* PAYMENT SPECIFIC FIELDS */}
+               {txType === TransactionType.PAYMENT && (
+                 <div className="space-y-6 animate-in slide-in-from-top duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Bulan Tagihan</label>
+                        <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-success outline-none">
+                          {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tahun</label>
+                        <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-success outline-none"/>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 space-y-4">
+                       <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2"><Info size={16} className="text-slate-400"/><span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-100">{formatIDR(currentBillEstimate)}</span>
+                       </div>
+                       
+                       <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border-2' : 'bg-white dark:bg-slate-800 border-2 border-transparent'}`}>
+                          <div className="flex items-center gap-3">
+                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={20}/></div>
+                             <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tabungan Tersedia</span>
+                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{formatIDR(availableSavingsForPeriod)}</span>
+                             </div>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${txUseSavings ? 'bg-success border-success' : 'border-slate-200'}`}>
+                             {txUseSavings && <CheckCircle2 size={16} className="text-white"/>}
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+               )}
+
+               {/* MAIN AMOUNT INPUT */}
+               <div className="space-y-2 text-center">
+                 <label className="text-[10px] font-black text-slate-400 uppercase">
+                    {txType === TransactionType.EXPENSE ? 'Nominal Pemakaian' : 'Nominal Bayar Tunai'}
+                 </label>
+                 <input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className={`w-full text-5xl font-black p-4 border-b-4 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-100 focus:border-danger' : 'border-green-100 focus:border-success'}`} />
+                 
+                 {txType === TransactionType.PAYMENT && txUseSavings && availableSavingsForPeriod > 0 && (
+                   <div className="mt-4 flex flex-col items-center gap-1 animate-in zoom-in duration-300">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pengurangan Hutang</span>
+                      <span className="text-2xl font-black text-success">{formatIDR(totalImpact)}</span>
+                   </div>
+                 )}
+               </div>
+
+               {/* DESCRIPTION & DATE */}
+               <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Keterangan</label>
+                    <input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar lewat mana?"} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tanggal Transaksi</label>
+                    <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold"/>
+                  </div>
+               </div>
+
+               {/* ACTION BUTTONS */}
+               <div className="space-y-4 pt-4">
+                 <button type="submit" className={`w-full py-6 text-white font-black text-lg rounded-[28px] shadow-xl active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
+                    {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? 'Catat Pengeluaran' : 'Konfirmasi Pembayaran')}
+                 </button>
+                 {editingTransaction && (
+                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] hover:bg-red-100 transition">Hapus Transaksi Ini</button>
+                 )}
+               </div>
+             </form>
+          </div>
+        );
+      case 'FORM_SAVING':
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+             <form onSubmit={handleSaveSaving} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Alokasi Untuk</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dana Disisihkan</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-5xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-4"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
+               <div className="pt-4"><button type="submit" className="w-full py-6 bg-success text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-emerald-600 active:scale-95 transition-all">Amankan Dana Pelunasan</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full mt-4 py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] transition">Hapus Tabungan</button>)}</div>
+             </form>
+          </div>
+        );
+      case 'VIEW_PROFILE':
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+            <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-xl overflow-hidden border border-slate-50 dark:border-slate-800">
+              <div className="p-10 md:p-14 flex flex-col items-center bg-slate-50/50 dark:bg-slate-800/20 border-b dark:border-slate-800">
+                <div className="w-32 h-32 rounded-full border-8 border-white dark:border-slate-900 shadow-2xl overflow-hidden flex items-center justify-center mb-6">
+                  {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={56} className="text-slate-300" />}
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'Pengguna'}</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1.5">{user.email}</p>
+              </div>
+              <div className="p-4">
+                 <MobileMenuButton icon={data.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>} label={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'} onClick={toggleTheme} />
+                 <MobileMenuButton icon={<ShieldCheck size={20}/>} label="Setel Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'TIDAK AKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />
+                 <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger />
+              </div>
+              <div className="p-10 text-center opacity-30"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
+            </div>
+          </div>
+        );
+      case 'VIEW_STATEMENT':
+        if (!activeStatementCard) return null;
+        const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-5xl mx-auto w-full px-5 py-8 space-y-8">
+            <div className={`${activeStatementCard.color} p-8 md:p-12 text-white rounded-[40px] shadow-xl flex justify-between items-center overflow-hidden relative`}>
+                <div className="absolute -right-10 -bottom-10 opacity-10"><Receipt size={200} /></div>
+                <div className="relative z-10"><p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p><h4 className="text-3xl font-black">{activeStatementCard.name}</h4></div>
+                <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-70 uppercase font-black tracking-widest">Bulan Tagihan</p><p className="text-xl font-black uppercase">{monthNames[statementMonth]} {statementYear}</p></div>
+            </div>
+            <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
+            <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm grid md:grid-cols-2 gap-10">
+              <div className="space-y-6">
+                <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Pemakaian</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-success uppercase tracking-widest">Dana Terbayar</span><span className="text-base font-black text-success">-{showAmounts ? formatIDR(s.totalPaid) : '••'}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-primary uppercase tracking-widest">Dana Cadangan</span><span className="text-base font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••'}</span></div>
+                <div className="flex justify-between items-center pt-4 border-t-2 dark:border-slate-800"><span className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Kewajiban</span><span className="text-3xl font-black text-danger">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••'}</span></div>
+              </div>
+              <div className="space-y-4">
+                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Briefcase size={12}/> Breakdown Biaya</h5>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl space-y-3 shadow-sm">
+                   <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">E-Statement Fee</span><span>{showAmounts ? formatIDR(s.adminFee) : '••'}</span></div>
+                   <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">Biaya Materai</span><span>{showAmounts ? formatIDR(s.materai) : '••'}</span></div>
+                   <div className="pt-2 border-t dark:border-slate-700 flex justify-between text-xs font-black text-slate-800 dark:text-slate-200"><span className="uppercase">Total Tambahan</span><span>{showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span></div>
+                </div>
+              </div>
+            </div>
+            <section className="space-y-4">
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Log Transaksi Periode Ini</h5>
+              <div className="grid md:grid-cols-2 gap-4">
+                {s.transactions.map(t => (
+                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer">
+                    <div className="flex items-center gap-4"><div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400"><History size={20}/></div><div><p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{new Date(t.date).toLocaleDateString('id-ID')}</p></div></div>
+                    <div className="flex items-center gap-3"><span className="font-black text-danger text-base">{showAmounts ? formatIDR(t.amount) : '••'}</span><button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${t.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></div>
+                  </div>
+                ))}
+                {s.transactions.length === 0 && <div className="col-span-full py-16 text-center text-slate-300 font-bold italic">Belum ada transaksi di periode ini.</div>}
+              </div>
+            </section>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   if (!authInited) return (<div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950"><Loader2 size={40} className="animate-spin text-primary" /></div>);
@@ -780,442 +1131,92 @@ const App: React.FC = () => {
 
   if (!user) return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-md border border-slate-100 dark:border-slate-800">
-          <div className="text-center mb-8"><div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"><Wallet size={32} /></div><h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">LimitWatch</h1><p className="text-slate-500 dark:text-slate-400 mt-2">Kelola kartu kredit & hutang Anda.</p></div>
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {isRegistering && (<div className="space-y-1"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Nama Lengkap</label><input type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition text-slate-800 dark:text-slate-100" placeholder="Masukkan nama..."/></div>)}
-            <div className="space-y-1"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Email</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition text-slate-800 dark:text-slate-100" placeholder="email@contoh.com"/></div>
-            <div className="space-y-1"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Password</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition text-slate-800 dark:text-slate-100" placeholder="********"/></div>
-            {authError && <p className="text-danger text-xs text-center font-bold bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">{authError}</p>}
-            <button type="submit" disabled={authLoading} className="w-full bg-primary hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold transition shadow-lg active:scale-95 disabled:opacity-50">{authLoading ? 'Memproses...' : (isRegistering ? 'Buat Akun' : 'Masuk Sekarang')}</button>
+        <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-800">
+          <div className="text-center mb-10"><div className="w-20 h-20 bg-primary text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"><Wallet size={40} /></div><h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter">LimitWatch</h1><p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Asisten cerdas pelunasan hutang.</p></div>
+          <form onSubmit={handleEmailAuth} className="space-y-5">
+            {isRegistering && (<div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Nama Lengkap</label><input type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl outline-none focus:border-primary transition text-slate-800 dark:text-slate-100 font-bold" placeholder="Nama Anda..."/></div>)}
+            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Email</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl outline-none focus:border-primary transition text-slate-800 dark:text-slate-100 font-bold" placeholder="email@domain.com"/></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">Password</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl outline-none focus:border-primary transition text-slate-800 dark:text-slate-100 font-bold" placeholder="••••••••"/></div>
+            {authError && <p className="text-danger text-xs text-center font-black bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/40">{authError}</p>}
+            <button type="submit" disabled={authLoading} className="w-full bg-primary hover:bg-blue-700 text-white py-4.5 rounded-[22px] font-black text-lg transition-all shadow-xl active:scale-95 disabled:opacity-50">{authLoading ? 'Tunggu sebentar...' : (isRegistering ? 'Buat Akun Sekarang' : 'Masuk Dashboard')}</button>
           </form>
-          <div className="relative my-8"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-400 dark:text-slate-600 font-bold">Atau</span></div></div>
-          <button type="button" onClick={handleGoogleLogin} disabled={authLoading} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />Lanjutkan dengan Google</button>
-          <button type="button" onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }} className="w-full mt-6 text-sm text-primary dark:text-blue-400 font-bold hover:underline">{isRegistering ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar gratis'}</button>
+          <div className="relative my-10"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div><div className="relative flex justify-center text-[10px] uppercase tracking-widest font-black"><span className="bg-white dark:bg-slate-900 px-4 text-slate-300 dark:text-slate-700">Metode Lain</span></div></div>
+          <button type="button" onClick={handleGoogleLogin} disabled={authLoading} className="w-full bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-4 rounded-[22px] font-black flex items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition active:scale-95"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />Lanjutkan dengan Google</button>
+          <button type="button" onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }} className="w-full mt-8 text-sm text-primary dark:text-blue-400 font-black hover:underline">{isRegistering ? 'Punya akun? Masuk di sini' : 'Baru di LimitWatch? Daftar gratis'}</button>
         </div>
       </div>
   );
 
+  const isFormOrDetailView = ['FORM_TRANSACTION', 'FORM_CARD', 'FORM_SAVING', 'VIEW_STATEMENT', 'VIEW_PROFILE'].includes(currentView);
+
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
-      {/* --- DESKTOP VIEW --- */}
-      <div className="hidden md:flex h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20 shadow-sm">
-           <div className="h-20 flex items-center px-8 border-b border-slate-50 dark:border-slate-800"><div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center mr-3 shadow-md"><Wallet size={18} /></div><span className="font-bold text-xl text-slate-800 dark:text-slate-100">LimitWatch</span></div>
-           <nav className="p-4 space-y-1 flex-1">
-              <DesktopNavItem icon={<Home size={20}/>} label="Dashboard" active={mobileTab === 'home'} onClick={() => setMobileTab('home')} />
-              <DesktopNavItem icon={<CreditCard size={20}/>} label="Kartu & Hutang" active={mobileTab === 'cards'} onClick={() => setMobileTab('cards')} />
-              <DesktopNavItem icon={<Vault size={20}/>} label="Tabungan" active={mobileTab === 'savings'} onClick={() => setMobileTab('savings')} />
-              <DesktopNavItem icon={<CalendarRange size={20}/>} label="Tahunan" active={mobileTab === 'yearly'} onClick={() => setMobileTab('yearly')} />
-              <DesktopNavItem icon={<History size={20}/>} label="Riwayat" active={mobileTab === 'history'} onClick={() => setMobileTab('history')} />
+      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
+        
+        {/* SHARED DESKTOP SIDEBAR */}
+        <aside className="hidden md:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shrink-0 z-50">
+           <div className="h-20 flex items-center px-8 border-b border-slate-50 dark:border-slate-800 shrink-0"><div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center mr-3 shadow-lg"><Wallet size={22} /></div><span className="font-black text-2xl text-slate-800 dark:text-slate-100 tracking-tighter">LimitWatch</span></div>
+           <nav className="p-5 space-y-1.5 flex-1 overflow-y-auto no-scrollbar">
+              <div className="text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.2em] mb-4 ml-2">Navigasi Utama</div>
+              <DesktopNavItem icon={<Home size={22}/>} label="Beranda" active={currentView === 'DASHBOARD'} onClick={() => navigateToRoot('DASHBOARD')} />
+              <DesktopNavItem icon={<Briefcase size={22}/>} label="Kartu & Hutang" active={currentView === 'CARDS'} onClick={() => navigateToRoot('CARDS')} />
+              <DesktopNavItem icon={<Vault size={22}/>} label="Tabungan" active={currentView === 'SAVINGS'} onClick={() => navigateToRoot('SAVINGS')} />
+              <DesktopNavItem icon={<CalendarRange size={22}/>} label="Anggaran Tahunan" active={currentView === 'YEARLY'} onClick={() => navigateToRoot('YEARLY')} />
+              <DesktopNavItem icon={<History size={22}/>} label="Riwayat Aktivitas" active={currentView === 'TRANSACTIONS'} onClick={() => navigateToRoot('TRANSACTIONS')} />
            </nav>
-           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-1">
-              <button type="button" onClick={toggleTheme} className="flex items-center gap-3 text-secondary hover:text-slate-900 dark:hover:text-slate-100 w-full p-3 rounded-lg transition">
-                 {data.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                 <span className="font-bold">{data.theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+           <div className="p-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
+              <button type="button" onClick={() => pushView('VIEW_PROFILE')} className="flex items-center gap-4 w-full p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition group">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-700 shrink-0">
+                  {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-slate-400 mx-auto mt-2"/>}
+                </div>
+                <div className="flex flex-col items-start overflow-hidden"><span className="text-sm font-black text-slate-700 dark:text-slate-200 truncate w-full">{user.displayName || 'Pengguna'}</span><span className="text-[10px] font-bold text-slate-400 uppercase">Premium Member</span></div>
               </button>
-              <button type="button" onClick={handleLogout} className="flex items-center gap-3 text-secondary hover:text-danger w-full p-3 rounded-lg transition"><LogOut size={20} /> <span className="font-bold">Keluar</span></button>
+              <button type="button" onClick={toggleTheme} className="flex items-center gap-3 text-secondary hover:text-slate-900 dark:hover:text-slate-100 w-full p-3 rounded-xl transition hover:bg-slate-50 dark:hover:bg-slate-800">
+                 {data.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                 <span className="font-bold text-sm">{data.theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</span>
+              </button>
+              <button type="button" onClick={handleLogout} className="flex items-center gap-3 text-secondary hover:text-danger w-full p-3 rounded-xl transition hover:bg-red-50 dark:hover:bg-red-900/20"><LogOut size={20} /> <span className="font-bold text-sm">Keluar Sesi</span></button>
            </div>
         </aside>
 
-        <main className="flex-1 ml-72 p-10 overflow-y-auto no-scrollbar h-full bg-slate-50 dark:bg-slate-950">
-           <header className="flex justify-between items-center mb-10">
-              <div><h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">{mobileTab === 'home' ? 'Dashboard' : mobileTab === 'cards' ? 'Manajemen Hutang' : mobileTab === 'savings' ? 'Tabungan Pelunasan' : mobileTab === 'yearly' ? 'Proyeksi Tahunan' : 'Riwayat Transaksi'}</h1><p className="text-slate-500 dark:text-slate-400">Halo, {user.displayName || user.email}</p></div>
-              <div className="flex items-center gap-4"><button type="button" onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="bg-primary hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg active:scale-95"><PlusCircle size={20} /> Transaksi</button><button type="button" onClick={() => setProfileModalOpen(true)} className="w-12 h-12 rounded-full border-2 border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm active:scale-95 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400"><UserIcon size={24} /></div>}</button></div>
-           </header>
+        {/* CONTENT AREA (DYNAMIC) */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          {/* HEADER (Only for certain views or small screens) */}
+          {(currentView !== 'DASHBOARD' || isMobileDevice) && (
+             <PageHeader 
+              title={currentView === 'DASHBOARD' ? 'Beranda' : currentView.replace('FORM_', 'Input ').replace('VIEW_', 'Rincian ').replace('_', ' ')} 
+              onBack={viewStack.length > 1 ? popView : undefined}
+              rightElement={
+                isMobileDevice && currentView === 'DASHBOARD' && (
+                  <button onClick={() => pushView('VIEW_PROFILE')} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
+                    {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-slate-400"/>}
+                  </button>
+                )
+              }
+            />
+          )}
 
-           {mobileTab === 'home' && (
-             <div className="space-y-8 animate-in fade-in">
-                <div className="grid grid-cols-3 gap-6">
-                   <div className="bg-gradient-to-br from-violet-600 to-primary p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
-                      <div><div className="flex justify-between items-start mb-1"><p className="opacity-70 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="opacity-70 hover:opacity-100 transition p-1">{showAmounts ? <Eye size={16} /> : <EyeOff size={16} />}</button></div><h3 className="text-3xl font-bold">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3></div>
-                      <div className="mt-4 pt-4 border-t border-white/20"><div className="flex justify-between text-xs opacity-80 mb-1"><span>Total Tabungan</span><span>{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</span></div><div className="flex justify-between text-sm font-black"><span>Sisa Hutang (Gap)</span><span>{showAmounts ? formatIDR(currentDebtGap) : '••••'}</span></div></div>
-                   </div>
-                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center"><p className="text-slate-400 dark:text-slate-500 text-sm mb-1">Total Tabungan (Tersedia)</p><h3 className="text-3xl font-bold text-success">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}</h3></div>
-                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center"><p className="text-slate-400 dark:text-slate-500 text-sm mb-1">Pengeluaran Bulan Ini</p><h3 className="text-3xl font-bold text-danger">{showAmounts ? formatIDR(categoryGrouping.reduce((sum, [, val]) => sum + val, 0)) : '••••••••'}</h3></div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {upcomingBills.length > 0 && (<div><h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><Bell size={18} /> Tagihan Dekat Jatuh Tempo</h3><div className="grid gap-4">{upcomingBills.map(c => (<div key={c.id} onClick={() => openStatement(c)} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition cursor-pointer flex justify-between items-center"><div className="flex flex-col"><span className="font-bold text-slate-800 dark:text-slate-100">{c.name}</span><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">{showAmounts ? formatIDR(c.remainingBill) : '••••••••'}</span></div><span className="text-[10px] font-bold px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">{c.daysLeft} Hari Lagi</span></div>))}</div></div>)}
-                  <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm h-fit"><h3 className="font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2"><PieChart size={18} /> Pengeluaran Kelompok</h3><div className="space-y-4">{categoryGrouping.map(([cat, val], idx) => (<div key={idx} className="space-y-1.5"><div className="flex justify-between items-end"><span className="text-sm font-bold text-slate-700 dark:text-slate-300">{cat}</span><span className="text-xs font-medium text-slate-400 dark:text-slate-500">{showAmounts ? formatIDR(val) : '••••••••'}</span></div><div className="w-full h-2 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(val / (categoryGrouping.reduce((s, [, v]) => s + v, 0) || 1)) * 100}%` }}></div></div></div>))}</div></div>
-                </div>
-             </div>
-           )}
+          <main className="flex-1 overflow-y-auto no-scrollbar pb-24 md:pb-10 bg-slate-50 dark:bg-slate-950">
+            {renderCurrentView()}
+          </main>
 
-           {mobileTab === 'cards' && (
-             <div className="space-y-6 animate-in fade-in">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Daftar Kartu & Hutang</h2><button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardDue(''); setCardType(DebtType.CREDIT_CARD); setCardEStatementFee(''); setCardModalOpen(true); }} className="bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"><PlusCircle size={18}/> Tambah</button></div>
-                <div className="grid grid-cols-3 gap-6">{data.cards.map(card => {
-                  const balance = getCardBalance(card.id); const remaining = card.limit - balance;
-                  return (<div key={card.id} className="space-y-4"><div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-6 rounded-[28px] text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-95 transition-transform`}><div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div><div className="flex justify-between items-start relative z-10"><div className="flex flex-col"><span className="text-lg font-bold">{card.name}</span><span className="text-[9px] uppercase font-black opacity-60">{card.type}</span></div><FileText size={24} className="opacity-50" /></div><div className="relative z-10"><p className="text-[10px] opacity-60 uppercase mb-1">Limit / Hutang</p><h4 className="text-2xl font-bold">{showAmounts ? formatIDR(card.limit) : '••••••••'}</h4></div><div className="flex justify-between items-center relative z-10"><p className="text-xs opacity-60 font-medium">{card.dueDay ? `Tempo: Tgl ${card.dueDay}` : 'Tanpa tempo'}</p><div className="text-right"><p className="text-[9px] uppercase font-bold opacity-60">Sisa Limit</p><p className="text-xs font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div></div></div><div className="flex gap-3"><button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2"><Pencil size={16}/> Edit</button><button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-danger rounded-xl text-xs font-bold flex items-center justify-center gap-2"><Trash2 size={16}/> Hapus</button></div></div>);
-                })}</div>
-             </div>
-           )}
-
-           {mobileTab === 'savings' && (
-             <div className="space-y-8 animate-in fade-in">
-                <div className="flex justify-between items-end">
-                   <div><h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Tabungan Pelunasan</h2><p className="text-slate-500 dark:text-slate-400">Kelola dana cadangan untuk setiap kartu.</p></div>
-                   <div className="flex items-center gap-3">
-                     <button type="button" onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><ChevronLeft size={18}/></button>
-                     <span className="font-black text-slate-800 dark:text-slate-100 px-2">{savingsSelectedYear}</span>
-                     <button type="button" onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><ChevronRight size={18}/></button>
-                   </div>
-                </div>
-                <div className="bg-gradient-to-br from-success to-emerald-700 p-8 rounded-[32px] text-white shadow-xl flex justify-between items-center">
-                   <div><p className="opacity-70 text-sm font-bold uppercase tracking-widest mb-1">Total Tabungan Tahun {savingsSelectedYear}</p><h3 className="text-4xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3></div>
-                   <button type="button" onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="bg-white text-success px-6 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg active:scale-95 transition"><Plus size={18}/> Tambah Simpanan</button>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                   {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
-                      <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-fit">
-                         <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center"><h4 className="font-black text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••••••'}</span></div>
-                         <div className="p-5 space-y-2">
-                            {m.cardGroups.map((group, i) => (
-                               <button key={i} type="button" onClick={() => { setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items }); setSavingsHistoryModalOpen(true); }} className="w-full flex justify-between items-center p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition group text-left">
-                                  <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-700 dark:text-slate-300">{group.cardName}</span></div>
-                                  <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••••••••'}</span><ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:translate-x-1 transition-transform"/></div>
-                               </button>
-                            ))}
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-           )}
-
-           {mobileTab === 'history' && (
-             <div className="space-y-6 animate-in fade-in">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm grid grid-cols-3 gap-4">
-                  <div><label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 block">Item</label><select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-slate-200"><option value="all">Semua</option>{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                  <div><label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 block">Bulan</label><select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-slate-200">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select></div>
-                  <div><label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 block">Tahun</label><input type="number" value={historyYearFilter} onChange={(e)=>setHistoryYearFilter(parseInt(e.target.value))} className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-slate-200" /></div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden"><table className="w-full text-left"><thead className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase"><tr><th className="px-6 py-4">Tgl</th><th className="px-6 py-4">Keterangan</th><th className="px-6 py-4">Item</th><th className="px-6 py-4 text-right">Nominal</th><th className="px-6 py-4 text-center">Buku</th></tr></thead><tbody className="divide-y divide-slate-50 dark:divide-slate-800">{filteredTransactions.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-400 dark:text-slate-600">Tidak ada transaksi.</td></tr> : filteredTransactions.map(t => (<tr key={t.id} onClick={() => openEditTransaction(t)} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer">
-                  <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">{new Date(t.date).toLocaleDateString('id-ID')}</td>
-                  <td className="px-6 py-4"><p className="text-sm font-bold text-slate-800 dark:text-slate-100">{t.description}</p><p className="text-[10px] text-slate-400 dark:text-slate-500">{t.category}</p></td>
-                  <td className="px-6 py-4"><span className={`text-[9px] font-bold px-2 py-1 rounded-full text-white ${data.cards.find(c=>c.id===t.cardId)?.color || 'bg-slate-800'}`}>{data.cards.find(c=>c.id===t.cardId)?.name}</span></td>
-                  <td className={`px-6 py-4 text-sm font-bold text-right ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{showAmounts ? formatIDR(t.amount) : '••••••••'}</td>
-                  <td className="px-6 py-4 text-center" onClick={(e)=>e.stopPropagation()}><button type="button" onClick={(e)=>{ e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`transition transform active:scale-90 ${t.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></td>
-                </tr>))}</tbody></table></div>
-             </div>
-           )}
-
-           {mobileTab === 'yearly' && (
-             <div className="space-y-8 animate-in fade-in">
-                <div className="flex justify-between items-end">
-                   <div><h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Ringkasan Tahunan</h2><p className="text-slate-500 dark:text-slate-400">Proyeksi pengeluaran dan tabungan tahun {yearlySelectedYear}</p></div>
-                   <input type="number" value={yearlySelectedYear} onChange={(e)=>setYearlySelectedYear(parseInt(e.target.value))} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:text-slate-100 p-3 rounded-xl text-sm font-bold w-32 shadow-sm focus:ring-2 focus:ring-primary outline-none" />
-                </div>
-                <div className="grid grid-cols-3 gap-6">
-                   <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Total Proyeksi Tagihan</p><h3 className="text-2xl font-bold text-danger">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••••••'}</h3></div>
-                   <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Total Dana Disiapkan</p><h3 className="text-2xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••••••'}</h3></div>
-                   <div className="bg-slate-800 dark:bg-slate-700 p-6 rounded-3xl shadow-lg text-white"><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">Sisa Belum Tercover</p><h3 className="text-2xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearGap) : '••••••••'}</h3></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-fit">
-                       <div className="p-5 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                          <div>
-                            <h4 className="font-bold text-slate-800 dark:text-slate-100">{m.monthName}</h4>
-                            {m.totalMonthGap > 0 ? (
-                              <p className="text-[10px] font-black text-danger uppercase mt-0.5 tracking-tight">Kekurangan: {showAmounts ? formatIDR(m.totalMonthGap) : '••••'}</p>
-                            ) : m.totalMonthBill > 0 ? (
-                              <p className="text-[10px] font-black text-success uppercase mt-0.5 tracking-tight">Tercover Lunas</p>
-                            ) : null}
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{m.cardsEstimates.length} Item</span>
-                       </div>
-                       <div className="p-5 space-y-4 flex-1">
-                          {m.cardsEstimates.map((ce, i) => (
-                            <div key={i} className="space-y-2 pb-2 border-b border-slate-50 dark:border-slate-800 last:border-0 last:pb-0">
-                               <div className="flex justify-between items-center">
-                                  <div className="flex items-center gap-2">
-                                     <div className={`w-2.5 h-2.5 rounded-full ${ce.color}`}></div>
-                                     <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">{ce.cardName}</span>
-                                  </div>
-                                  {ce.gap > 0 ? (
-                                    <span className="text-[10px] font-black text-danger">Sisa: {showAmounts ? formatIDR(ce.gap) : '••••'}</span>
-                                  ) : (
-                                    <span className="text-[10px] font-black text-success">LUNAS</span>
-                                  )}
-                               </div>
-                               <div className="w-full h-1.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div className={`h-full transition-all duration-700 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
-                               </div>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                  ))}
-                </div>
-             </div>
-           )}
-        </main>
+          {/* MOBILE BOTTOM NAV */}
+          {!isFormOrDetailView && isMobileDevice && (
+            <nav 
+              className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
+              style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
+            >
+              <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto">
+                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
+                <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
+                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={22} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
+                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
+                <button onClick={()=>navigateToRoot('TRANSACTIONS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'TRANSACTIONS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
+              </div>
+            </nav>
+          )}
+        </div>
       </div>
-
-      {/* --- MOBILE VIEW --- */}
-      <div className="md:hidden flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
-        {/* Header with safe-area top */}
-        <header 
-          className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 z-[60]" 
-          style={{ paddingTop: 'var(--sat)' }}
-        >
-          <div className="px-5 h-16 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg"><Wallet size={20} /></div>
-              <div>
-                <p className="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] leading-none mb-1">LIMITWATCH</p>
-                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">
-                  {mobileTab === 'home' ? 'Beranda' : mobileTab === 'cards' ? 'Hutang' : mobileTab === 'savings' ? 'Tabungan' : mobileTab === 'yearly' ? 'Tahunan' : 'Riwayat'}
-                </h2>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 shadow-sm active:scale-90 transition"><Bell size={20} /></button>
-              <button type="button" onClick={() => setProfileModalOpen(true)} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shadow-sm active:scale-90 transition">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-slate-400"/>}</button>
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Main Area (Isolated from nav and safe-area bottom) */}
-        <main 
-          className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4" 
-          style={{ paddingBottom: '80px' }} 
-          ref={scrollRef}
-        >
-          {mobileTab === 'home' && (
-            <div className="space-y-6 animate-in fade-in pb-8">
-              <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
-                <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm">Liabilitas Proyeksi Total</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={20} /> : <EyeOff size={20} />}</button></div>
-                <h3 className="text-3xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
-                <div className="space-y-3 pt-5 border-t border-white/10 relative z-10">
-                  <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] uppercase font-bold tracking-widest">Total Simpanan</p><p className="font-bold text-base">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
-                  <div className="flex justify-between items-center pt-1"><p className="text-white text-[10px] uppercase font-black tracking-widest">Sisa Hutang (Gap)</p><p className="font-black text-xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></div>
-                </div>
-              </div>
-              
-              {upcomingBills.length > 0 && (
-                <div className="space-y-4 animate-in slide-in-from-top duration-500">
-                   <div className="flex justify-between items-center"><h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-tight">Pengingat Tagihan</h3><div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span><span className="text-[10px] font-black text-primary dark:text-blue-400 uppercase tracking-tighter">Geser Kartu</span></div></div>
-                   <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 snap-x snap-mandatory">
-                      {upcomingBills.map(bill => (
-                         <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[85vw] bg-white dark:bg-slate-900 p-4 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-3 snap-center active:scale-[0.98] transition-all group border-b-2">
-                            <div className="flex justify-between items-center"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 ${bill.color} rounded-xl flex items-center justify-center text-white shadow-sm`}><AlertCircle size={16}/></div><span className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight">{bill.name}</span></div><span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 dark:bg-red-900/30 text-danger dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>{bill.daysLeft} Hari</span></div>
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50/50 dark:bg-slate-800/50 p-3 rounded-xl"><div className="flex flex-col"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px]">Tagihan</span><span className="font-black text-slate-700 dark:text-slate-200 text-xs">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span></div><div className="flex flex-col text-right"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px]">Tabungan</span><span className="font-black text-success text-xs">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span></div><div className="col-span-2 pt-1 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center"><span className="text-slate-800 dark:text-slate-300 font-black uppercase tracking-widest text-[9px]">Sisa Perlu</span><span className="font-black text-danger text-xs">{showAmounts ? formatIDR(bill.netGap) : '••••••••'}</span></div></div>
-                         </div>
-                      ))}
-                   </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-4">
-                <button type="button" onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTransactionModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
-                <button type="button" onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Vault size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
-                <button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardType(DebtType.CREDIT_CARD); setCardModalOpen(true); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 transition-all"><Briefcase size={28}/></div><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
-              </div>
-            </div>
-          )}
-
-          {mobileTab === 'history' && (
-            <div className="space-y-6 animate-in fade-in pb-8">
-              <div className="space-y-4">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                  <select value={historyCardFilter} onChange={(e)=>setHistoryCardFilter(e.target.value)} className="shrink-0 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-2xl text-xs font-bold shadow-sm dark:text-slate-200 outline-none"><option value="all">💳 Semua</option>{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                  <select value={historyMonthFilter} onChange={(e)=>setHistoryMonthFilter(parseInt(e.target.value))} className="shrink-0 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-2xl text-xs font-bold shadow-sm dark:text-slate-200 outline-none">{monthNames.map((m, i) => <option key={i} value={i}>📅 {m}</option>)}</select>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {filteredTransactions.length > 0 ? filteredTransactions.map(t => {
-                  const card = data.cards.find(c => c.id === t.cardId);
-                  return (
-                    <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-4 rounded-[28px] border border-slate-50 dark:border-slate-800 shadow-sm flex justify-between items-center active:scale-[0.98] transition group relative overflow-hidden"><div className={`absolute left-0 top-0 bottom-0 w-1 ${card?.color || 'bg-slate-800'}`}></div><div className="pl-2 space-y-1"><p className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight">{t.description}</p><p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(t.date).toLocaleDateString('id-ID')}</p></div><div className="flex items-center gap-3"><span className={`text-sm font-black ${t.type === TransactionType.EXPENSE ? 'text-danger' : 'text-success'}`}>{showAmounts ? formatIDR(t.amount) : '••••'}</span><button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2 rounded-full transform active:scale-90 ${t.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-800'}`}><CheckCircle2 size={24}/></button></div></div>
-                  );
-                }) : (<div className="text-center py-20"><History size={48} className="mx-auto text-slate-100 dark:text-slate-800 mb-4" /><p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Tidak ada transaksi.</p></div>)}
-              </div>
-            </div>
-          )}
-
-          {mobileTab === 'yearly' && (
-            <div className="space-y-6 animate-in fade-in pb-8">
-              <div className="bg-[#1a2332] rounded-[32px] p-6 text-white shadow-xl space-y-4">
-                <div className="flex justify-between items-center"><div className="flex items-center gap-2"><Calendar className="text-blue-400" size={20} /><span className="text-base font-black">{yearlySelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setYearlySelectedYear(y => y - 1)} className="p-1.5 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button><button type="button" onClick={() => setYearlySelectedYear(y => y + 1)} className="p-1.5 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button></div></div>
-                <div className="grid grid-cols-2 gap-4 pt-2"><div className="space-y-1"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Tagihan</p><p className="text-lg font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div><div className="text-right space-y-1"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Dana Siap</p><p className="text-lg font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div></div>
-              </div>
-              {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
-                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] p-5 shadow-sm border border-slate-50 dark:border-slate-800 space-y-4">
-                  <div className="flex justify-between items-center"><h4 className="font-black text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span></div>
-                  <div className="space-y-4">{m.cardsEstimates.map((ce, i) => (<div key={i} className="space-y-1"><div className="flex justify-between text-[10px] font-bold"><span className="text-slate-400 uppercase">{ce.cardName}</span><span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'}</span></div><div className="h-1 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className={`h-full transition-all duration-700 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div></div></div>))}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {mobileTab === 'cards' && (
-             <div className="space-y-4 animate-in fade-in pb-8">
-               {data.cards.map(card => {
-                  const balance = getCardBalance(card.id); const remaining = card.limit - balance;
-                  return (
-                    <div key={card.id} className="space-y-3">
-                      <div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-5 rounded-[32px] text-white shadow-lg relative h-44 flex flex-col justify-between overflow-hidden active:scale-[0.98] transition cursor-pointer`}>
-                          <div className="absolute top-0 right-0 p-10 bg-white/5 rounded-full -mr-8 -mt-8"></div>
-                          <div className="relative z-10 flex justify-between items-start"><div><p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p><h4 className="text-lg font-black tracking-tight">{card.name}</h4></div></div>
-                          <div className="relative z-10"><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Total Limit</p><p className="text-xl font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div>
-                          <div className="relative z-10 flex justify-between items-end pt-2 border-t border-white/10"><div><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-sm font-black">{showAmounts ? formatIDR(remaining) : '••••••••'}</p></div><div className="text-right opacity-60"><span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span></div></div>
-                      </div>
-                      <div className="flex gap-2"><button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardModalOpen(true); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 active:bg-slate-50 transition"><Pencil size={14}/> Edit</button><button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/10 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 active:bg-red-100 transition"><Trash2 size={14}/> Hapus</button></div>
-                    </div>
-                  );
-                })}<button type="button" onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardModalOpen(true); }} className="w-full py-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex items-center justify-center gap-2 active:bg-slate-50 transition"><Plus size={20}/> Tambah Baru</button>
-             </div>
-          )}
-
-          {mobileTab === 'savings' && (
-            <div className="space-y-6 animate-in fade-in pb-8">
-              <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 text-white shadow-xl">
-                 <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-2"><Calendar size={18} className="text-emerald-200"/><span className="text-base font-black">{savingsSelectedYear}</span></div><div className="flex gap-2"><button type="button" onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-1.5 bg-white/10 rounded-lg active:bg-white/20"><ChevronLeft size={16}/></button><button type="button" onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-1.5 bg-white/10 rounded-lg active:bg-white/20"><ChevronRight size={16}/></button></div></div>
-                 <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1">Total Simpanan</p><h3 className="text-2xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
-              </div>
-              <div className="space-y-4">{savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-5 space-y-3">
-                       <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-2"><h4 className="font-black text-sm text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-xs font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
-                       <div className="space-y-2">{m.cardGroups.map((group, i) => (<button key={i} type="button" onClick={() => { setSelectedSavingsHistory({ cardName: group.cardName, cardColor: group.cardColor, monthName: m.monthName, year: savingsSelectedYear, items: group.items }); setSavingsHistoryModalOpen(true); }} className="w-full flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl active:bg-slate-100 transition group"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${group.cardColor}`}></div><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{group.cardName}</span></div><div className="flex items-center gap-1"><span className="text-xs font-black text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={12} className="text-slate-300"/></div></button>))}</div>
-                    </div>
-                 ))}</div>
-            </div>
-          )}
-        </main>
-
-        {/* Bottom Navigation with safe-area bottom */}
-        <nav 
-          className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
-          style={{ height: 'calc(56px + var(--sab))', paddingBottom: 'var(--sab)' }}
-        >
-          <div className="h-[56px] px-6 flex justify-between items-center">
-            <button type="button" onClick={()=>setMobileTab('home')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'home' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-            <button type="button" onClick={()=>setMobileTab('cards')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'cards' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
-            <button type="button" onClick={()=>setMobileTab('savings')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'savings' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
-            <button type="button" onClick={()=>setMobileTab('yearly')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahunan</span></button>
-            <button type="button" onClick={()=>setMobileTab('history')} className={`flex flex-col items-center gap-1 transition-all ${mobileTab === 'history' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={24} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
-          </div>
-        </nav>
-      </div>
-
-      {/* --- MODALS (Unchanged Logic) --- */}
-      {profileModalOpen && (
-         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 border border-slate-100 dark:border-slate-800">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-8 flex flex-col items-center border-b border-slate-100 dark:border-slate-800 relative"><button type="button" onClick={() => setProfileModalOpen(false)} className="absolute top-6 right-6 p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400 active:scale-90"><X size={20} /></button><div className="w-24 h-24 rounded-full border-[6px] border-white dark:border-slate-900 shadow-xl overflow-hidden flex items-center justify-center mb-5">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-400" />}</div><h3 className="text-xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'User'}</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{user.email}</p></div>
-              <div className="p-3">
-                 <MobileMenuButton icon={data.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>} label={data.theme === 'dark' ? 'Gunakan Light Mode' : 'Gunakan Dark Mode'} onClick={toggleTheme} />
-                 {isMobileDevice && (<MobileMenuButton icon={<ShieldCheck size={20}/>} label="Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'OFF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />)}
-                 <div className="mt-2 border-t border-slate-50 dark:border-slate-800"><MobileMenuButton icon={<LogOut size={20}/>} label="Keluar Aplikasi" onClick={handleLogout} danger /></div>
-              </div>
-           </div>
-         </div>
-      )}
-
-      {savingsHistoryModalOpen && selectedSavingsHistory && (
-         <div className="fixed inset-0 z-[150] bg-black/70 flex items-end md:items-center md:justify-center p-0 md:p-4 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900 w-full max-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
-               <div className={`${selectedSavingsHistory.cardColor} p-6 text-white shrink-0`}><div className="flex justify-between items-center mb-6"><button type="button" onClick={() => setSavingsHistoryModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button><span className="text-[10px] font-black uppercase tracking-widest">Riwayat Simpanan</span><div className="w-8"></div></div><div className="flex justify-between items-end"><div><h4 className="text-xl font-black">{selectedSavingsHistory.cardName}</h4><p className="text-xs font-bold opacity-70 uppercase mt-1">{selectedSavingsHistory.monthName} {selectedSavingsHistory.year}</p></div><div className="text-right"><p className="text-[10px] font-bold opacity-60 uppercase mb-1">Total</p><h3 className="text-lg font-black">{showAmounts ? formatIDR(selectedSavingsHistory.items.reduce((s, i) => s + i.amount, 0)) : '••••'}</h3></div></div></div>
-               <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-10">{selectedSavingsHistory.items.map(item => (<div key={item.id} onClick={() => openEditSaving(item)} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-3xl border border-slate-100 dark:border-slate-700 flex justify-between items-center active:scale-[0.98] transition cursor-pointer"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-white dark:bg-slate-700 rounded-2xl flex items-center justify-center text-success shadow-sm"><Vault size={20}/></div><div><p className="text-sm font-black text-slate-800 dark:text-slate-100">{item.note}</p><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('id-ID')}</p></div></div><p className="text-sm font-black text-success">{showAmounts ? formatIDR(item.amount) : '••••'}</p></div>))}</div>
-            </div>
-         </div>
-      )}
-
-      {cardModalOpen && (
-         <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 border dark:border-slate-800">
-             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingCard ? 'Edit Item' : 'Tambah Item'}</h3><button type="button" onClick={() => setCardModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
-             <form onSubmit={handleSaveCard} className="space-y-5">
-                 <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-2.5 text-[10px] font-black rounded-xl transition ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Nama Item</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Cicilan Gadget" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-primary transition font-bold" /></div>
-                 <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Limit/Liabilitas</label><input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-black" /></div><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tgl Tempo</label><input type="number" min="1" max="31" value={cardDue} onChange={(e)=>setCardDue(e.target.value)} placeholder="Tgl 1-31" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-bold" /></div></div>
-                 <div className="flex gap-2.5 flex-wrap pt-2">{CARD_COLORS.map(c => (<button key={c.value} type="button" onClick={() => setCardColor(c.value)} className={`w-8 h-8 rounded-full ${c.value} ${cardColor === c.value ? 'ring-2 ring-offset-4 ring-primary' : ''} transition-all`}></button>))}</div>
-                 <button type="submit" className="w-full py-5 bg-slate-800 dark:bg-blue-600 text-white font-black rounded-[24px] shadow-xl active:scale-95 transition mt-4">Simpan Data</button>
-             </form>
-           </div>
-         </div>
-      )}
-
-      {transactionModalOpen && (
-         <div className="fixed inset-0 z-[120] bg-black/70 flex items-end md:items-center md:justify-center backdrop-blur-sm">
-           <div className="bg-white dark:bg-slate-900 w-full md:max-w-xl h-[85vh] md:h-auto md:max-h-[90vh] md:rounded-[40px] rounded-t-[40px] p-8 shadow-2xl overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-300">
-             <div className="flex justify-between items-center mb-6"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">{editingTransaction ? 'Detail Transaksi' : 'Catat Pemakaian'}</h3><button type="button" onClick={() => setTransactionModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
-             <form onSubmit={handleSaveTransaction} className="space-y-6">
-                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[20px]"><button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-3 text-xs font-black rounded-2xl transition ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-sm' : 'text-slate-500'}`}>PAKAI</button><button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-3 text-xs font-black rounded-2xl transition ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-sm' : 'text-slate-500'}`}>BAYAR</button></div>
-                 <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Pilih Item</label><select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tanggal</label><input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal</label><input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className="w-full text-4xl font-black p-2 border-b-[4px] border-slate-100 dark:border-slate-800 outline-none focus:border-primary bg-transparent text-slate-800 dark:text-slate-100" /></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Keterangan</label><input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder="Misal: Makan Siang" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold" /></div>
-                 <div className="space-y-4 pt-4"><button type="submit" className="w-full py-5 bg-primary text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Konfirmasi</button>{editingTransaction && (<button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-5 bg-red-50 dark:bg-red-900/10 text-danger font-black rounded-[24px] flex items-center justify-center gap-2 active:bg-red-100 transition"><Trash2 size={20}/> Hapus Transaksi</button>)}</div>
-             </form>
-           </div>
-         </div>
-      )}
-
-      {savingModalOpen && (
-         <div className="fixed inset-0 z-[160] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 border dark:border-slate-800">
-             <div className="flex justify-between items-center mb-8"><h3 className="font-black text-xl text-slate-800 dark:text-slate-100">Simpan Dana</h3><button type="button" onClick={() => setSavingModalOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full active:scale-90 text-slate-600 dark:text-slate-400"><X size={20}/></button></div>
-             <form onSubmit={handleSaveSaving} className="space-y-6">
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Kartu</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-2xl font-black p-2 border-b-[3px] border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100" /></div>
-                 <div className="grid grid-cols-2 gap-3"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold"/></div>
-                 <button type="submit" className="w-full py-5 bg-success text-white font-black rounded-[24px] shadow-xl active:scale-95 transition">Amankan</button>
-             </form>
-           </div>
-         </div>
-      )}
-
-      {statementModalOpen && activeStatementCard && (
-         <div className="fixed inset-0 z-[110] bg-black/70 flex items-end md:items-center md:justify-center backdrop-blur-sm">
-            <div className="bg-slate-50 dark:bg-slate-950 w-full md:max-w-2xl h-[90vh] md:h-auto md:max-h-[92vh] md:rounded-[40px] rounded-t-[40px] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300 border-t dark:border-slate-800">
-                <div className={`${activeStatementCard.color} p-8 text-white shrink-0`}><div className="flex justify-between items-center mb-8"><button type="button" onClick={() => setStatementModalOpen(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center active:scale-90 transition"><ChevronDown size={24}/></button><h3 className="font-black text-xl tracking-tight uppercase">E-Statement</h3><div className="w-10"></div></div><div className="flex justify-between items-start"><div><p className="text-[10px] opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type}</p><h4 className="text-2xl font-black">{activeStatementCard.name}</h4></div><Receipt size={40} className="opacity-30" /></div></div>
-                <div className="bg-white dark:bg-slate-900 p-4 border-b border-slate-100 dark:border-slate-800 flex gap-3 shrink-0 shadow-sm"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-24 text-sm font-black bg-slate-50 dark:bg-slate-800 dark:text-slate-100 p-3 rounded-2xl outline-none" /></div>
-                <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar pb-10 bg-white dark:bg-slate-900">
-                   {(() => {
-                      const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
-                      return (
-                        <>
-                          <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col gap-4">
-                            <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-700"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Tagihan</span><span className="text-lg font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-success uppercase">Dibayar</span><span className="text-sm font-black text-success">-{showAmounts ? formatIDR(s.totalPaid) : '••'}</span></div>
-                            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-primary uppercase">Tabungan</span><span className="text-sm font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••'}</span></div>
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700"><span className="text-[10px] font-black text-danger uppercase">Sisa Bersih</span><span className="text-xl font-black text-danger">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••'}</span></div>
-                          </div>
-                          
-                          <section>
-                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">TRANSAKSI</h5>
-                            <div className="space-y-3">
-                              {s.transactions.map(t => (
-                                <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-50 dark:border-slate-700 flex justify-between items-center active:scale-[0.98] transition cursor-pointer">
-                                  <div className="flex items-center gap-3"><div className="w-10 h-10 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-slate-400"><FileText size={18}/></div><div><p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{new Date(t.date).toLocaleDateString('id-ID')}</p></div></div>
-                                  <div className="flex items-center gap-2"><span className="font-black text-danger text-sm">{showAmounts ? formatIDR(t.amount) : '••'}</span><button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2 rounded-full transform active:scale-90 ${t.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={24}/></button></div>
-                                </div>
-                              ))}
-                              {s.transactions.length === 0 && <p className="text-[10px] text-slate-300 italic text-center">Tidak ada transaksi.</p>}
-                            </div>
-                          </section>
-
-                          <section>
-                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">CICILAN</h5>
-                            <div className="space-y-3">
-                              {s.installments.map(inst => (
-                                <div key={inst.id} className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                  <div><p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase">{inst.name}</p><p className="text-[9px] text-primary font-black uppercase mt-0.5">T {inst.currentTenor}/{inst.totalMonths}</p></div>
-                                  <div className="flex items-center gap-2"><span className="font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(inst.monthlyAmount) : '••'}</span><button type="button" onClick={(e) => { e.stopPropagation(); toggleInstallmentValidation(inst.id, statementMonth, statementYear); }} className={`p-2 rounded-full transform active:scale-90 ${inst.isValidated ? 'text-primary dark:text-blue-400' : 'text-slate-200 dark:text-slate-600'}`}><CheckCircle2 size={24}/></button></div>
-                                </div>
-                              ))}
-                            </div>
-                          </section>
-                        </>
-                      )
-                   })()}
-                </div>
-            </div>
-         </div>
-      )}
     </div>
   );
 };
