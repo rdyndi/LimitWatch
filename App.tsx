@@ -200,7 +200,7 @@ const App: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
-  const [savingHistoryModal, setSavingHistoryModal] = useState<{ title: string, items: Saving[] } | null>(null);
+  const [savingHistoryModal, setSavingHistoryModal] = useState<{ title: string, items: Saving[], cardId: string, month: number, year: number } | null>(null);
 
   const [historyCardFilter, setHistoryCardFilter] = useState<string>('all');
   const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
@@ -859,7 +859,7 @@ const App: React.FC = () => {
                    <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
                    <div className="space-y-2.5">
                      {m.cardGroups.map((group, i) => (
-                       <button key={i} onClick={() => setSavingHistoryModal({ title: `${group.cardName} - ${m.monthName} ${savingsSelectedYear}`, items: group.items })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
+                       <button key={i} onClick={() => setSavingHistoryModal({ title: `${group.cardName} - ${m.monthName} ${savingsSelectedYear}`, items: group.items, cardId: group.cardId, month: m.monthIdx, year: savingsSelectedYear })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
                          <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
                          <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
                        </button>
@@ -896,9 +896,26 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Tombol Tambah di Modal Riwayat Tabungan */}
+                    <button 
+                      onClick={() => {
+                        setEditingSaving(null);
+                        setSavingAmount('');
+                        setSavingNote('');
+                        setSavingCardId(savingHistoryModal.cardId);
+                        setSavingTargetMonth(savingHistoryModal.month);
+                        setSavingTargetYear(savingHistoryModal.year);
+                        setSavingHistoryModal(null);
+                        pushView('FORM_SAVING');
+                      }}
+                      className="w-full mt-4 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-success hover:border-success transition-all font-bold text-sm uppercase"
+                    >
+                      <Plus size={18} /> Tambah Data Tabungan
+                    </button>
                   </div>
                   <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik untuk mengubah data</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
                   </div>
                 </div>
               </div>
@@ -1114,7 +1131,9 @@ const App: React.FC = () => {
                 <div className="relative z-10"><p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p><h4 className="text-3xl font-black">{activeStatementCard.name}</h4></div>
                 <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-70 uppercase font-black tracking-widest">Bulan Tagihan</p><p className="text-xl font-black uppercase">{monthNames[statementMonth]} {statementYear}</p></div>
             </div>
+            
             <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
+            
             <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm grid md:grid-cols-2 gap-10">
               <div className="space-y-6">
                 <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Pemakaian</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
@@ -1130,6 +1149,46 @@ const App: React.FC = () => {
                    <div className="pt-2 border-t dark:border-slate-700 flex justify-between text-xs font-black text-slate-800 dark:text-slate-200"><span className="uppercase">Total Tambahan</span><span>{showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span></div>
                 </div>
               </div>
+            </div>
+
+            {/* QUICK ACTIONS IN STATEMENT */}
+            <div className="grid grid-cols-2 gap-4">
+               <button 
+                  onClick={() => {
+                    setEditingTransaction(null);
+                    setTxAmount('');
+                    setTxDesc('');
+                    setTxType(TransactionType.EXPENSE);
+                    setTxCardId(activeStatementCard.id);
+                    // Gunakan tanggal pertama bulan statement sebagai default
+                    setTxDate(new Date(statementYear, statementMonth, 1).toISOString().split('T')[0]);
+                    pushView('FORM_TRANSACTION');
+                  }}
+                  className="flex items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-primary group"
+               >
+                  <div className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-danger flex items-center justify-center group-hover:bg-danger group-hover:text-white transition-colors">
+                    <Plus size={18} />
+                  </div>
+                  Catat Pemakaian
+               </button>
+               <button 
+                  onClick={() => {
+                    setEditingTransaction(null);
+                    setTxAmount('');
+                    setTxDesc(`Bayar Tagihan ${activeStatementCard.name}`);
+                    setTxType(TransactionType.PAYMENT);
+                    setTxCardId(activeStatementCard.id);
+                    setTxTargetMonth(statementMonth);
+                    setTxTargetYear(statementYear);
+                    pushView('FORM_TRANSACTION');
+                  }}
+                  className="flex items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-success group"
+               >
+                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-success flex items-center justify-center group-hover:bg-success group-hover:text-white transition-colors">
+                    <ArrowDownCircle size={18} />
+                  </div>
+                  Bayar Tagihan
+               </button>
             </div>
 
             {/* SEKSI CICILAN */}
@@ -1167,7 +1226,9 @@ const App: React.FC = () => {
 
             {/* SEKSI TRANSAKSI REGULER */}
             <section className="space-y-4">
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
+              <div className="flex justify-between items-center px-4">
+                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
+              </div>
               <div className="grid md:grid-cols-2 gap-4">
                 {s.transactions.map(t => (
                   <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer shadow-sm">
