@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   AppState, 
@@ -198,6 +199,7 @@ const App: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
+  const [savingHistoryModal, setSavingHistoryModal] = useState<{ title: string, items: Saving[] } | null>(null);
 
   const [historyCardFilter, setHistoryCardFilter] = useState<string>('all');
   const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
@@ -841,7 +843,7 @@ const App: React.FC = () => {
                    <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
                    <div className="space-y-2.5">
                      {m.cardGroups.map((group, i) => (
-                       <button key={i} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
+                       <button key={i} onClick={() => setSavingHistoryModal({ title: `${group.cardName} - ${m.monthName} ${savingsSelectedYear}`, items: group.items })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
                          <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
                          <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
                        </button>
@@ -854,6 +856,35 @@ const App: React.FC = () => {
               <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
                 <Vault size={48} className="mx-auto text-slate-200 mb-4" />
                 <p className="text-slate-400 font-bold">Belum ada tabungan untuk tahun ini.</p>
+              </div>
+            )}
+
+            {/* Modal Riwayat Tabungan */}
+            {savingHistoryModal && (
+              <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+                  <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                    <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-tight">{savingHistoryModal.title}</h3>
+                    <button onClick={() => setSavingHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
+                  </div>
+                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
+                    {savingHistoryModal.items.map(item => (
+                      <div key={item.id} onClick={() => { setSavingHistoryModal(null); openEditSaving(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-success/30">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.note}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-success">{formatIDR(item.amount)}</span>
+                          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik untuk mengubah data</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
