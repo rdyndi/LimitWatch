@@ -55,7 +55,8 @@ import {
   Sun,
   ArrowDownCircle,
   ArrowUpCircle,
-  Info
+  Info,
+  CalendarClock
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -416,6 +417,21 @@ const App: React.FC = () => {
   const toggleTransactionValidation = (id: string) => {
     const updated = data.transactions.map(t => t.id === id ? { ...t, isValidated: !t.isValidated } : t);
     saveData({ ...data, transactions: updated });
+  };
+
+  const toggleInstallmentValidation = (installmentId: string, month: number, year: number) => {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    const updated = data.installments.map(inst => {
+      if (inst.id === installmentId) {
+        const currentValidated = inst.validatedTenors || [];
+        const newValidated = currentValidated.includes(key)
+          ? currentValidated.filter(k => k !== key)
+          : [...currentValidated, key];
+        return { ...inst, validatedTenors: newValidated };
+      }
+      return inst;
+    });
+    saveData({ ...data, installments: updated });
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -1115,16 +1131,62 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* SEKSI CICILAN */}
             <section className="space-y-4">
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Log Transaksi Periode Ini</h5>
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><CalendarClock size={14}/> Tagihan Cicilan Berjalan</h5>
               <div className="grid md:grid-cols-2 gap-4">
-                {s.transactions.map(t => (
-                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer">
-                    <div className="flex items-center gap-4"><div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400"><History size={20}/></div><div><p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{new Date(t.date).toLocaleDateString('id-ID')}</p></div></div>
-                    <div className="flex items-center gap-3"><span className="font-black text-danger text-base">{showAmounts ? formatIDR(t.amount) : '••'}</span><button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${t.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700'}`}><CheckCircle2 size={24}/></button></div>
+                {s.installments.map(inst => (
+                   <div key={inst.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center group shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center text-indigo-500">
+                        <CalendarRange size={20}/>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{inst.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded font-black uppercase">Tenor {inst.currentTenor}/{inst.totalMonths}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-slate-800 dark:text-slate-200 text-base">{showAmounts ? formatIDR(inst.monthlyAmount) : '••'}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => toggleInstallmentValidation(inst.id, statementMonth, statementYear)} 
+                        className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${inst.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}
+                      >
+                        <CheckCircle2 size={24}/>
+                      </button>
+                    </div>
                   </div>
                 ))}
-                {s.transactions.length === 0 && <div className="col-span-full py-16 text-center text-slate-300 font-bold italic">Belum ada transaksi di periode ini.</div>}
+                {s.installments.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Tidak ada cicilan aktif pada periode ini.</div>}
+              </div>
+            </section>
+
+            {/* SEKSI TRANSAKSI REGULER */}
+            <section className="space-y-4">
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
+              <div className="grid md:grid-cols-2 gap-4">
+                {s.transactions.map(t => (
+                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                        <History size={20}/>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-danger text-base">{showAmounts ? formatIDR(t.amount) : '••'}</span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${t.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}><CheckCircle2 size={24}/></button>
+                    </div>
+                  </div>
+                ))}
+                {s.transactions.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Belum ada pemakaian baru di periode ini.</div>}
               </div>
             </section>
           </div>
