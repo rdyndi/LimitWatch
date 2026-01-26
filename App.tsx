@@ -1280,7 +1280,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
-      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
+      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans">
         
         {/* SHARED DESKTOP SIDEBAR */}
         <aside className="hidden md:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shrink-0 z-50">
@@ -1309,7 +1309,7 @@ const App: React.FC = () => {
         </aside>
 
         {/* CONTENT AREA (DYNAMIC) */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* HEADER (Only for certain views or small screens) */}
           {(currentView !== 'DASHBOARD' || isMobileDevice) && (
              <PageHeader 
@@ -1325,7 +1325,14 @@ const App: React.FC = () => {
             />
           )}
 
-          <main className={`flex-1 overflow-y-auto no-scrollbar scroll-container bg-slate-50 dark:bg-slate-950 ${!isFormOrDetailView && isMobileDevice ? 'pb-16' : 'pb-10'}`}>
+          <main
+  className={`flex-1 bg-slate-50 dark:bg-slate-950 ${
+    !isFormOrDetailView && isMobileDevice
+      ? 'pb-[calc(4rem+var(--sab,0px))]'
+      : 'pb-10'
+  }`}
+>
+
             {renderCurrentView()}
           </main>
 
