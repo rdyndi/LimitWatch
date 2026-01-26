@@ -1,3 +1,4 @@
+
 export enum DebtType {
   CREDIT_CARD = 'CREDIT_CARD',
   OTHER_DEBT = 'OTHER_DEBT', // Misal: Pinjaman, Hutang Teman, dll.
@@ -54,11 +55,23 @@ export interface Saving {
   isTransferred: boolean; // Jika true, berarti sudah dipakai bayar tagihan
 }
 
+export interface Piutang {
+  id: string;
+  cardId: string; // Alokasi untuk mengurangi hutang kartu mana
+  debtorName: string; // Nama orang yang berhutang
+  amount: number;
+  date: string;
+  note: string;
+  targetPeriod?: { month: number, year: number };
+  isCollected: boolean; // Jika true, berarti uang sudah diterima
+}
+
 export interface AppState {
   cards: CreditCard[];
   transactions: Transaction[];
   installments: Installment[];
   savings: Saving[];
+  piutangs?: Piutang[];
   theme?: 'light' | 'dark';
   security?: {
     pin: string | null;
@@ -70,6 +83,7 @@ export type ViewMode =
   | 'DASHBOARD' 
   | 'TRANSACTIONS' 
   | 'SAVINGS' 
+  | 'PIUTANGS'
   | 'CARDS' 
   | 'INSTALLMENTS' 
   | 'YEARLY' 
@@ -77,5 +91,6 @@ export type ViewMode =
   | 'FORM_TRANSACTION'
   | 'FORM_CARD'
   | 'FORM_SAVING'
+  | 'FORM_PIUTANG'
   | 'VIEW_STATEMENT'
   | 'VIEW_PROFILE';

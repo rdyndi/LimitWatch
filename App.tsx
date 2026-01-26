@@ -7,6 +7,7 @@ import {
   TransactionType,
   CreditCard as CreditCardType,
   Saving,
+  Piutang as PiutangType,
   DebtType,
   ViewMode
 } from "./types";
@@ -58,7 +59,9 @@ import {
   Info,
   CalendarClock,
   ArrowDownRight,
-  ShieldAlert
+  ShieldAlert,
+  HandCoins,
+  UserPlus
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -182,6 +185,7 @@ const App: React.FC = () => {
     transactions: [],
     installments: [],
     savings: [],
+    piutangs: [],
     theme: 'light',
     security: { pin: null, isPinEnabled: false }
   });
@@ -201,14 +205,17 @@ const App: React.FC = () => {
 
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
+  const [editingPiutang, setEditingPiutang] = useState<PiutangType | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
   const [savingHistoryModal, setSavingHistoryModal] = useState<{ title: string, items: Saving[], cardId: string, month: number, year: number } | null>(null);
+  const [piutangHistoryModal, setPiutangHistoryModal] = useState<{ title: string, items: PiutangType[], cardId: string, month: number, year: number } | null>(null);
 
   const [historyCardFilter, setHistoryCardFilter] = useState<string>('all');
   const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
   const [historyYearFilter, setHistoryYearFilter] = useState<number>(new Date().getFullYear());
   const [yearlySelectedYear, setYearlySelectedYear] = useState<number>(new Date().getFullYear());
   const [savingsSelectedYear, setSavingsSelectedYear] = useState<number>(new Date().getFullYear());
+  const [piutangsSelectedYear, setPiutangsSelectedYear] = useState<number>(new Date().getFullYear());
 
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
@@ -238,6 +245,13 @@ const App: React.FC = () => {
   const [savingCardId, setSavingCardId] = useState('');
   const [savingTargetMonth, setSavingTargetMonth] = useState(new Date().getMonth());
   const [savingTargetYear, setSavingTargetYear] = useState(new Date().getFullYear());
+
+  const [piutangAmount, setPiutangAmount] = useState('');
+  const [piutangDebtor, setPiutangDebtor] = useState('');
+  const [piutangNote, setPiutangNote] = useState('');
+  const [piutangCardId, setPiutangCardId] = useState('');
+  const [piutangTargetMonth, setPiutangTargetMonth] = useState(new Date().getMonth());
+  const [piutangTargetYear, setPiutangTargetYear] = useState(new Date().getFullYear());
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -384,6 +398,7 @@ const App: React.FC = () => {
     if (data.cards.length > 0) {
       if (!txCardId) setTxCardId(data.cards[0].id);
       if (!savingCardId) setSavingCardId(data.cards[0].id);
+      if (!piutangCardId) setPiutangCardId(data.cards[0].id);
     }
   }, [data.cards]);
 
@@ -404,7 +419,7 @@ const App: React.FC = () => {
       await logout();
       setUser(null);
       navigateToRoot('DASHBOARD');
-      setData({ cards: [], transactions: [], installments: [], savings: [], theme: 'light', security: { pin: null, isPinEnabled: false } });
+      setData({ cards: [], transactions: [], installments: [], savings: [], piutangs: [], theme: 'light', security: { pin: null, isPinEnabled: false } });
       document.documentElement.classList.remove('dark');
     }
   };
@@ -454,6 +469,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeletePiutang = (id: string) => {
+    if (window.confirm("Hapus catatan piutang ini?")) {
+      const updatedPiutangs = (data.piutangs || []).filter(p => p.id !== id);
+      saveData({ ...data, piutangs: updatedPiutangs });
+      popView();
+      setEditingPiutang(null);
+    }
+  };
+
   const availableSavingsForPeriod = useMemo(() => {
     if (!txCardId) return 0;
     return data.savings
@@ -488,6 +512,19 @@ const App: React.FC = () => {
       setSavingTargetYear(s.targetPeriod.year);
     }
     pushView('FORM_SAVING');
+  };
+
+  const openEditPiutang = (p: PiutangType) => {
+    setEditingPiutang(p);
+    setPiutangCardId(p.cardId);
+    setPiutangDebtor(p.debtorName);
+    setPiutangAmount(formatIDR(p.amount));
+    setPiutangNote(p.note);
+    if (p.targetPeriod) {
+      setPiutangTargetMonth(p.targetPeriod.month);
+      setPiutangTargetYear(p.targetPeriod.year);
+    }
+    pushView('FORM_PIUTANG');
   };
 
   const openStatement = (card: CreditCardType, month?: number, year?: number) => {
@@ -543,7 +580,7 @@ const App: React.FC = () => {
 
   const getStatementData = (cardId: string, month: number, year: number) => {
       const card = data.cards.find(c => c.id === cardId);
-      if (!card) return { transactions: [], installments: [], payments: [], savings: [], totalBill: 0, totalPaid: 0, totalSaved: 0, totalValidated: 0, adminFee: 0, materai: 0 };
+      if (!card) return { transactions: [], installments: [], payments: [], savings: [], piutangs: [], totalBill: 0, totalPaid: 0, totalSaved: 0, totalValidated: 0, adminFee: 0, materai: 0 };
       
       const cardTransactions = data.transactions.filter(t => {
           if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
@@ -555,6 +592,7 @@ const App: React.FC = () => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       const cardSavings = data.savings.filter(s => s.cardId === cardId && !s.isTransferred && s.targetPeriod?.month === month && s.targetPeriod?.year === year);
+      const cardPiutangs = (data.piutangs || []).filter(p => p.cardId === cardId && !p.isCollected && p.targetPeriod?.month === month && p.targetPeriod?.year === year);
       
       const activeInstallments = data.installments.filter(inst => {
           const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
@@ -585,14 +623,13 @@ const App: React.FC = () => {
         if ((baseAmount + adminFee) >= 5000000) materai = 10000;
       }
 
-      // Validated total also includes fees if the base amount matches the bank statement
       const totalBill = Math.ceil(baseAmount + adminFee + materai);
-      const totalValidated = Math.ceil(validatedBase + adminFee + materai); // Fees are assumed part of bank record
+      const totalValidated = Math.ceil(validatedBase + adminFee + materai);
 
       const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
-      const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0));
+      const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0) + cardPiutangs.reduce((s, v) => s + v.amount, 0));
       
-      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, totalBill, totalPaid, totalSaved, totalValidated, adminFee, materai };
+      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, piutangs: cardPiutangs, totalBill, totalPaid, totalSaved, totalValidated, adminFee, materai };
   };
 
   const filteredTransactions = useMemo(() => {
@@ -616,9 +653,12 @@ const App: React.FC = () => {
              const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
              const billAmount = getMonthlyBill(c.id, targetMonth, targetYear);
              const savedForThisMonth = data.savings.filter(s => s.cardId === c.id && !s.isTransferred && s.targetPeriod?.month === targetMonth && s.targetPeriod?.year === targetYear).reduce((sum, s) => sum + s.amount, 0);
-             return { ...c, daysLeft: diffDays, remainingBill: billAmount, savedForThisMonth, netGap: Math.max(0, billAmount - savedForThisMonth), isCovered: savedForThisMonth >= billAmount && billAmount > 0, progress: billAmount > 0 ? (savedForThisMonth / billAmount) * 100 : 0 };
+             const piutangForThisMonth = (data.piutangs || []).filter(p => p.cardId === c.id && !p.isCollected && p.targetPeriod?.month === targetMonth && p.targetPeriod?.year === targetYear).reduce((sum, p) => sum + p.amount, 0);
+             
+             const totalAssets = savedForThisMonth + piutangForThisMonth;
+             return { ...c, daysLeft: diffDays, remainingBill: billAmount, savedForThisMonth: totalAssets, netGap: Math.max(0, billAmount - totalAssets), isCovered: totalAssets >= billAmount && billAmount > 0, progress: billAmount > 0 ? (totalAssets / billAmount) * 100 : 0 };
           }).filter(c => c.remainingBill > 100).sort((a, b) => a.daysLeft - b.daysLeft);
-  }, [data.cards, data.transactions, data.installments, data.savings]);
+  }, [data.cards, data.transactions, data.installments, data.savings, data.piutangs]);
 
   const categoryGrouping = useMemo(() => {
     const groups: Record<string, number> = {};
@@ -636,8 +676,11 @@ const App: React.FC = () => {
         const cardsEstimates = data.cards.map(card => {
             const billTotal = getMonthlyBill(card.id, monthIdx, yearlySelectedYear);
             const saved = data.savings.filter(s => s.cardId === card.id && !s.isTransferred && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === yearlySelectedYear).reduce((sum, s) => sum + s.amount, 0);
-            const progress = billTotal > 0 ? (saved / billTotal) * 100 : 0;
-            return { cardId: card.id, cardName: card.name, color: card.color, bill: billTotal, isFullyPaid: billTotal <= 0 && data.transactions.some(t => t.cardId === card.id && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === monthIdx && t.targetPeriod?.year === yearlySelectedYear), saved, gap: Math.max(0, Math.ceil(billTotal - saved)), progress };
+            const piutang = (data.piutangs || []).filter(p => p.cardId === card.id && !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === yearlySelectedYear).reduce((sum, p) => sum + p.amount, 0);
+            
+            const totalAllocated = saved + piutang;
+            const progress = billTotal > 0 ? (totalAllocated / billTotal) * 100 : 0;
+            return { cardId: card.id, cardName: card.name, color: card.color, bill: billTotal, isFullyPaid: billTotal <= 0 && data.transactions.some(t => t.cardId === card.id && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === monthIdx && t.targetPeriod?.year === yearlySelectedYear), saved: totalAllocated, gap: Math.max(0, Math.ceil(billTotal - totalAllocated)), progress };
         }).filter(ce => ce.bill > 0 || ce.saved > 0 || ce.isFullyPaid);
         const totalMonthGap = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.gap, 0));
         const totalMonthBill = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.bill, 0));
@@ -662,9 +705,29 @@ const App: React.FC = () => {
     });
   }, [data, savingsSelectedYear]);
 
+  const piutangsYearlyData = useMemo(() => {
+    return monthNames.map((monthName, monthIdx) => {
+       const monthlyPiutangs = (data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === piutangsSelectedYear);
+       const cardGroups: Record<string, { cardId: string, cardName: string, cardColor: string, amount: number, items: PiutangType[] }> = {};
+       monthlyPiutangs.forEach(p => {
+         const card = data.cards.find(c => c.id === p.cardId);
+         if (!card) return;
+         if (!cardGroups[p.cardId]) { cardGroups[p.cardId] = { cardId: p.cardId, cardName: card.name, cardColor: card.color, amount: 0, items: [] }; }
+         cardGroups[p.cardId].amount += p.amount;
+         cardGroups[p.cardId].items.push(p);
+       });
+       const totalMonth = monthlyPiutangs.reduce((sum, p) => sum + p.amount, 0);
+       return { monthName, monthIdx, cardGroups: Object.values(cardGroups), totalMonth };
+    });
+  }, [data, piutangsSelectedYear]);
+
   const totalYearSavings = useMemo(() => {
     return data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear).reduce((sum, s) => sum + s.amount, 0);
   }, [data.savings, savingsSelectedYear]);
+
+  const totalYearPiutangs = useMemo(() => {
+    return (data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.year === piutangsSelectedYear).reduce((sum, p) => sum + p.amount, 0);
+  }, [data.piutangs, piutangsSelectedYear]);
 
   const yearlySummary = useMemo(() => {
     let totalYearBill = 0; let totalYearSaved = 0; let totalYearGap = 0;
@@ -707,7 +770,9 @@ const App: React.FC = () => {
   }, [data.cards, data.transactions, data.installments]);
 
   const totalSavingsAcrossYears = useMemo(() => Math.ceil(data.savings.filter(s => !s.isTransferred).reduce((s, c) => s + c.amount, 0)), [data.savings]);
-  const currentDebtGap = useMemo(() => Math.max(0, totalDebt - totalSavingsAcrossYears), [totalDebt, totalSavingsAcrossYears]);
+  const totalPiutangsAcrossYears = useMemo(() => Math.ceil((data.piutangs || []).filter(p => !p.isCollected).reduce((s, c) => s + c.amount, 0)), [data.piutangs]);
+  const totalAssets = totalSavingsAcrossYears + totalPiutangsAcrossYears;
+  const currentDebtGap = useMemo(() => Math.max(0, totalDebt - totalAssets), [totalDebt, totalAssets]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault(); setAuthLoading(true); setAuthError("");
@@ -784,6 +849,20 @@ const App: React.FC = () => {
     popView(); setSavingAmount(''); setSavingNote('');
   };
 
+  const handleSavePiutang = (e: React.FormEvent) => {
+    e.preventDefault(); const amountVal = getNumericValue(piutangAmount); if (!piutangCardId || amountVal <= 0 || !piutangDebtor) return;
+    const currentPiutangs = data.piutangs || [];
+    if (editingPiutang) {
+      const updatedPiutangs = currentPiutangs.map(p => p.id === editingPiutang.id ? { ...p, cardId: piutangCardId, debtorName: piutangDebtor, amount: Math.ceil(amountVal), note: piutangNote, targetPeriod: { month: piutangTargetMonth, year: piutangTargetYear } } : p);
+      saveData({ ...data, piutangs: updatedPiutangs });
+      setEditingPiutang(null);
+    } else {
+      const newPiutang: PiutangType = { id: generateId(), cardId: piutangCardId, debtorName: piutangDebtor, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: piutangNote || 'Piutang', targetPeriod: { month: piutangTargetMonth, year: piutangTargetYear }, isCollected: false };
+      saveData({ ...data, piutangs: [...currentPiutangs, newPiutang] });
+    }
+    popView(); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote('');
+  };
+
   // Shared content rendering function for both mobile and desktop
   const renderCurrentView = () => {
     switch (currentView) {
@@ -794,16 +873,18 @@ const App: React.FC = () => {
               <div className="absolute -right-8 -top-8 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
               <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm md:text-base font-bold uppercase tracking-wider">Total Liabilitas</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={24} /> : <EyeOff size={24} />}</button></div>
               <h3 className="text-3xl md:text-5xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
-              <div className="space-y-3 pt-6 border-t border-white/10 relative z-10 grid md:grid-cols-2 md:gap-10">
-                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan Pelunasan</p><p className="font-bold text-base md:text-xl">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
+              <div className="space-y-3 pt-6 border-t border-white/10 relative z-10 grid md:grid-cols-3 md:gap-10">
+                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
+                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Piutang</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p></div>
                 <div className="flex justify-between items-center"><p className="text-white text-[10px] md:text-xs uppercase font-black tracking-widest">Sisa Hutang</p><p className="font-black text-xl md:text-2xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 md:gap-8">
+            <div className="grid grid-cols-4 gap-4 md:gap-8">
               <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
               <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
-              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
+              <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
+              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
             </div>
 
             {upcomingBills.length > 0 && (
@@ -820,7 +901,7 @@ const App: React.FC = () => {
                                 <span className="font-black text-slate-700 dark:text-slate-200 text-xs md:text-sm">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
                              </div>
                              <div className="flex flex-col text-right">
-                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tabungan</span>
+                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Aset Likuid</span>
                                 <span className="font-black text-success text-xs md:text-sm">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
                              </div>
                              {bill.netGap > 0 && (
@@ -834,7 +915,6 @@ const App: React.FC = () => {
                              )}
                           </div>
                           
-                          {/* Progress Bar Mini */}
                           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div 
                               className={`h-full transition-all duration-1000 ${bill.isCovered ? 'bg-success' : 'bg-primary'}`} 
@@ -882,7 +962,7 @@ const App: React.FC = () => {
                     </div>
                   );
                 })}
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px) text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
              </div>
           </div>
         );
@@ -924,7 +1004,6 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Modal Riwayat Tabungan */}
             {savingHistoryModal && (
               <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
@@ -946,7 +1025,6 @@ const App: React.FC = () => {
                       </div>
                     ))}
                     
-                    {/* Tombol Tambah di Modal Riwayat Tabungan */}
                     <button 
                       onClick={() => {
                         setEditingSaving(null);
@@ -961,6 +1039,90 @@ const App: React.FC = () => {
                       className="w-full mt-4 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-success hover:border-success transition-all font-bold text-sm uppercase"
                     >
                       <Plus size={18} /> Tambah Data Tabungan
+                    </button>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      case 'PIUTANGS':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[32px] p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between">
+               <div className="space-y-2">
+                 <p className="text-indigo-100 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Piutang Tahun {piutangsSelectedYear}</p>
+                 <h3 className="text-3xl md:text-5xl font-black">{showAmounts ? formatIDR(totalYearPiutangs) : '••••••••'}</h3>
+               </div>
+               <div className="flex items-center gap-6 mt-6 md:mt-0 bg-white/10 p-4 rounded-2xl">
+                 <div className="flex items-center gap-3"><Calendar size={20} className="text-indigo-200"/><span className="text-xl font-black">{piutangsSelectedYear}</span></div>
+                 <div className="flex gap-2">
+                   <button onClick={() => setPiutangsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
+                   <button onClick={() => setPiutangsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
+                 </div>
+               </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {piutangsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-6 space-y-4">
+                   <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-indigo-600">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
+                   <div className="space-y-2.5">
+                     {m.cardGroups.map((group, i) => (
+                       <button key={i} onClick={() => setPiutangHistoryModal({ title: `${group.cardName} - ${m.monthName} ${piutangsSelectedYear}`, items: group.items, cardId: group.cardId, month: m.monthIdx, year: piutangsSelectedYear })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
+                         <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
+                         <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
+                       </button>
+                     ))}
+                   </div>
+                </div>
+              ))}
+            </div>
+            {(data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.year === piutangsSelectedYear).length === 0 && (
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
+                <HandCoins size={48} className="mx-auto text-slate-200 mb-4" />
+                <p className="text-slate-400 font-bold">Belum ada catatan piutang untuk tahun ini.</p>
+              </div>
+            )}
+
+            {piutangHistoryModal && (
+              <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+                  <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                    <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-tight">{piutangHistoryModal.title}</h3>
+                    <button onClick={() => setPiutangHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
+                  </div>
+                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
+                    {piutangHistoryModal.items.map(item => (
+                      <div key={item.id} onClick={() => { setPiutangHistoryModal(null); openEditPiutang(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-indigo-500/30">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.debtorName}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.note}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-indigo-600">{formatIDR(item.amount)}</span>
+                          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <button 
+                      onClick={() => {
+                        setEditingPiutang(null);
+                        setPiutangAmount('');
+                        setPiutangDebtor('');
+                        setPiutangNote('');
+                        setPiutangCardId(piutangHistoryModal.cardId);
+                        setPiutangTargetMonth(piutangHistoryModal.month);
+                        setPiutangTargetYear(piutangHistoryModal.year);
+                        setPiutangHistoryModal(null);
+                        pushView('FORM_PIUTANG');
+                      }}
+                      className="w-full mt-4 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-600 transition-all font-bold text-sm uppercase"
+                    >
+                      <Plus size={18} /> Tambah Data Piutang
                     </button>
                   </div>
                   <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
@@ -1169,6 +1331,18 @@ const App: React.FC = () => {
              </form>
           </div>
         );
+      case 'FORM_PIUTANG':
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+             <form onSubmit={handleSavePiutang} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none font-bold text-lg" /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal Piutang</label><input type="text" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-5xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Alokasi Untuk Hutang</label><select value={piutangCardId} onChange={(e)=>setPiutangCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-4"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
+               <div className="pt-4"><button type="submit" className="w-full py-6 bg-indigo-600 text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">Simpan Catatan Piutang</button>{editingPiutang && (<button type="button" onClick={() => handleDeletePiutang(editingPiutang.id)} className="w-full mt-4 py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] transition">Hapus Piutang</button>)}</div>
+             </form>
+          </div>
+        );
       case 'VIEW_PROFILE':
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
@@ -1208,7 +1382,6 @@ const App: React.FC = () => {
               <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-6">
                 <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tagihan App</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
                 
-                {/* VALIDATION COMPARISON */}
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 space-y-3">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-primary"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rekonsiliasi (Ceklist)</span></div>
@@ -1237,7 +1410,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ADVICE BANNER IF NOT RECONCILED */}
                 {!isReconciled && s.totalBill > 0 && (
                   <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 p-5 rounded-3xl flex items-start gap-4">
                     <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400 shrink-0"><ShieldAlert size={20}/></div>
@@ -1247,7 +1419,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* QUICK ACTIONS IN STATEMENT */}
             <div className="grid grid-cols-2 gap-4">
                <button 
                   onClick={() => {
@@ -1286,7 +1457,6 @@ const App: React.FC = () => {
                </button>
             </div>
 
-            {/* SEKSI CICILAN */}
             <section className="space-y-4">
               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><CalendarClock size={14}/> Tagihan Cicilan Berjalan</h5>
               <div className="grid md:grid-cols-2 gap-4">
@@ -1319,7 +1489,6 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* SEKSI TRANSAKSI REGULER */}
             <section className="space-y-4">
               <div className="flex justify-between items-center px-4">
                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
@@ -1396,7 +1565,7 @@ const App: React.FC = () => {
       </div>
   );
 
-  const isFormOrDetailView = ['FORM_TRANSACTION', 'FORM_CARD', 'FORM_SAVING', 'VIEW_STATEMENT', 'VIEW_PROFILE'].includes(currentView);
+  const isFormOrDetailView = ['FORM_TRANSACTION', 'FORM_CARD', 'FORM_SAVING', 'FORM_PIUTANG', 'VIEW_STATEMENT', 'VIEW_PROFILE'].includes(currentView);
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
@@ -1410,6 +1579,7 @@ const App: React.FC = () => {
               <DesktopNavItem icon={<Home size={22}/>} label="Beranda" active={currentView === 'DASHBOARD'} onClick={() => navigateToRoot('DASHBOARD')} />
               <DesktopNavItem icon={<Briefcase size={22}/>} label="Kartu & Hutang" active={currentView === 'CARDS'} onClick={() => navigateToRoot('CARDS')} />
               <DesktopNavItem icon={<Vault size={22}/>} label="Tabungan" active={currentView === 'SAVINGS'} onClick={() => navigateToRoot('SAVINGS')} />
+              <DesktopNavItem icon={<HandCoins size={22}/>} label="Piutang" active={currentView === 'PIUTANGS'} onClick={() => navigateToRoot('PIUTANGS')} />
               <DesktopNavItem icon={<CalendarRange size={22}/>} label="Anggaran Tahunan" active={currentView === 'YEARLY'} onClick={() => navigateToRoot('YEARLY')} />
               <DesktopNavItem icon={<History size={22}/>} label="Riwayat Aktivitas" active={currentView === 'TRANSACTIONS'} onClick={() => navigateToRoot('TRANSACTIONS')} />
            </nav>
@@ -1455,12 +1625,13 @@ const App: React.FC = () => {
               className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
               style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
             >
-              <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto">
-                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-                <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
-                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={22} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
-                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
-                <button onClick={()=>navigateToRoot('TRANSACTIONS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'TRANSACTIONS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
+              <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto overflow-x-auto no-scrollbar">
+                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
+                <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
+                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={20} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
+                <button onClick={()=>navigateToRoot('PIUTANGS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'PIUTANGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><HandCoins size={20} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Piutang</span></button>
+                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
+                <button onClick={()=>navigateToRoot('TRANSACTIONS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'TRANSACTIONS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
               </div>
             </nav>
           )}

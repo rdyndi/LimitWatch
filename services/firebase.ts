@@ -1,7 +1,6 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// Fix: Use namespace import for firestore to bypass "no exported member" errors in specific environments
 import * as firestore from "firebase/firestore";
 import { 
   getAuth, 
@@ -16,10 +15,8 @@ import {
 } from "firebase/auth";
 import { AppState } from "../types";
 
-// Extract modular functions from firestore namespace
 const { getFirestore, doc, onSnapshot, setDoc } = firestore;
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyALzhraAqiH0_50nOOIQUY1WZd9tStajB8",
   authDomain: "dompetcerdas-4490e.firebaseapp.com",
@@ -30,7 +27,6 @@ const firebaseConfig = {
   measurementId: "G-Z6MRN5Z18X"
 };
 
-// Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let analytics = null;
@@ -40,12 +36,9 @@ try {
   console.warn("Firebase Analytics initialization failed (this is optional):", error);
 }
 
-// Initialize Firestore and Auth using modular SDK
 const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
-
-// --- Auth Functions ---
 
 export const loginWithGoogle = async () => {
   try {
@@ -102,24 +95,24 @@ export const subscribeToAuth = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// --- Database Functions ---
-
 export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
   if (!userId) return () => {};
 
-  // Data is now stored under "users/{userId}" document
   const userDocRef = doc(db, "users", userId);
 
   const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
-      onUpdate(docSnap.data() as AppState);
+      const state = docSnap.data() as AppState;
+      if (!state.piutangs) state.piutangs = [];
+      onUpdate(state);
     } else {
       console.log("No user data found, creating new empty state.");
       onUpdate({
         cards: [],
         transactions: [],
         installments: [],
-        savings: []
+        savings: [],
+        piutangs: []
       });
     }
   }, (error) => {
@@ -132,7 +125,6 @@ export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
-    // Firestore throws error on 'undefined' values. Sanitizing to JSON removes them.
     const sanitizedData = JSON.parse(JSON.stringify(data));
     const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, sanitizedData);
