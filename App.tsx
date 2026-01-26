@@ -115,7 +115,7 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 // --- Sub-components ---
 
 const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
-  <header className={`flex-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b dark:border-slate-800 z-[60] sticky top-0 ${className}`} style={{ paddingTop: 'var(--sat, 0px)' }}>
+  <header className={`flex-none bg-white dark:bg-slate-900 border-b dark:border-slate-800 z-[60] sticky top-0 ${className}`} style={{ paddingTop: 'var(--sat, 0px)' }}>
     <div className="px-5 md:px-8 h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
       <div className="flex items-center gap-3">
         {onBack && (
@@ -896,6 +896,8 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Tombol Tambah di Modal Riwayat Tabungan */}
                     <button 
                       onClick={() => {
                         setEditingSaving(null);
@@ -912,7 +914,7 @@ const App: React.FC = () => {
                       <Plus size={18} /> Tambah Data Tabungan
                     </button>
                   </div>
-                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center pb-6">
+                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
                   </div>
                 </div>
@@ -997,16 +999,21 @@ const App: React.FC = () => {
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
              <form onSubmit={handleSaveTransaction} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               {/* TYPE TOGGLE */}
                <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[24px]">
                  <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowUpCircle size={18}/> PAKAI</button>
                  <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowDownCircle size={18}/> BAYAR</button>
                </div>
+
+               {/* CARD SELECT */}
                <div className="space-y-2">
                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Sumber Dana / Kartu</label>
                  <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary transition">
                    {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                  </select>
                </div>
+
+               {/* PAYMENT SPECIFIC FIELDS */}
                {txType === TransactionType.PAYMENT && (
                  <div className="space-y-6 animate-in slide-in-from-top duration-300">
                     <div className="grid grid-cols-2 gap-4">
@@ -1021,11 +1028,13 @@ const App: React.FC = () => {
                         <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-success outline-none"/>
                       </div>
                     </div>
+
                     <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 space-y-4">
                        <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2"><Info size={16} className="text-slate-400"/><span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
                           <span className="text-sm font-black text-slate-800 dark:text-slate-100">{formatIDR(currentBillEstimate)}</span>
                        </div>
+                       
                        <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border-2' : 'bg-white dark:bg-slate-800 border-2 border-transparent'}`}>
                           <div className="flex items-center gap-3">
                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={20}/></div>
@@ -1041,11 +1050,14 @@ const App: React.FC = () => {
                     </div>
                  </div>
                )}
+
+               {/* MAIN AMOUNT INPUT */}
                <div className="space-y-2 text-center">
                  <label className="text-[10px] font-black text-slate-400 uppercase">
                     {txType === TransactionType.EXPENSE ? 'Nominal Pemakaian' : 'Nominal Bayar Tunai'}
                  </label>
                  <input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className={`w-full text-5xl font-black p-4 border-b-4 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-100 focus:border-danger' : 'border-green-100 focus:border-success'}`} />
+                 
                  {txType === TransactionType.PAYMENT && txUseSavings && availableSavingsForPeriod > 0 && (
                    <div className="mt-4 flex flex-col items-center gap-1 animate-in zoom-in duration-300">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pengurangan Hutang</span>
@@ -1053,6 +1065,8 @@ const App: React.FC = () => {
                    </div>
                  )}
                </div>
+
+               {/* DESCRIPTION & DATE */}
                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Keterangan</label>
@@ -1063,6 +1077,8 @@ const App: React.FC = () => {
                     <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold"/>
                   </div>
                </div>
+
+               {/* ACTION BUTTONS */}
                <div className="space-y-4 pt-4">
                  <button type="submit" className={`w-full py-6 text-white font-black text-lg rounded-[28px] shadow-xl active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
                     {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? 'Catat Pengeluaran' : 'Konfirmasi Pembayaran')}
@@ -1101,7 +1117,7 @@ const App: React.FC = () => {
                  <MobileMenuButton icon={<ShieldCheck size={20}/>} label="Setel Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'TIDAK AKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />
                  <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger />
               </div>
-              <div className="p-10 text-center opacity-30 pb-10"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
+              <div className="p-10 text-center opacity-30"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
             </div>
           </div>
         );
@@ -1115,7 +1131,9 @@ const App: React.FC = () => {
                 <div className="relative z-10"><p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p><h4 className="text-3xl font-black">{activeStatementCard.name}</h4></div>
                 <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-70 uppercase font-black tracking-widest">Bulan Tagihan</p><p className="text-xl font-black uppercase">{monthNames[statementMonth]} {statementYear}</p></div>
             </div>
+            
             <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
+            
             <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm grid md:grid-cols-2 gap-10">
               <div className="space-y-6">
                 <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Pemakaian</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
@@ -1132,6 +1150,8 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* QUICK ACTIONS IN STATEMENT */}
             <div className="grid grid-cols-2 gap-4">
                <button 
                   onClick={() => {
@@ -1140,6 +1160,7 @@ const App: React.FC = () => {
                     setTxDesc('');
                     setTxType(TransactionType.EXPENSE);
                     setTxCardId(activeStatementCard.id);
+                    // Gunakan tanggal pertama bulan statement sebagai default
                     setTxDate(new Date(statementYear, statementMonth, 1).toISOString().split('T')[0]);
                     pushView('FORM_TRANSACTION');
                   }}
@@ -1169,6 +1190,8 @@ const App: React.FC = () => {
                   Bayar Tagihan
                </button>
             </div>
+
+            {/* SEKSI CICILAN */}
             <section className="space-y-4">
               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><CalendarClock size={14}/> Tagihan Cicilan Berjalan</h5>
               <div className="grid md:grid-cols-2 gap-4">
@@ -1200,7 +1223,9 @@ const App: React.FC = () => {
                 {s.installments.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Tidak ada cicilan aktif pada periode ini.</div>}
               </div>
             </section>
-            <section className="space-y-4 pb-10">
+
+            {/* SEKSI TRANSAKSI REGULER */}
+            <section className="space-y-4">
               <div className="flex justify-between items-center px-4">
                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
               </div>
@@ -1280,7 +1305,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans">
+      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans">
         
         {/* SHARED DESKTOP SIDEBAR */}
         <aside className="hidden md:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shrink-0 z-50">
@@ -1309,7 +1334,7 @@ const App: React.FC = () => {
         </aside>
 
         {/* CONTENT AREA (DYNAMIC) */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* HEADER (Only for certain views or small screens) */}
           {(currentView !== 'DASHBOARD' || isMobileDevice) && (
              <PageHeader 
@@ -1317,7 +1342,7 @@ const App: React.FC = () => {
               onBack={viewStack.length > 1 ? popView : undefined}
               rightElement={
                 isMobileDevice && currentView === 'DASHBOARD' && (
-                  <button onClick={() => pushView('VIEW_PROFILE')} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                  <button onClick={() => pushView('VIEW_PROFILE')} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
                     {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-slate-400"/>}
                   </button>
                 )
@@ -1325,24 +1350,17 @@ const App: React.FC = () => {
             />
           )}
 
-          <main
-  className={`flex-1 bg-slate-50 dark:bg-slate-950 ${
-    !isFormOrDetailView && isMobileDevice
-      ? 'pb-[calc(4rem+var(--sab,0px))]'
-      : 'pb-10'
-  }`}
->
-
+          <main className="flex-1 overflow-y-auto no-scrollbar pb-24 md:pb-10 bg-slate-50 dark:bg-slate-950">
             {renderCurrentView()}
           </main>
 
           {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
             <nav 
-              className="fixed left-0 right-0 bottom-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
-              style={{ paddingBottom: 'var(--sab, 0px)' }}
+              className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
+              style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
             >
-              <div className="h-16 px-6 flex justify-between items-center max-w-lg mx-auto">
+              <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto">
                 <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
                 <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
                 <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={22} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
