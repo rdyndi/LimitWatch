@@ -1350,20 +1350,16 @@ const App: React.FC = () => {
             />
           )}
 
-<main className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-950">
-  {renderCurrentView()}
-  {!isFormOrDetailView && isMobileDevice && <BottomSpacer />}
-</main>
+          <main className="flex-1 overflow-y-auto no-scrollbar pb-24 md:pb-10 bg-slate-50 dark:bg-slate-950">
+            {renderCurrentView()}
+          </main>
 
           {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
-<nav
-  className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60]"
-  style={{
-    height: 'calc(var(--nav-height) + var(--sab))',
-    paddingBottom: 'var(--sab)',
-  }}
->
+            <nav 
+              className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
+              style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
+            >
               <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto">
                 <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
                 <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={22} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
