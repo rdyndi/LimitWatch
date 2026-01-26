@@ -57,7 +57,8 @@ import {
   ArrowUpCircle,
   Info,
   CalendarClock,
-  ArrowDownRight
+  ArrowDownRight,
+  ShieldAlert
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -489,18 +490,23 @@ const App: React.FC = () => {
     pushView('FORM_SAVING');
   };
 
-  const openStatement = (card: CreditCardType) => {
+  const openStatement = (card: CreditCardType, month?: number, year?: number) => {
     setActiveStatementCard(card);
-    const today = new Date();
-    if (card.dueDay && today.getDate() >= card.dueDay) {
-        let nextM = today.getMonth() + 1;
-        let nextY = today.getFullYear();
-        if (nextM > 11) { nextM = 0; nextY++; }
-        setStatementMonth(nextM);
-        setStatementYear(nextY);
+    if (month !== undefined && year !== undefined) {
+      setStatementMonth(month);
+      setStatementYear(year);
     } else {
-        setStatementMonth(today.getMonth());
-        setStatementYear(today.getFullYear());
+      const today = new Date();
+      if (card.dueDay && today.getDate() >= card.dueDay) {
+          let nextM = today.getMonth() + 1;
+          let nextY = today.getFullYear();
+          if (nextM > 11) { nextM = 0; nextY++; }
+          setStatementMonth(nextM);
+          setStatementYear(nextY);
+      } else {
+          setStatementMonth(today.getMonth());
+          setStatementYear(today.getFullYear());
+      }
     }
     pushView('VIEW_STATEMENT');
   };
@@ -537,7 +543,8 @@ const App: React.FC = () => {
 
   const getStatementData = (cardId: string, month: number, year: number) => {
       const card = data.cards.find(c => c.id === cardId);
-      if (!card) return { transactions: [], installments: [], payments: [], savings: [], totalBill: 0, totalPaid: 0, totalSaved: 0, adminFee: 0, materai: 0 };
+      if (!card) return { transactions: [], installments: [], payments: [], savings: [], totalBill: 0, totalPaid: 0, totalSaved: 0, totalValidated: 0, adminFee: 0, materai: 0 };
+      
       const cardTransactions = data.transactions.filter(t => {
           if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
           const billing = getBillingPeriod(t.date, card?.dueDay);
@@ -548,6 +555,7 @@ const App: React.FC = () => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       const cardSavings = data.savings.filter(s => s.cardId === cardId && !s.isTransferred && s.targetPeriod?.month === month && s.targetPeriod?.year === year);
+      
       const activeInstallments = data.installments.filter(inst => {
           const billingTenor1 = getBillingPeriod(inst.startDate, card?.dueDay);
           const monthDiff = (year - billingTenor1.year) * 12 + (month - billingTenor1.month);
@@ -562,16 +570,29 @@ const App: React.FC = () => {
             isValidated: inst.validatedTenors?.includes(key) || false 
           };
       });
+
       const baseAmount = Math.ceil(cardTransactions.reduce((s, t) => s + t.amount, 0) + activeInstallments.reduce((s, i) => s + i.monthlyAmount, 0));
+      
+      // Calculate Validated amount (checked items)
+      const validatedBase = Math.ceil(
+        cardTransactions.filter(t => t.isValidated).reduce((s, t) => s + t.amount, 0) + 
+        activeInstallments.filter(i => i.isValidated).reduce((s, i) => s + i.monthlyAmount, 0)
+      );
+
       let adminFee = 0; let materai = 0;
       if (baseAmount > 0) {
         adminFee = card.eStatementFee || 0;
         if ((baseAmount + adminFee) >= 5000000) materai = 10000;
       }
+
+      // Validated total also includes fees if the base amount matches the bank statement
       const totalBill = Math.ceil(baseAmount + adminFee + materai);
+      const totalValidated = Math.ceil(validatedBase + adminFee + materai); // Fees are assumed part of bank record
+
       const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
       const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0));
-      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, totalBill, totalPaid, totalSaved, adminFee, materai };
+      
+      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, totalBill, totalPaid, totalSaved, totalValidated, adminFee, materai };
   };
 
   const filteredTransactions = useMemo(() => {
@@ -621,7 +642,7 @@ const App: React.FC = () => {
         const totalMonthGap = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.gap, 0));
         const totalMonthBill = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.bill, 0));
         const totalMonthSaved = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.saved, 0));
-        return { monthName, cardsEstimates, totalMonthGap, totalMonthBill, totalMonthSaved };
+        return { monthName, monthIdx, cardsEstimates, totalMonthGap, totalMonthBill, totalMonthSaved };
     });
   }, [data, yearlySelectedYear]);
 
@@ -792,7 +813,34 @@ const App: React.FC = () => {
                     {upcomingBills.map(bill => (
                        <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[85vw] md:min-w-[400px] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-4 snap-center active:scale-[0.98] hover:border-primary transition-all cursor-pointer">
                           <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className={`w-10 h-10 ${bill.color} rounded-xl flex items-center justify-center text-white shadow-sm`}><AlertCircle size={18}/></div><span className="text-sm md:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{bill.name}</span></div><span className={`text-[9px] md:text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 dark:bg-red-900/30 text-danger dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>{bill.daysLeft} Hari Lagi</span></div>
-                          <div className="grid grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl"><div className="flex flex-col"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tagihan</span><span className="font-black text-slate-700 dark:text-slate-200 text-xs md:text-sm">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span></div><div className="flex flex-col text-right"><span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tabungan</span><span className="font-black text-success text-xs md:text-sm">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span></div></div>
+                          
+                          <div className="grid grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl relative overflow-hidden">
+                             <div className="flex flex-col">
+                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tagihan</span>
+                                <span className="font-black text-slate-700 dark:text-slate-200 text-xs md:text-sm">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
+                             </div>
+                             <div className="flex flex-col text-right">
+                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tabungan</span>
+                                <span className="font-black text-success text-xs md:text-sm">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
+                             </div>
+                             {bill.netGap > 0 && (
+                               <div className="col-span-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                 <span className="text-danger font-black text-[10px] md:text-[11px] uppercase flex items-center gap-1">
+                                   <ArrowDownRight size={14} className="animate-bounce" />
+                                   Kurang {showAmounts ? formatIDR(bill.netGap) : '••••'}
+                                 </span>
+                                 <span className="text-[10px] font-black text-slate-400 uppercase">{Math.round(bill.progress)}% SIAP</span>
+                               </div>
+                             )}
+                          </div>
+                          
+                          {/* Progress Bar Mini */}
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-1000 ${bill.isCovered ? 'bg-success' : 'bg-primary'}`} 
+                              style={{ width: `${Math.min(100, bill.progress)}%` }}
+                            ></div>
+                          </div>
                        </div>
                     ))}
                  </div>
@@ -834,7 +882,7 @@ const App: React.FC = () => {
                     </div>
                   );
                 })}
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px) text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
              </div>
           </div>
         );
@@ -936,24 +984,31 @@ const App: React.FC = () => {
                 <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-sm border border-slate-50 dark:border-slate-800 space-y-5">
                   <div className="flex justify-between items-center"><h4 className="font-black text-lg text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 dark:bg-red-900/20 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span></div>
                   <div className="space-y-6">
-                    {m.cardsEstimates.map((ce, i) => (
-                      <div key={i} className="space-y-2 group">
-                        <div className="flex justify-between text-xs font-bold items-end">
-                           <div className="flex flex-col">
-                              <span className="text-slate-400 uppercase tracking-tighter text-[10px]">{ce.cardName}</span>
-                              {ce.gap > 0 && (
-                                <span className="text-danger font-black text-[11px] flex items-center gap-1 animate-pulse">
-                                  <ArrowDownRight size={12} /> Kurang {showAmounts ? formatIDR(ce.gap) : '••'}
-                                </span>
-                              )}
-                           </div>
-                           <span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span>
+                    {m.cardsEstimates.map((ce, i) => {
+                      const cardObj = data.cards.find(c => c.id === ce.cardId);
+                      return (
+                        <div 
+                          key={i} 
+                          onClick={() => cardObj && openStatement(cardObj, m.monthIdx, yearlySelectedYear)}
+                          className="space-y-2 group cursor-pointer bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 py-1.5 rounded-xl transition-all"
+                        >
+                          <div className="flex justify-between text-xs font-bold items-end">
+                             <div className="flex flex-col">
+                                <span className="text-slate-400 uppercase tracking-tighter text-[10px]">{ce.cardName}</span>
+                                {ce.gap > 0 && (
+                                  <span className="text-danger font-black text-[11px] flex items-center gap-1 animate-pulse">
+                                    <ArrowDownRight size={12} /> Kurang {showAmounts ? formatIDR(ce.gap) : '••'}
+                                  </span>
+                                )}
+                             </div>
+                             <span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span>
+                          </div>
+                          <div className="h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
+                            <div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
+                          </div>
                         </div>
-                        <div className="h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
-                          <div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -1137,8 +1192,10 @@ const App: React.FC = () => {
       case 'VIEW_STATEMENT':
         if (!activeStatementCard) return null;
         const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
+        const isReconciled = s.totalValidated === s.totalBill && s.totalBill > 0;
+        
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-5xl mx-auto w-full px-5 py-8 space-y-8">
+          <div className="animate-in slide-in-from-right duration-300 max-w-5xl mx-auto w-full px-5 py-8 space-y-8 pb-32">
             <div className={`${activeStatementCard.color} p-8 md:p-12 text-white rounded-[40px] shadow-xl flex justify-between items-center overflow-hidden relative`}>
                 <div className="absolute -right-10 -bottom-10 opacity-10"><Receipt size={200} /></div>
                 <div className="relative z-10"><p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p><h4 className="text-3xl font-black">{activeStatementCard.name}</h4></div>
@@ -1147,20 +1204,46 @@ const App: React.FC = () => {
             
             <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
             
-            <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm grid md:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Pemakaian</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-6">
+                <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tagihan App</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
+                
+                {/* VALIDATION COMPARISON */}
+                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-primary"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rekonsiliasi (Ceklist)</span></div>
+                    <span className={`text-base font-black ${isReconciled ? 'text-success' : 'text-primary'}`}>{showAmounts ? formatIDR(s.totalValidated) : '••••'}</span>
+                  </div>
+                  <div className="h-2 bg-slate-50 dark:bg-slate-950 rounded-full overflow-hidden">
+                    <div className={`h-full transition-all duration-1000 ${isReconciled ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, (s.totalValidated / (s.totalBill || 1)) * 100)}%` }}></div>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-tighter">
+                    {isReconciled ? '✅ Angka Cocok dengan Record Bank' : `⚠️ Selisih ${formatIDR(Math.abs(s.totalBill - s.totalValidated))} dari App Record`}
+                  </p>
+                </div>
+
                 <div className="flex justify-between items-center"><span className="text-[10px] font-black text-success uppercase tracking-widest">Dana Terbayar</span><span className="text-base font-black text-success">-{showAmounts ? formatIDR(s.totalPaid) : '••'}</span></div>
                 <div className="flex justify-between items-center"><span className="text-[10px] font-black text-primary uppercase tracking-widest">Dana Cadangan</span><span className="text-base font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••'}</span></div>
                 <div className="flex justify-between items-center pt-4 border-t-2 dark:border-slate-800"><span className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Kewajiban</span><span className="text-3xl font-black text-danger">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••'}</span></div>
               </div>
-              <div className="space-y-4">
-                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Briefcase size={12}/> Breakdown Biaya</h5>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl space-y-3 shadow-sm">
-                   <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">E-Statement Fee</span><span>{showAmounts ? formatIDR(s.adminFee) : '••'}</span></div>
-                   <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">Biaya Materai</span><span>{showAmounts ? formatIDR(s.materai) : '••'}</span></div>
-                   <div className="pt-2 border-t dark:border-slate-700 flex justify-between text-xs font-black text-slate-800 dark:text-slate-200"><span className="uppercase">Total Tambahan</span><span>{showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span></div>
+              
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-4">
+                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Briefcase size={12}/> Breakdown Biaya</h5>
+                  <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl space-y-3 shadow-sm">
+                    <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">E-Statement Fee</span><span>{showAmounts ? formatIDR(s.adminFee) : '••'}</span></div>
+                    <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">Biaya Materai</span><span>{showAmounts ? formatIDR(s.materai) : '••'}</span></div>
+                    <div className="pt-2 border-t dark:border-slate-700 flex justify-between text-xs font-black text-slate-800 dark:text-slate-200"><span className="uppercase">Total Tambahan</span><span>{showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span></div>
+                  </div>
                 </div>
+
+                {/* ADVICE BANNER IF NOT RECONCILED */}
+                {!isReconciled && s.totalBill > 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 p-5 rounded-3xl flex items-start gap-4">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400 shrink-0"><ShieldAlert size={20}/></div>
+                    <div><p className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-tight">Tips Rekonsiliasi</p><p className="text-[10px] font-bold text-amber-700/70 dark:text-amber-400/60 leading-relaxed mt-1">Ceklist transaksi di bawah satu per satu sambil melihat tagihan di aplikasi bank. Jika total tervalidasi sudah sama, berarti catatan Anda sudah akurat.</p></div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1173,7 +1256,6 @@ const App: React.FC = () => {
                     setTxDesc('');
                     setTxType(TransactionType.EXPENSE);
                     setTxCardId(activeStatementCard.id);
-                    // Gunakan tanggal pertama bulan statement sebagai default
                     setTxDate(new Date(statementYear, statementMonth, 1).toISOString().split('T')[0]);
                     pushView('FORM_TRANSACTION');
                   }}
@@ -1209,9 +1291,9 @@ const App: React.FC = () => {
               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><CalendarClock size={14}/> Tagihan Cicilan Berjalan</h5>
               <div className="grid md:grid-cols-2 gap-4">
                 {s.installments.map(inst => (
-                   <div key={inst.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center group shadow-sm">
+                   <div key={inst.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center group shadow-sm transition-all hover:shadow-md">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center text-indigo-500">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${inst.isValidated ? 'bg-primary/10 text-primary' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
                         <CalendarRange size={20}/>
                       </div>
                       <div>
@@ -1226,7 +1308,7 @@ const App: React.FC = () => {
                       <button 
                         type="button" 
                         onClick={() => toggleInstallmentValidation(inst.id, statementMonth, statementYear)} 
-                        className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${inst.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}
+                        className={`p-2.5 rounded-full transform active:scale-90 transition-all ${inst.isValidated ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}
                       >
                         <CheckCircle2 size={24}/>
                       </button>
@@ -1244,9 +1326,9 @@ const App: React.FC = () => {
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 {s.transactions.map(t => (
-                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer shadow-sm">
+                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer shadow-sm hover:shadow-md">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${t.isValidated ? 'bg-primary/10 text-primary' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
                         <History size={20}/>
                       </div>
                       <div>
@@ -1256,7 +1338,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-black text-danger text-base">{showAmounts ? formatIDR(t.amount) : '••'}</span>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-colors ${t.isValidated ? 'bg-primary/10 text-primary dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}><CheckCircle2 size={24}/></button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-all ${t.isValidated ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}><CheckCircle2 size={24}/></button>
                     </div>
                   </div>
                 ))}
