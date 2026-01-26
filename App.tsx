@@ -56,7 +56,8 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Info,
-  CalendarClock
+  CalendarClock,
+  ArrowDownRight
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -934,11 +935,23 @@ const App: React.FC = () => {
               {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
                 <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-sm border border-slate-50 dark:border-slate-800 space-y-5">
                   <div className="flex justify-between items-center"><h4 className="font-black text-lg text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 dark:bg-red-900/20 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span></div>
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     {m.cardsEstimates.map((ce, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 uppercase tracking-tighter">{ce.cardName}</span><span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span></div>
-                        <div className="h-2 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div></div>
+                      <div key={i} className="space-y-2 group">
+                        <div className="flex justify-between text-xs font-bold items-end">
+                           <div className="flex flex-col">
+                              <span className="text-slate-400 uppercase tracking-tighter text-[10px]">{ce.cardName}</span>
+                              {ce.gap > 0 && (
+                                <span className="text-danger font-black text-[11px] flex items-center gap-1 animate-pulse">
+                                  <ArrowDownRight size={12} /> Kurang {showAmounts ? formatIDR(ce.gap) : '••'}
+                                </span>
+                              )}
+                           </div>
+                           <span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span>
+                        </div>
+                        <div className="h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
+                          <div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
+                        </div>
                       </div>
                     ))}
                   </div>
