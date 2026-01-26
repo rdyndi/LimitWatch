@@ -912,7 +912,7 @@ const App: React.FC = () => {
                       <Plus size={18} /> Tambah Data Tabungan
                     </button>
                   </div>
-                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center pb-[calc(1.5rem + var(--sab))]">
+                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center pb-6">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
                   </div>
                 </div>
@@ -1101,7 +1101,7 @@ const App: React.FC = () => {
                  <MobileMenuButton icon={<ShieldCheck size={20}/>} label="Setel Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'TIDAK AKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />
                  <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger />
               </div>
-              <div className="p-10 text-center opacity-30 pb-[calc(2.5rem + var(--sab))]"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
+              <div className="p-10 text-center opacity-30 pb-10"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
             </div>
           </div>
         );
@@ -1200,7 +1200,7 @@ const App: React.FC = () => {
                 {s.installments.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Tidak ada cicilan aktif pada periode ini.</div>}
               </div>
             </section>
-            <section className="space-y-4 pb-[calc(2rem + var(--sab))]">
+            <section className="space-y-4 pb-10">
               <div className="flex justify-between items-center px-4">
                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
               </div>
@@ -1325,7 +1325,7 @@ const App: React.FC = () => {
             />
           )}
 
-          <main className={`flex-1 overflow-y-auto no-scrollbar scroll-container bg-slate-50 dark:bg-slate-950 ${!isFormOrDetailView && isMobileDevice ? 'pb-32' : 'pb-10'}`}>
+          <main className={`flex-1 overflow-y-auto no-scrollbar scroll-container bg-slate-50 dark:bg-slate-950 ${!isFormOrDetailView && isMobileDevice ? 'pb-16' : 'pb-10'}`}>
             {renderCurrentView()}
           </main>
 
