@@ -61,7 +61,8 @@ import {
   ArrowDownRight,
   ShieldAlert,
   HandCoins,
-  UserPlus
+  UserPlus,
+  Zap
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -235,7 +236,7 @@ const App: React.FC = () => {
   const [txCategory, setTxCategory] = useState(TRANSACTION_CATEGORIES[0]);
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txIsInstallment, setTxIsInstallment] = useState(false);
-  const [txInstallmentMonths, setTxInstallmentMonths] = useState(3);
+  const [txInstallmentMonths, setTxInstallmentMonths] = useState(12);
   const [txUseSavings, setTxUseSavings] = useState(true);
   const [txTargetMonth, setTxTargetMonth] = useState(new Date().getMonth());
   const [txTargetYear, setTxTargetYear] = useState(new Date().getFullYear());
@@ -611,7 +612,6 @@ const App: React.FC = () => {
 
       const baseAmount = Math.ceil(cardTransactions.reduce((s, t) => s + t.amount, 0) + activeInstallments.reduce((s, i) => s + i.monthlyAmount, 0));
       
-      // Calculate Validated amount (checked items)
       const validatedBase = Math.ceil(
         cardTransactions.filter(t => t.isValidated).reduce((s, t) => s + t.amount, 0) + 
         activeInstallments.filter(i => i.isValidated).reduce((s, i) => s + i.monthlyAmount, 0)
@@ -821,8 +821,8 @@ const App: React.FC = () => {
        }
     }
     
-    if (txIsInstallment && txType === TransactionType.EXPENSE && (!editingTransaction || !editingTransaction.isInstallment)) {
-          updatedInstallments = [{ id: generateId(), cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / txInstallmentMonths), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString() }, ...updatedInstallments];
+    if (txIsInstallment && txType === TransactionType.EXPENSE) {
+          updatedInstallments = [{ id: generateId(), cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
     }
     
     if (editingTransaction) {
@@ -881,7 +881,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-4 gap-4 md:gap-8">
-              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
+              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
               <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
               <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
               <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
@@ -1281,6 +1281,64 @@ const App: React.FC = () => {
                  </div>
                )}
 
+               {/* EXPENSE SPECIFIC: INSTALLMENT OPTION */}
+               {txType === TransactionType.EXPENSE && (
+                 <div className="space-y-4 animate-in slide-in-from-top duration-300">
+                    <div onClick={() => setTxIsInstallment(!txIsInstallment)} className={`flex items-center justify-between p-5 rounded-3xl cursor-pointer transition-all border-2 ${txIsInstallment ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${txIsInstallment ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                          <Zap size={24} />
+                        </div>
+                        <div>
+                          <p className={`text-sm font-black uppercase tracking-tight ${txIsInstallment ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Konversi ke Cicilan</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Pecah Tagihan Jadi Ringan</p>
+                        </div>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${txIsInstallment ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                        {txIsInstallment && <CheckCircle2 size={16} className="text-white"/>}
+                      </div>
+                    </div>
+
+                    {txIsInstallment && (
+                      <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-6 rounded-[32px] border border-indigo-100 dark:border-indigo-900/30 space-y-6 animate-in zoom-in-95 duration-200">
+                        <div className="space-y-3">
+                           <div className="flex justify-between items-center px-1">
+                             <label className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Durasi Cicilan (Bulan)</label>
+                             <span className="text-xl font-black text-indigo-700 dark:text-indigo-300">{txInstallmentMonths}x</span>
+                           </div>
+                           <input 
+                            type="range" 
+                            min="2" 
+                            max="60" 
+                            value={txInstallmentMonths} 
+                            onChange={(e) => setTxInstallmentMonths(parseInt(e.target.value))}
+                            className="w-full h-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                           />
+                           <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase px-1">
+                             <span>2 Bln</span>
+                             <span>12 Bln</span>
+                             <span>24 Bln</span>
+                             <span>36 Bln</span>
+                             <span>48 Bln</span>
+                             <span>60 Bln</span>
+                           </div>
+                        </div>
+                        
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm flex justify-between items-center border border-indigo-50 dark:border-indigo-800">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Angsuran Estimasi</span>
+                            <span className="text-lg font-black text-indigo-600">{formatIDR(Math.ceil(getNumericValue(txAmount) / (txInstallmentMonths || 1)))}</span>
+                          </div>
+                          <div className="text-right">
+                             <span className="text-[9px] font-black text-slate-400 uppercase block">Periode</span>
+                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Mulai {monthNames[new Date(txDate).getMonth()]} {new Date(txDate).getFullYear()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                 </div>
+               )}
+
                {/* MAIN AMOUNT INPUT */}
                <div className="space-y-2 text-center">
                  <label className="text-[10px] font-black text-slate-400 uppercase">
@@ -1311,7 +1369,7 @@ const App: React.FC = () => {
                {/* ACTION BUTTONS */}
                <div className="space-y-4 pt-4">
                  <button type="submit" className={`w-full py-6 text-white font-black text-lg rounded-[28px] shadow-xl active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
-                    {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? 'Catat Pengeluaran' : 'Konfirmasi Pembayaran')}
+                    {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? (txIsInstallment ? 'Proses Cicilan Baru' : 'Catat Pengeluaran') : 'Konfirmasi Pembayaran')}
                  </button>
                  {editingTransaction && (
                    <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] hover:bg-red-100 transition">Hapus Transaksi Ini</button>
@@ -1428,6 +1486,7 @@ const App: React.FC = () => {
                     setTxType(TransactionType.EXPENSE);
                     setTxCardId(activeStatementCard.id);
                     setTxDate(new Date(statementYear, statementMonth, 1).toISOString().split('T')[0]);
+                    setTxIsInstallment(false);
                     pushView('FORM_TRANSACTION');
                   }}
                   className="flex items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-primary group"
