@@ -31,6 +31,7 @@ export interface Transaction {
   isInstallment?: boolean; // True jika transaksi ini dikonversi jadi cicilan (agar tidak double hitung di laporan)
   targetPeriod?: { month: number, year: number }; // Khusus PAYMENT: Pembayaran untuk tagihan bulan apa
   isValidated?: boolean; // Status validasi (Checklist)
+  usedSavingIds?: string[]; // Tabungan yang dipakai untuk pembayaran ini, agar bisa dikembalikan saat pembayaran dibatalkan
 }
 
 export interface Installment {
