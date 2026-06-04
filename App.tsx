@@ -452,10 +452,46 @@ const App: React.FC = () => {
     saveData({ ...data, installments: updated });
   };
 
+  const getSavingsRestoredAfterPaymentCancel = (payment: Transaction, currentSavings: Saving[]) => {
+    if (payment.type !== TransactionType.PAYMENT || !payment.targetPeriod) return currentSavings;
+
+    if (payment.usedSavingIds?.length) {
+      return currentSavings.map(s => payment.usedSavingIds?.includes(s.id) ? { ...s, isTransferred: false } : s);
+    }
+
+    // Fallback untuk data pembayaran lama yang belum menyimpan id tabungan yang dipakai.
+    // Karena relasi detail belum tersedia di data lama, kembalikan tabungan yang cocok dengan kartu dan periode pembayaran.
+    return currentSavings.map(s =>
+      s.cardId === payment.cardId &&
+      s.isTransferred &&
+      s.targetPeriod?.month === payment.targetPeriod?.month &&
+      s.targetPeriod?.year === payment.targetPeriod?.year
+        ? { ...s, isTransferred: false }
+        : s
+    );
+  };
+
+  const getAvailableSavingsForPayment = (savings: Saving[], cardId: string, month: number, year: number) => {
+    return savings.filter(s =>
+      s.cardId === cardId &&
+      !s.isTransferred &&
+      s.targetPeriod?.month === month &&
+      s.targetPeriod?.year === year
+    );
+  };
+
   const handleDeleteTransaction = (id: string) => {
-    if (window.confirm("Hapus transaksi ini secara permanen?")) {
+    const transaction = data.transactions.find(t => t.id === id);
+    if (!transaction) return;
+
+    const confirmMessage = transaction.type === TransactionType.PAYMENT
+      ? "Batalkan pembayaran ini? Jika ada tabungan yang dipakai untuk pembayaran ini, dananya akan dikembalikan ke tabungan."
+      : "Hapus transaksi ini secara permanen?";
+
+    if (window.confirm(confirmMessage)) {
       const updatedTx = data.transactions.filter(t => t.id !== id);
-      saveData({ ...data, transactions: updatedTx });
+      const updatedSavings = getSavingsRestoredAfterPaymentCancel(transaction, data.savings);
+      saveData({ ...data, transactions: updatedTx, savings: updatedSavings });
       popView();
       setEditingTransaction(null);
     }
@@ -800,21 +836,29 @@ const App: React.FC = () => {
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault(); const amountVal = getNumericValue(txAmount); if (!txCardId) return;
     let finalAmount = Math.ceil(amountVal); let finalDesc = txDesc;
-    let updatedSavings = [...data.savings]; let updatedInstallments = [...data.installments];
+    let updatedSavings = editingTransaction
+      ? getSavingsRestoredAfterPaymentCancel(editingTransaction, data.savings)
+      : [...data.savings];
+    let updatedInstallments = [...data.installments];
+    let usedSavingIds: string[] = [];
     
     if (txType === TransactionType.EXPENSE) { 
        if (amountVal <= 0 || !txDesc) return; 
     } else {
-       const savingsUsed = txUseSavings ? availableSavingsForPeriod : 0;
+       const savingsForPayment = txUseSavings
+        ? getAvailableSavingsForPayment(updatedSavings, txCardId, txTargetMonth, txTargetYear)
+        : [];
+       const savingsUsed = savingsForPayment.reduce((sum, s) => sum + s.amount, 0);
        const totalPaymentReduction = Math.ceil(amountVal + savingsUsed);
        if (totalPaymentReduction <= 0) return; 
        
        finalAmount = totalPaymentReduction;
+       usedSavingIds = savingsForPayment.map(s => s.id);
        if (!finalDesc) finalDesc = `Pelunasan ${monthNames[txTargetMonth]} ${txTargetYear}`;
        
-       if (txUseSavings && savingsUsed > 0) {
-          updatedSavings = data.savings.map(s => 
-            (s.cardId === txCardId && !s.isTransferred && s.targetPeriod?.month === txTargetMonth && s.targetPeriod?.year === txTargetYear) 
+       if (usedSavingIds.length > 0) {
+          updatedSavings = updatedSavings.map(s => 
+            usedSavingIds.includes(s.id)
             ? { ...s, isTransferred: true } 
             : s
           );
@@ -826,11 +870,11 @@ const App: React.FC = () => {
     }
     
     if (editingTransaction) {
-      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined } : t);
+      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined, usedSavingIds: txType === TransactionType.PAYMENT ? usedSavingIds : undefined } : t);
       saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
       setEditingTransaction(null);
     } else {
-      const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
+      const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined, usedSavingIds: txType === TransactionType.PAYMENT ? usedSavingIds : undefined };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
     }
     popView();
@@ -1372,7 +1416,9 @@ const App: React.FC = () => {
                     {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? (txIsInstallment ? 'Proses Cicilan Baru' : 'Catat Pengeluaran') : 'Konfirmasi Pembayaran')}
                  </button>
                  {editingTransaction && (
-                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] hover:bg-red-100 transition">Hapus Transaksi Ini</button>
+                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] hover:bg-red-100 transition">
+                    {editingTransaction.type === TransactionType.PAYMENT ? 'Batalkan Pembayaran & Kembalikan Tabungan' : 'Hapus Transaksi Ini'}
+                   </button>
                  )}
                </div>
              </form>
