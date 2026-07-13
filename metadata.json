@@ -1,5 +1,8 @@
 {
   "name": "LimitWatch - Manajemen Hutang & Kartu Kredit",
   "description": "Aplikasi komprehensif untuk mengelola hutang kartu kredit, mencatat transaksi, mengatur cicilan, dan merencanakan tabungan pelunasan.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

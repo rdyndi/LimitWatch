@@ -1,14 +1,10 @@
 
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { AppState } from "../types";
 
 // Helper to format currency for the prompt
 const formatIDR = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
 
 export const getFinancialAdvice = async (data: AppState): Promise<string> => {
-  // Always use the named parameter apiKey when initializing GoogleGenAI
-  const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-
   // Prepare a summary of the financial state for the AI
   const cardSummaries = data.cards.map(card => {
     const expenses = data.transactions
@@ -54,18 +50,27 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
   `;
 
   try {
-    // Use gemini-3-pro-preview for complex reasoning and financial strategy analysis
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        // Optional: Adding thinkingBudget for more detailed financial reasoning
-        thinkingConfig: { thinkingBudget: 4000 }
-      }
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        model: 'gemini-1.5-flash', // Default to flash for cost/speed
+        config: {
+          temperature: 0.7,
+        }
+      }),
     });
-    // Access response.text as a property, not a method, according to the SDK guidelines
-    return response.text || "Maaf, tidak dapat menghasilkan saran saat ini.";
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to get advice');
+    }
+
+    const result = await response.json();
+    return result.text || "Maaf, tidak dapat menghasilkan saran saat ini.";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "Terjadi kesalahan saat menghubungi asisten AI.";

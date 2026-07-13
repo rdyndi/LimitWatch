@@ -43,6 +43,7 @@ export interface Installment {
   monthsPaid: number;
   startDate: string;
   validatedTenors?: string[]; // Format: "YYYY-MM" untuk menandai cicilan bulan tersebut sudah dicek
+  transactionId?: string; // ID transaksi yang menjadi sumber cicilan ini
 }
 
 export interface Saving {

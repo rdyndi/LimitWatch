@@ -298,11 +298,22 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const sanitizeData = (state: AppState): AppState => {
+    const validInstallments = (state.installments || []).filter(inst => {
+      if (inst.transactionId) {
+         return (state.transactions || []).some(t => t.id === inst.transactionId);
+      }
+      return (state.transactions || []).some(t => t.cardId === inst.cardId && t.description === inst.name && t.amount === inst.totalAmount && t.isInstallment);
+    });
+    return { ...state, installments: validInstallments };
+  };
+
   useEffect(() => {
     if (user) {
       const unsubscribe = subscribeToAppState(user.uid, (newState) => {
-        setData(newState);
-        if (newState.theme === 'dark') {
+        const cleanState = sanitizeData(newState);
+        setData(cleanState);
+        if (cleanState.theme === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
@@ -404,8 +415,9 @@ const App: React.FC = () => {
   }, [data.cards]);
 
   const saveData = (newData: AppState) => {
-    setData(newData);
-    if (user) saveAppState(user.uid, newData);
+    const cleanData = sanitizeData(newData);
+    setData(cleanData);
+    if (user) saveAppState(user.uid, cleanData);
   };
 
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
@@ -454,8 +466,20 @@ const App: React.FC = () => {
 
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm("Hapus transaksi ini secara permanen?")) {
+      const deletedTx = data.transactions.find(t => t.id === id);
       const updatedTx = data.transactions.filter(t => t.id !== id);
-      saveData({ ...data, transactions: updatedTx });
+      
+      let updatedInstallments = data.installments;
+      if (deletedTx?.isInstallment) {
+        updatedInstallments = data.installments.filter(inst => {
+          if (inst.transactionId) {
+             return inst.transactionId !== id;
+          }
+          return !(inst.cardId === deletedTx.cardId && inst.name === deletedTx.description && inst.totalAmount === deletedTx.amount);
+        });
+      }
+
+      saveData({ ...data, transactions: updatedTx, installments: updatedInstallments });
       popView();
       setEditingTransaction(null);
     }
@@ -821,8 +845,28 @@ const App: React.FC = () => {
        }
     }
     
+    const txIdToSave = editingTransaction ? editingTransaction.id : generateId();
+
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
-          updatedInstallments = [{ id: generateId(), cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
+      if (editingTransaction && !editingTransaction.isInstallment) {
+         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
+      } else if (!editingTransaction) {
+         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
+      } else {
+         // Jika sebelumnya sudah cicilan dan sekarang diedit, update cicilan lama
+         updatedInstallments = updatedInstallments.map(inst => {
+           if (inst.transactionId === txIdToSave || (inst.cardId === editingTransaction.cardId && inst.name === editingTransaction.description && inst.totalAmount === editingTransaction.amount)) {
+             return { ...inst, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, startDate: new Date(txDate).toISOString(), transactionId: txIdToSave };
+           }
+           return inst;
+         });
+      }
+    } else if (!txIsInstallment && editingTransaction?.isInstallment) {
+      // Jika diubah dari cicilan menjadi bukan cicilan
+      updatedInstallments = updatedInstallments.filter(inst => {
+         if (inst.transactionId) return inst.transactionId !== txIdToSave;
+         return !(inst.cardId === editingTransaction.cardId && inst.name === editingTransaction.description && inst.totalAmount === editingTransaction.amount);
+      });
     }
     
     if (editingTransaction) {
@@ -830,7 +874,7 @@ const App: React.FC = () => {
       saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
       setEditingTransaction(null);
     } else {
-      const newTransaction: Transaction = { id: generateId(), cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
+      const newTransaction: Transaction = { id: txIdToSave, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
     }
     popView();
