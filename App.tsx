@@ -63,7 +63,9 @@ import {
   ShieldAlert,
   HandCoins,
   UserPlus,
-  Zap
+  Zap,
+  Image,
+  Wifi
 } from "lucide-react";
 
 // --- Utility Functions ---
@@ -225,6 +227,7 @@ const App: React.FC = () => {
   const [cardColor, setCardColor] = useState(CARD_COLORS[0].value);
   const [cardType, setCardType] = useState<DebtType>(DebtType.CREDIT_CARD);
   const [cardEStatementFee, setCardEStatementFee] = useState('');
+  const [cardLogoUrl, setCardLogoUrl] = useState<string>('');
 
   const [activeStatementCard, setActiveStatementCard] = useState<CreditCardType | null>(null);
   const [statementMonth, setStatementMonth] = useState(new Date().getMonth());
@@ -903,14 +906,25 @@ const App: React.FC = () => {
     e.preventDefault(); const limitVal = getNumericValue(cardLimit); const estFeeVal = getNumericValue(cardEStatementFee);
     if (!cardName || limitVal <= 0) return;
     if (editingCard) {
-      const updatedCards = data.cards.map(c => c.id === editingCard.id ? { ...c, name: cardName, limit: limitVal, dueDay: cardDue ? parseInt(cardDue) : undefined, color: cardColor, type: cardType, eStatementFee: estFeeVal } : c);
+      const updatedCards = data.cards.map(c => c.id === editingCard.id ? { ...c, name: cardName, limit: limitVal, dueDay: cardDue ? parseInt(cardDue) : undefined, color: cardColor, type: cardType, eStatementFee: estFeeVal, logoUrl: cardLogoUrl } : c);
       saveData({ ...data, cards: updatedCards });
       setEditingCard(null);
     } else {
-      const newCard: CreditCardType = { id: generateId(), name: cardName, limit: limitVal, color: cardColor, dueDay: cardDue ? parseInt(cardDue) : undefined, type: cardType, eStatementFee: estFeeVal };
+      const newCard: CreditCardType = { id: generateId(), name: cardName, limit: limitVal, color: cardColor, dueDay: cardDue ? parseInt(cardDue) : undefined, type: cardType, eStatementFee: estFeeVal, logoUrl: cardLogoUrl };
       saveData({ ...data, cards: [...data.cards, newCard] });
     }
     popView();
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCardLogoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveTransaction = (e: React.FormEvent) => {
@@ -1033,7 +1047,7 @@ const App: React.FC = () => {
               <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
               <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
               <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
-              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
+              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardLogoUrl(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
             </div>
 
             {upcomingBills.length > 0 && (
@@ -1098,20 +1112,74 @@ const App: React.FC = () => {
                   const balance = getCardBalance(card.id); const remaining = card.limit - balance;
                   return (
                     <div key={card.id} className="space-y-3">
-                      <div onClick={() => openStatement(card)} className={`${card.color || 'bg-slate-800'} p-6 rounded-[32px] text-white shadow-lg relative h-48 flex flex-col justify-between overflow-hidden active:scale-[0.98] transition hover:shadow-2xl cursor-pointer group`}>
-                          <div className="absolute top-0 right-0 p-16 bg-white/5 rounded-full -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
-                          <div className="relative z-10 flex justify-between items-start"><div><p className="text-[9px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">{card.type === DebtType.CREDIT_CARD ? 'Credit Card' : 'Debt Item'}</p><h4 className="text-xl font-black tracking-tight">{card.name}</h4></div></div>
-                          <div className="relative z-10"><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Limit/Plafon</p><p className="text-2xl font-black">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p></div>
-                          <div className="relative z-10 flex justify-between items-end pt-3 border-t border-white/10"><div><p className="text-[9px] opacity-60 uppercase font-black tracking-tighter">Sisa Limit</p><p className="text-sm font-black">{showAmounts ? formatIDR(remaining) : '••••'}</p></div><div className="text-right opacity-60"><span className="text-[9px] font-black uppercase">{card.dueDay ? `TGL ${card.dueDay}` : 'N/A'}</span></div></div>
+                      <div onClick={() => openStatement(card)} className={`relative p-6 rounded-[24px] text-white shadow-xl h-56 flex flex-col justify-between overflow-hidden active:scale-[0.98] transition-all hover:-translate-y-1 hover:shadow-2xl cursor-pointer group`}>
+                          {/* Background Colors & Gradient */}
+                          <div className={`absolute inset-0 ${card.color || 'bg-slate-800'}`}></div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none"></div>
+                          <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_20%,rgba(255,255,255,0.1)_25%,transparent_30%)] pointer-events-none transition-transform duration-700 -translate-x-full group-hover:translate-x-full"></div>
+                          
+                          {/* Decorative overlay for texture */}
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.1),transparent_60%)] pointer-events-none"></div>
+                          
+                          <div className="relative z-10 flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                               {/* EMV Chip */}
+                               <div className="w-10 h-7 bg-gradient-to-br from-[#e5c07b] to-[#d19a3b] rounded-md flex items-center justify-center opacity-90 shadow-sm border border-[#f5d596]/40 overflow-hidden">
+                                 <div className="w-6 h-5 border border-[#a67b27]/30 rounded-sm flex flex-col justify-between p-[1px]">
+                                    <div className="h-[1px] w-full bg-[#a67b27]/30 mt-1"></div>
+                                    <div className="h-[1px] w-full bg-[#a67b27]/30"></div>
+                                    <div className="h-[1px] w-full bg-[#a67b27]/30 mb-1"></div>
+                                 </div>
+                               </div>
+                               <Wifi size={24} className="rotate-90 opacity-40 -ml-1" />
+                            </div>
+                            
+                            {/* Merchant Logo */}
+                            {card.logoUrl ? (
+                              <div className="w-12 h-12 bg-white rounded-lg p-1.5 shadow-md flex-shrink-0">
+                                <img src={card.logoUrl} alt={card.name} className="w-full h-full object-contain" />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-black text-xl text-white shadow-sm flex-shrink-0 backdrop-blur-sm border border-white/30">
+                                {card.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="relative z-10 flex-1 flex flex-col justify-center mt-2">
+                             <div className="font-mono text-[17px] sm:text-xl tracking-[0.25em] opacity-90 drop-shadow-md">
+                               •••• •••• •••• {card.id.substring(0, 4).replace(/[^0-9]/g, '8').padEnd(4, '3')}
+                             </div>
+                          </div>
+                          
+                          <div className="relative z-10 flex justify-between items-end pt-2">
+                            <div>
+                              <h4 className="text-sm font-bold tracking-widest uppercase mb-3 text-white/90 drop-shadow-md">{card.name}</h4>
+                              <div className="flex items-end gap-5">
+                                <div>
+                                  <p className="text-[8px] opacity-70 uppercase font-black tracking-widest mb-0.5">Limit/Plafon</p>
+                                  <p className="text-sm font-black drop-shadow-sm">{showAmounts ? formatIDR(card.limit) : '••••••••'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] opacity-70 uppercase font-black tracking-widest mb-0.5">Sisa Limit</p>
+                                  <p className="text-sm font-black drop-shadow-sm">{showAmounts ? formatIDR(remaining) : '••••'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right flex flex-col items-end">
+                                <span className="text-[8px] opacity-70 uppercase font-black tracking-widest mb-0.5">{card.type === DebtType.CREDIT_CARD ? 'CREDIT' : 'DEBT'}</span>
+                                <span className="text-xs font-mono font-bold tracking-widest drop-shadow-sm">{card.dueDay ? `**/${card.dueDay.toString().padStart(2, '0')}` : 'N/A'}</span>
+                            </div>
+                          </div>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); pushView('FORM_CARD'); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><Pencil size={14}/> Edit</button>
+                        <button type="button" onClick={() => { setEditingCard(card); setCardName(card.name); setCardLimit(formatIDR(card.limit)); setCardDue(card.dueDay?.toString() || ''); setCardColor(card.color); setCardType(card.type); setCardEStatementFee(card.eStatementFee ? formatIDR(card.eStatementFee) : ''); setCardLogoUrl(card.logoUrl || ''); pushView('FORM_CARD'); }} className="flex-1 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition"><Pencil size={14}/> Edit</button>
                         <button type="button" onClick={() => { if(window.confirm('Hapus item?')) saveData({...data, cards: data.cards.filter(c=>c.id!==card.id)}); }} className="flex-1 py-3 bg-red-50 dark:bg-red-900/10 text-danger rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/20 transition"><Trash2 size={14}/> Hapus</button>
                       </div>
                     </div>
                   );
                 })}
-                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
+                <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardLogoUrl(''); pushView('FORM_CARD'); }} className="h-48 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-slate-400 dark:text-slate-600 font-bold flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary transition-all"><Plus size={32}/><span className="text-sm uppercase tracking-widest">Tambah Item Baru</span></button>
              </div>
           </div>
         );
@@ -1287,46 +1355,77 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
             <div className="bg-[#1a2332] rounded-[32px] p-8 md:p-12 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-8">
               <div className="flex items-center gap-6"><div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400"><Calendar size={32} /></div><div className="flex flex-col"><span className="text-3xl font-black">{yearlySelectedYear}</span><span className="text-xs text-slate-400 uppercase tracking-widest font-bold">Ringkasan Anggaran</span></div></div>
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
-                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Total</p><p className="text-xl md:text-2xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div>
-                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Pribadi</p><p className="text-xl md:text-2xl font-bold text-blue-400">{showAmounts ? formatIDR(yearlySummary.totalYearBillPersonal) : '••••'}</p></div>
-                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Bisnis</p><p className="text-xl md:text-2xl font-bold text-purple-400">{showAmounts ? formatIDR(yearlySummary.totalYearBillBusiness) : '••••'}</p></div>
-                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dana Terkumpul</p><p className="text-xl md:text-2xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div>
+              <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8 overflow-hidden">
+                <div className="space-y-1 min-w-0"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Tagihan Total</p><p className="text-xl md:text-2xl font-bold truncate">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div>
+                <div className="space-y-1 min-w-0"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Tagihan Pribadi</p><p className="text-xl md:text-2xl font-bold text-blue-400 truncate">{showAmounts ? formatIDR(yearlySummary.totalYearBillPersonal) : '••••'}</p></div>
+                <div className="space-y-1 min-w-0"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Tagihan Bisnis</p><p className="text-xl md:text-2xl font-bold text-purple-400 truncate">{showAmounts ? formatIDR(yearlySummary.totalYearBillBusiness) : '••••'}</p></div>
+                <div className="space-y-1 min-w-0"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Dana Terkumpul</p><p className="text-xl md:text-2xl font-bold text-success truncate">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div>
               </div>
               <div className="flex gap-2"><button onClick={() => setYearlySelectedYear(y => y - 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={24}/></button><button onClick={() => setYearlySelectedYear(y => y + 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={24}/></button></div>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {yearlyData.filter(m => m.totalMonthBill > 0 || m.totalMonthSaved > 0).map((m, idx) => (
-                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] p-6 shadow-sm border border-slate-50 dark:border-slate-800 space-y-5">
-                  <div className="flex justify-between items-center"><h4 className="font-black text-lg text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 dark:bg-red-900/20 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span></div>
-                  <div className="space-y-6">
+                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col relative">
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+                  <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800 relative z-10 flex justify-between items-start">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-14 bg-slate-100 dark:bg-slate-800 rounded-xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">
+                        <div className="h-4 bg-red-500 flex justify-around items-center px-2">
+                           <div className="w-1 h-1 bg-white rounded-full opacity-70"></div>
+                           <div className="w-1 h-1 bg-white rounded-full opacity-70"></div>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
+                          <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-100 leading-none">{m.monthName.substring(0,3)}</span>
+                          <span className="text-[8px] font-bold text-slate-400 mt-0.5">{yearlySelectedYear}</span>
+                        </div>
+                      </div>
+                      <h4 className="font-black text-xl md:text-2xl text-slate-800 dark:text-slate-100 tracking-tight leading-none">{m.monthName}</h4>
+                    </div>
+                    <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase shadow-sm ${m.totalMonthGap === 0 ? 'bg-success/10 text-success' : 'bg-red-50 dark:bg-red-900/20 text-danger'}`}>{m.totalMonthGap === 0 ? 'Lunas' : `Kurang ${showAmounts ? formatIDR(m.totalMonthGap) : '••'}`}</span>
+                  </div>
+                  <div className="p-6 space-y-6 relative z-10">
                     {m.cardsEstimates.map((ce, i) => {
                       const cardObj = data.cards.find(c => c.id === ce.cardId);
                       return (
                         <div 
                           key={i} 
                           onClick={() => cardObj && openStatement(cardObj, m.monthIdx, yearlySelectedYear)}
-                          className="space-y-2 group cursor-pointer bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 py-1.5 rounded-xl transition-all"
+                          className="space-y-3 group cursor-pointer bg-white/50 dark:bg-slate-800/20 hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-3 px-3 py-3 rounded-2xl transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700"
                         >
-                          <div className="flex justify-between text-xs font-bold items-end">
-                             <div className="flex flex-col">
-                                <span className="text-slate-400 uppercase tracking-tighter text-[10px]">{ce.cardName}</span>
-                                {ce.gap > 0 && (
-                                  <span className="text-danger font-black text-[11px] flex items-center gap-1 animate-pulse">
-                                    <ArrowDownRight size={12} /> Kurang {showAmounts ? formatIDR(ce.gap) : '••'}
-                                  </span>
-                                )}
-                                {showAmounts && (ce.billPersonal > 0 || ce.billBusiness > 0 || ce.billUnclassified > 0) && (
-                                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">
-                                    {ce.billPersonal > 0 && `Pribadi: ${formatIDR(ce.billPersonal)} `}
-                                    {ce.billBusiness > 0 && `Bisnis: ${formatIDR(ce.billBusiness)} `}
-                                    {ce.billUnclassified > 0 && `Belum diklasifikasi: ${formatIDR(ce.billUnclassified)}`}
-                                  </span>
-                                )}
+                          <div className="flex justify-between items-center">
+                             <div className="flex items-center gap-2">
+                               <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${ce.color || 'bg-slate-300'}`}></div>
+                               <span className="font-bold text-slate-700 dark:text-slate-200 text-sm tracking-tight">{ce.cardName}</span>
+                               {ce.gap > 0 && (
+                                 <span className="text-danger font-black text-[10px] flex items-center bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded ml-1 animate-pulse">
+                                   <ArrowDownRight size={10} className="mr-0.5" /> Kurang
+                                 </span>
+                               )}
                              </div>
-                             <span className={ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span>
+                             <span className={`text-xs font-black ${ce.progress >= 100 ? 'text-success' : 'text-slate-700 dark:text-slate-300'}`}>{showAmounts ? formatIDR(ce.saved) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}</span>
                           </div>
-                          <div className="h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
+                          
+                          {showAmounts && (ce.billPersonal > 0 || ce.billBusiness > 0 || ce.billUnclassified > 0) && (
+                            <div className="grid grid-cols-2 gap-2 text-[10px] font-bold pt-1">
+                              {ce.billPersonal > 0 && (
+                                <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 px-2.5 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                  <span>Pribadi</span><span>{formatIDR(ce.billPersonal)}</span>
+                                </div>
+                              )}
+                              {ce.billBusiness > 0 && (
+                                <div className="flex justify-between items-center bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 px-2.5 py-1.5 rounded-lg border border-purple-100 dark:border-purple-900/30">
+                                  <span>Bisnis</span><span>{formatIDR(ce.billBusiness)}</span>
+                                </div>
+                              )}
+                              {ce.billUnclassified > 0 && (
+                                <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 col-span-2">
+                                  <span>Belum diklasifikasi</span><span>{formatIDR(ce.billUnclassified)}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
                             <div className={`h-full transition-all duration-1000 ${ce.progress >= 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, ce.progress)}%` }}></div>
                           </div>
                         </div>
@@ -1378,6 +1477,27 @@ const App: React.FC = () => {
                <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Label Identitas</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Platinum Card" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-primary transition font-bold text-lg" /></div>
                <div className="grid md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Limit/Plafon</label><input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-black text-lg" /></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tgl Jatuh Tempo</label><input type="number" min="1" max="31" value={cardDue} onChange={(e)=>setCardDue(e.target.value)} placeholder="Misal: 15" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-bold text-lg" /></div></div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Logo Kartu / Merchant (Opsional)</label>
+                 <div className="flex items-center gap-4 p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                   {cardLogoUrl ? (
+                     <div className="relative">
+                       <img src={cardLogoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover bg-white p-1 shadow-sm" />
+                       <button type="button" onClick={() => setCardLogoUrl('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"><X size={12}/></button>
+                     </div>
+                   ) : (
+                     <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 shadow-inner">
+                       <Image size={20} />
+                     </div>
+                   )}
+                   <div className="flex-1">
+                     <label className="cursor-pointer bg-white dark:bg-slate-700 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors inline-block">
+                       Pilih Gambar...
+                       <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                     </label>
+                   </div>
+                 </div>
+               </div>
                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warna Kartu</label><div className="flex gap-4 flex-wrap pt-2">{CARD_COLORS.map(c => (<button key={c.value} type="button" onClick={() => setCardColor(c.value)} className={`w-12 h-12 rounded-full ${c.value} ${cardColor === c.value ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-slate-900' : 'hover:scale-110'} transition-all`}></button>))}</div></div>
                <div className="pt-4"><button type="submit" className="w-full py-6 bg-primary text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-blue-700 active:scale-95 transition-all">Simpan Konfigurasi</button></div>
              </form>
@@ -1622,10 +1742,32 @@ const App: React.FC = () => {
         
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-5xl mx-auto w-full px-5 py-8 space-y-8 pb-32">
-            <div className={`${activeStatementCard.color} p-8 md:p-12 text-white rounded-[40px] shadow-xl flex justify-between items-center overflow-hidden relative`}>
+            <div className={`relative p-8 md:p-12 text-white rounded-[40px] shadow-xl flex justify-between items-center overflow-hidden`}>
+                <div className={`absolute inset-0 ${activeStatementCard.color || 'bg-slate-800'}`}></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_20%,rgba(255,255,255,0.05)_25%,transparent_30%)] pointer-events-none"></div>
+                
                 <div className="absolute -right-10 -bottom-10 opacity-10"><Receipt size={200} /></div>
-                <div className="relative z-10"><p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p><h4 className="text-3xl font-black">{activeStatementCard.name}</h4></div>
-                <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-70 uppercase font-black tracking-widest">Bulan Tagihan</p><p className="text-xl font-black uppercase">{monthNames[statementMonth]} {statementYear}</p></div>
+                
+                <div className="relative z-10 flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    {activeStatementCard.logoUrl ? (
+                      <div className="w-12 h-12 bg-white rounded-lg p-1.5 shadow-md flex-shrink-0">
+                        <img src={activeStatementCard.logoUrl} alt={activeStatementCard.name} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-black text-2xl text-white shadow-sm flex-shrink-0 backdrop-blur-sm border border-white/30">
+                        {activeStatementCard.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs opacity-80 uppercase tracking-widest font-black mb-0.5 drop-shadow-md">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p>
+                      <h4 className="text-3xl font-black tracking-tight drop-shadow-md">{activeStatementCard.name}</h4>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-80 uppercase font-black tracking-widest drop-shadow-sm">Bulan Tagihan</p><p className="text-xl font-black uppercase drop-shadow-md">{monthNames[statementMonth]} {statementYear}</p></div>
             </div>
             
             <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>

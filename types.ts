@@ -13,6 +13,7 @@ export interface CreditCard {
   notes?: string;
   dueDay?: number; // Tanggal jatuh tempo (1-31)
   eStatementFee?: number; // Biaya E-Statement bulanan
+  logoUrl?: string; // Base64 image URL for custom logo
 }
 
 export enum TransactionType {
