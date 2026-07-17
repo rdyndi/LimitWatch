@@ -9,7 +9,8 @@ import {
   Saving,
   Piutang as PiutangType,
   DebtType,
-  ViewMode
+  ViewMode,
+  OwnerType
 } from "./types";
 import { 
   loginWithGoogle, 
@@ -240,6 +241,9 @@ const App: React.FC = () => {
   const [txUseSavings, setTxUseSavings] = useState(true);
   const [txTargetMonth, setTxTargetMonth] = useState(new Date().getMonth());
   const [txTargetYear, setTxTargetYear] = useState(new Date().getFullYear());
+  const [txOwner, setTxOwner] = useState<OwnerType>(OwnerType.PERSONAL);
+  const [txSplitPersonal, setTxSplitPersonal] = useState('');
+  const [txSplitBusiness, setTxSplitBusiness] = useState('');
 
   const [savingAmount, setSavingAmount] = useState('');
   const [savingNote, setSavingNote] = useState('');
@@ -449,6 +453,23 @@ const App: React.FC = () => {
     saveData({ ...data, transactions: updated });
   };
 
+  const updateTransactionOwner = (id: string, owner: OwnerType) => {
+    const updatedTransactions = data.transactions.map(t => t.id === id ? { ...t, owner } : t);
+    // Jika transaksi ini jadi cicilan, kita juga perlu update cicilan terkait
+    const updatedInstallments = data.installments.map(inst => inst.transactionId === id ? { ...inst, owner } : inst);
+    saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments });
+  };
+
+  const updateInstallmentOwner = (id: string, owner: OwnerType) => {
+    const updatedInstallments = data.installments.map(inst => inst.id === id ? { ...inst, owner } : inst);
+    const targetInst = data.installments.find(inst => inst.id === id);
+    let updatedTransactions = data.transactions;
+    if (targetInst && targetInst.transactionId) {
+       updatedTransactions = data.transactions.map(t => t.id === targetInst.transactionId ? { ...t, owner } : t);
+    }
+    saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments });
+  };
+
   const toggleInstallmentValidation = (installmentId: string, month: number, year: number) => {
     const key = `${year}-${String(month).padStart(2, '0')}`;
     const updated = data.installments.map(inst => {
@@ -519,6 +540,9 @@ const App: React.FC = () => {
     setTxDate(t.date.split('T')[0]);
     setTxCategory(t.category || TRANSACTION_CATEGORIES[0]);
     setTxIsInstallment(!!t.isInstallment);
+    setTxOwner(t.owner || OwnerType.PERSONAL);
+    setTxSplitPersonal(t.splitAmounts ? formatIDR(t.splitAmounts.personal) : '');
+    setTxSplitBusiness(t.splitAmounts ? formatIDR(t.splitAmounts.business) : '');
     setTxUseSavings(true);
     if (t.targetPeriod) {
       setTxTargetMonth(t.targetPeriod.month);
@@ -577,6 +601,62 @@ const App: React.FC = () => {
     const expenses = data.transactions.filter(t => t.cardId === cardId && t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
     const payments = data.transactions.filter(t => t.cardId === cardId && t.type === TransactionType.PAYMENT).reduce((sum, t) => sum + t.amount, 0);
     return Math.ceil(expenses - payments);
+  };
+
+  const getOwnerSplit = (item: { owner?: OwnerType, splitAmounts?: { personal: number, business: number } }, amount: number) => {
+    if (item.owner === OwnerType.PERSONAL) return { personal: amount, business: 0, unclassified: 0 };
+    if (item.owner === OwnerType.BUSINESS) return { personal: 0, business: amount, unclassified: 0 };
+    if (item.owner === OwnerType.SPLIT && item.splitAmounts) return { personal: item.splitAmounts.personal, business: item.splitAmounts.business, unclassified: 0 };
+    return { personal: 0, business: 0, unclassified: amount };
+  };
+
+  const getMonthlyBillByOwner = (cardId: string, targetMonth: number, targetYear: number) => {
+     const card = data.cards.find(c => c.id === cardId);
+     if (!card) return { personal: 0, business: 0, unclassified: 0 };
+     let personal = 0; let business = 0; let unclassified = 0;
+     let totalBase = 0;
+     
+     data.transactions.filter(t => {
+          if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
+          const billing = getBillingPeriod(t.date, card?.dueDay);
+          return billing.month === targetMonth && billing.year === targetYear;
+     }).forEach(t => {
+        const split = getOwnerSplit(t, t.amount);
+        personal += split.personal; business += split.business; unclassified += split.unclassified; totalBase += t.amount;
+     });
+
+     data.installments.filter(i => i.cardId === cardId).forEach(i => {
+          const billingTenor1 = getBillingPeriod(i.startDate, card?.dueDay);
+          const monthDiff = (targetYear - billingTenor1.year) * 12 + (targetMonth - billingTenor1.month);
+          if (monthDiff >= 0 && monthDiff < i.totalMonths) { 
+             const split = getOwnerSplit(i, i.monthlyAmount);
+             personal += split.personal; business += split.business; unclassified += split.unclassified; totalBase += i.monthlyAmount;
+          }
+     });
+
+     let fees = 0;
+     if (totalBase > 0) {
+       if (card.eStatementFee) fees += card.eStatementFee;
+       if ((totalBase + fees) >= 5000000) fees += 10000;
+     }
+     
+     if (fees > 0 && totalBase > 0) {
+        personal += fees * (personal / totalBase);
+        business += fees * (business / totalBase);
+        unclassified += fees * (unclassified / totalBase);
+     }
+     
+     const paid = data.transactions.filter(t => t.cardId === cardId && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === targetMonth && t.targetPeriod?.year === targetYear).reduce((sum, t) => sum + t.amount, 0);
+     
+     let remainingPayment = paid;
+     const totalBilled = personal + business + unclassified;
+     if (remainingPayment > 0 && totalBilled > 0) {
+         personal = Math.max(0, personal - remainingPayment * (personal/totalBilled));
+         business = Math.max(0, business - remainingPayment * (business/totalBilled));
+         unclassified = Math.max(0, unclassified - remainingPayment * (unclassified/totalBilled));
+     }
+
+     return { personal: Math.ceil(personal), business: Math.ceil(business), unclassified: Math.ceil(unclassified) };
   };
 
   const getMonthlyBill = (cardId: string, targetMonth: number, targetYear: number) => {
@@ -699,17 +779,21 @@ const App: React.FC = () => {
     return monthNames.map((monthName, monthIdx) => {
         const cardsEstimates = data.cards.map(card => {
             const billTotal = getMonthlyBill(card.id, monthIdx, yearlySelectedYear);
+            const billBreakdown = getMonthlyBillByOwner(card.id, monthIdx, yearlySelectedYear);
             const saved = data.savings.filter(s => s.cardId === card.id && !s.isTransferred && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === yearlySelectedYear).reduce((sum, s) => sum + s.amount, 0);
             const piutang = (data.piutangs || []).filter(p => p.cardId === card.id && !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === yearlySelectedYear).reduce((sum, p) => sum + p.amount, 0);
             
             const totalAllocated = saved + piutang;
             const progress = billTotal > 0 ? (totalAllocated / billTotal) * 100 : 0;
-            return { cardId: card.id, cardName: card.name, color: card.color, bill: billTotal, isFullyPaid: billTotal <= 0 && data.transactions.some(t => t.cardId === card.id && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === monthIdx && t.targetPeriod?.year === yearlySelectedYear), saved: totalAllocated, gap: Math.max(0, Math.ceil(billTotal - totalAllocated)), progress };
+            return { cardId: card.id, cardName: card.name, color: card.color, bill: billTotal, billPersonal: billBreakdown.personal, billBusiness: billBreakdown.business, billUnclassified: billBreakdown.unclassified, isFullyPaid: billTotal <= 0 && data.transactions.some(t => t.cardId === card.id && t.type === TransactionType.PAYMENT && t.targetPeriod?.month === monthIdx && t.targetPeriod?.year === yearlySelectedYear), saved: totalAllocated, gap: Math.max(0, Math.ceil(billTotal - totalAllocated)), progress };
         }).filter(ce => ce.bill > 0 || ce.saved > 0 || ce.isFullyPaid);
         const totalMonthGap = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.gap, 0));
         const totalMonthBill = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.bill, 0));
+        const totalMonthBillPersonal = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.billPersonal, 0));
+        const totalMonthBillBusiness = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.billBusiness, 0));
+        const totalMonthBillUnclassified = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.billUnclassified, 0));
         const totalMonthSaved = Math.ceil(cardsEstimates.reduce((sum, ce) => sum + ce.saved, 0));
-        return { monthName, monthIdx, cardsEstimates, totalMonthGap, totalMonthBill, totalMonthSaved };
+        return { monthName, monthIdx, cardsEstimates, totalMonthGap, totalMonthBill, totalMonthBillPersonal, totalMonthBillBusiness, totalMonthBillUnclassified, totalMonthSaved };
     });
   }, [data, yearlySelectedYear]);
 
@@ -755,8 +839,16 @@ const App: React.FC = () => {
 
   const yearlySummary = useMemo(() => {
     let totalYearBill = 0; let totalYearSaved = 0; let totalYearGap = 0;
-    yearlyData.forEach(m => { totalYearBill += m.totalMonthBill; totalYearSaved += m.totalMonthSaved; totalYearGap += m.totalMonthGap; });
-    return { totalYearBill, totalYearSaved, totalYearGap };
+    let totalYearBillPersonal = 0; let totalYearBillBusiness = 0; let totalYearBillUnclassified = 0;
+    yearlyData.forEach(m => { 
+      totalYearBill += m.totalMonthBill; 
+      totalYearSaved += m.totalMonthSaved; 
+      totalYearGap += m.totalMonthGap; 
+      totalYearBillPersonal += m.totalMonthBillPersonal;
+      totalYearBillBusiness += m.totalMonthBillBusiness;
+      totalYearBillUnclassified += m.totalMonthBillUnclassified;
+    });
+    return { totalYearBill, totalYearSaved, totalYearGap, totalYearBillPersonal, totalYearBillBusiness, totalYearBillUnclassified };
   }, [yearlyData]);
 
   const totalDebt = useMemo(() => {
@@ -826,6 +918,19 @@ const App: React.FC = () => {
     let finalAmount = Math.ceil(amountVal); let finalDesc = txDesc;
     let updatedSavings = [...data.savings]; let updatedInstallments = [...data.installments];
     
+    let splitPersonalAmount = 0;
+    let splitBusinessAmount = 0;
+    if (txType === TransactionType.EXPENSE && txOwner === OwnerType.SPLIT) {
+       splitPersonalAmount = getNumericValue(txSplitPersonal);
+       splitBusinessAmount = getNumericValue(txSplitBusiness);
+       if (splitPersonalAmount + splitBusinessAmount !== finalAmount) {
+         alert(`Total split (Rp ${formatIDR(splitPersonalAmount + splitBusinessAmount).replace('Rp', '').trim()}) tidak sama dengan nominal transaksi (Rp ${formatIDR(finalAmount).replace('Rp', '').trim()}).`);
+         return;
+       }
+    }
+    const finalSplitAmounts = txType === TransactionType.EXPENSE && txOwner === OwnerType.SPLIT ? { personal: splitPersonalAmount, business: splitBusinessAmount } : undefined;
+    const finalOwner = txType === TransactionType.EXPENSE ? txOwner : undefined;
+
     if (txType === TransactionType.EXPENSE) { 
        if (amountVal <= 0 || !txDesc) return; 
     } else {
@@ -849,14 +954,14 @@ const App: React.FC = () => {
 
     if (txIsInstallment && txType === TransactionType.EXPENSE) {
       if (editingTransaction && !editingTransaction.isInstallment) {
-         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
+         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [], owner: finalOwner, splitAmounts: finalSplitAmounts }, ...updatedInstallments];
       } else if (!editingTransaction) {
-         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [] }, ...updatedInstallments];
+         updatedInstallments = [{ id: generateId(), transactionId: txIdToSave, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, monthsPaid: 0, startDate: new Date(txDate).toISOString(), validatedTenors: [], owner: finalOwner, splitAmounts: finalSplitAmounts }, ...updatedInstallments];
       } else {
          // Jika sebelumnya sudah cicilan dan sekarang diedit, update cicilan lama
          updatedInstallments = updatedInstallments.map(inst => {
            if (inst.transactionId === txIdToSave || (inst.cardId === editingTransaction.cardId && inst.name === editingTransaction.description && inst.totalAmount === editingTransaction.amount)) {
-             return { ...inst, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, startDate: new Date(txDate).toISOString(), transactionId: txIdToSave };
+             return { ...inst, cardId: txCardId, name: finalDesc, totalAmount: finalAmount, monthlyAmount: Math.ceil(finalAmount / (txInstallmentMonths || 1)), totalMonths: txInstallmentMonths, startDate: new Date(txDate).toISOString(), transactionId: txIdToSave, owner: finalOwner, splitAmounts: finalSplitAmounts };
            }
            return inst;
          });
@@ -870,11 +975,11 @@ const App: React.FC = () => {
     }
     
     if (editingTransaction) {
-      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined } : t);
+      const updatedTransactions = data.transactions.map(t => t.id === editingTransaction.id ? { ...t, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txCategory, isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined, owner: finalOwner, splitAmounts: finalSplitAmounts } : t);
       saveData({ ...data, transactions: updatedTransactions, installments: updatedInstallments, savings: updatedSavings });
       setEditingTransaction(null);
     } else {
-      const newTransaction: Transaction = { id: txIdToSave, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined };
+      const newTransaction: Transaction = { id: txIdToSave, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined, owner: finalOwner, splitAmounts: finalSplitAmounts };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
     }
     popView();
@@ -925,7 +1030,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-4 gap-4 md:gap-8">
-              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
+              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
               <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
               <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
               <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
@@ -1182,7 +1287,12 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
             <div className="bg-[#1a2332] rounded-[32px] p-8 md:p-12 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-8">
               <div className="flex items-center gap-6"><div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400"><Calendar size={32} /></div><div className="flex flex-col"><span className="text-3xl font-black">{yearlySelectedYear}</span><span className="text-xs text-slate-400 uppercase tracking-widest font-bold">Ringkasan Anggaran</span></div></div>
-              <div className="grid grid-cols-2 gap-x-12 md:gap-x-20 border-l border-white/10 pl-8"><div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estimasi Tagihan</p><p className="text-xl md:text-2xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div><div className="text-right space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dana Terkumpul</p><p className="text-xl md:text-2xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div></div>
+              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-8">
+                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Total</p><p className="text-xl md:text-2xl font-bold">{showAmounts ? formatIDR(yearlySummary.totalYearBill) : '••••'}</p></div>
+                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Pribadi</p><p className="text-xl md:text-2xl font-bold text-blue-400">{showAmounts ? formatIDR(yearlySummary.totalYearBillPersonal) : '••••'}</p></div>
+                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tagihan Bisnis</p><p className="text-xl md:text-2xl font-bold text-purple-400">{showAmounts ? formatIDR(yearlySummary.totalYearBillBusiness) : '••••'}</p></div>
+                <div className="space-y-1"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dana Terkumpul</p><p className="text-xl md:text-2xl font-bold text-success">{showAmounts ? formatIDR(yearlySummary.totalYearSaved) : '••••'}</p></div>
+              </div>
               <div className="flex gap-2"><button onClick={() => setYearlySelectedYear(y => y - 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={24}/></button><button onClick={() => setYearlySelectedYear(y => y + 1)} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={24}/></button></div>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1204,6 +1314,13 @@ const App: React.FC = () => {
                                 {ce.gap > 0 && (
                                   <span className="text-danger font-black text-[11px] flex items-center gap-1 animate-pulse">
                                     <ArrowDownRight size={12} /> Kurang {showAmounts ? formatIDR(ce.gap) : '••'}
+                                  </span>
+                                )}
+                                {showAmounts && (ce.billPersonal > 0 || ce.billBusiness > 0 || ce.billUnclassified > 0) && (
+                                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+                                    {ce.billPersonal > 0 && `Pribadi: ${formatIDR(ce.billPersonal)} `}
+                                    {ce.billBusiness > 0 && `Bisnis: ${formatIDR(ce.billBusiness)} `}
+                                    {ce.billUnclassified > 0 && `Belum diklasifikasi: ${formatIDR(ce.billUnclassified)}`}
                                   </span>
                                 )}
                              </div>
@@ -1398,6 +1515,39 @@ const App: React.FC = () => {
                  )}
                </div>
 
+               {txType === TransactionType.EXPENSE && (
+                 <div className="space-y-4 pt-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center block">Kepemilikan Transaksi</label>
+                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl max-w-sm mx-auto">
+                     <button type="button" onClick={() => setTxOwner(OwnerType.PERSONAL)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.PERSONAL ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Pribadi</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.BUSINESS)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.BUSINESS ? 'bg-white dark:bg-slate-700 shadow-sm text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Bisnis</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.SPLIT)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.SPLIT ? 'bg-white dark:bg-slate-700 shadow-sm text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Split</button>
+                   </div>
+                   {txOwner === OwnerType.SPLIT && (
+                     <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto pt-2 animate-in slide-in-from-top-2">
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black text-blue-500 uppercase ml-1">Pribadi</label>
+                         <input type="text" value={txSplitPersonal} onChange={(e) => {
+                             handleCurrencyInput(e.target.value, setTxSplitPersonal);
+                             const personalVal = getNumericValue(e.target.value);
+                             const amountVal = getNumericValue(txAmount);
+                             setTxSplitBusiness(formatIDR(Math.max(0, amountVal - personalVal)));
+                           }} required placeholder="Rp 0" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-blue-400 outline-none transition font-bold text-center" />
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black text-purple-500 uppercase ml-1">Bisnis</label>
+                         <input type="text" value={txSplitBusiness} onChange={(e) => {
+                             handleCurrencyInput(e.target.value, setTxSplitBusiness);
+                             const businessVal = getNumericValue(e.target.value);
+                             const amountVal = getNumericValue(txAmount);
+                             setTxSplitPersonal(formatIDR(Math.max(0, amountVal - businessVal)));
+                           }} required placeholder="Rp 0" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-purple-400 outline-none transition font-bold text-center" />
+                       </div>
+                     </div>
+                   )}
+                 </div>
+               )}
+
                {/* DESCRIPTION & DATE */}
                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -1573,6 +1723,16 @@ const App: React.FC = () => {
                         <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{inst.name}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded font-black uppercase">Tenor {inst.currentTenor}/{inst.totalMonths}</span>
+                          {!inst.owner ? (
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                               <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-bold hover:bg-blue-200">PRIBADI</button>
+                               <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[9px] font-bold hover:bg-purple-200">BISNIS</button>
+                            </div>
+                          ) : (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${inst.owner === OwnerType.PERSONAL ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : inst.owner === OwnerType.BUSINESS ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                              {inst.owner}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1605,7 +1765,19 @@ const App: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+                          {!t.owner ? (
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                               <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-bold hover:bg-blue-200">PRIBADI</button>
+                               <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[9px] font-bold hover:bg-purple-200">BISNIS</button>
+                            </div>
+                          ) : (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${t.owner === OwnerType.PERSONAL ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : t.owner === OwnerType.BUSINESS ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                              {t.owner}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

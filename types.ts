@@ -20,6 +20,12 @@ export enum TransactionType {
   PAYMENT = 'PAYMENT', // Pembayaran Tagihan (Mengurangi Hutang)
 }
 
+export enum OwnerType {
+  PERSONAL = 'PERSONAL',
+  BUSINESS = 'BUSINESS',
+  SPLIT = 'SPLIT',
+}
+
 export interface Transaction {
   id: string;
   cardId: string;
@@ -31,6 +37,8 @@ export interface Transaction {
   isInstallment?: boolean; // True jika transaksi ini dikonversi jadi cicilan (agar tidak double hitung di laporan)
   targetPeriod?: { month: number, year: number }; // Khusus PAYMENT: Pembayaran untuk tagihan bulan apa
   isValidated?: boolean; // Status validasi (Checklist)
+  owner?: OwnerType;
+  splitAmounts?: { personal: number; business: number };
 }
 
 export interface Installment {
@@ -44,6 +52,8 @@ export interface Installment {
   startDate: string;
   validatedTenors?: string[]; // Format: "YYYY-MM" untuk menandai cicilan bulan tersebut sudah dicek
   transactionId?: string; // ID transaksi yang menjadi sumber cicilan ini
+  owner?: OwnerType;
+  splitAmounts?: { personal: number; business: number };
 }
 
 export interface Saving {
