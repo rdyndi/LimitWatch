@@ -40,6 +40,7 @@ import {
   AlertCircle,
   Bell,
   CheckCircle2,
+  Check,
   CalendarRange,
   ChevronLeft,
   PieChart,
@@ -56,10 +57,12 @@ import {
   Moon,
   Sun,
   ArrowDownCircle,
+  ArrowDown,
   ArrowUpCircle,
   Info,
   CalendarClock,
   ArrowDownRight,
+  ArrowRightLeft,
   ShieldAlert,
   HandCoins,
   UserPlus,
@@ -254,12 +257,23 @@ const App: React.FC = () => {
   const [savingTargetMonth, setSavingTargetMonth] = useState(new Date().getMonth());
   const [savingTargetYear, setSavingTargetYear] = useState(new Date().getFullYear());
 
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferNote, setTransferNote] = useState('');
+  const [transferSourceCardId, setTransferSourceCardId] = useState('');
+  const [transferSourceMonth, setTransferSourceMonth] = useState(new Date().getMonth());
+  const [transferSourceYear, setTransferSourceYear] = useState(new Date().getFullYear());
+  const [transferTargetCardId, setTransferTargetCardId] = useState('');
+  const [transferTargetMonth, setTransferTargetMonth] = useState(new Date().getMonth());
+  const [transferTargetYear, setTransferTargetYear] = useState(new Date().getFullYear());
+
   const [piutangAmount, setPiutangAmount] = useState('');
   const [piutangDebtor, setPiutangDebtor] = useState('');
   const [piutangNote, setPiutangNote] = useState('');
   const [piutangCardId, setPiutangCardId] = useState('');
   const [piutangTargetMonth, setPiutangTargetMonth] = useState(new Date().getMonth());
   const [piutangTargetYear, setPiutangTargetYear] = useState(new Date().getFullYear());
+  const [piutangIsInstallment, setPiutangIsInstallment] = useState(false);
+  const [piutangInstallmentMonths, setPiutangInstallmentMonths] = useState(12);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -428,9 +442,10 @@ const App: React.FC = () => {
   };
 
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
-    const digitsOnly = val.replace(/[^\d/]/g, '');
-    if (digitsOnly === '') { setter(''); return; }
-    const numericVal = getNumericValue(val);
+    const isNegative = val.includes('-');
+    const digitsOnly = val.replace(/[^\d]/g, '');
+    if (digitsOnly === '') { setter(isNegative ? '-' : ''); return; }
+    const numericVal = parseInt(digitsOnly, 10) * (isNegative ? -1 : 1);
     setter(formatIDR(numericVal));
   };
 
@@ -768,14 +783,38 @@ const App: React.FC = () => {
   }, [data.cards, data.transactions, data.installments, data.savings, data.piutangs]);
 
   const categoryGrouping = useMemo(() => {
-    const groups: Record<string, number> = {};
+    const groups: Record<string, { total: number, personal: number, business: number }> = {};
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
+    let totalAll = 0;
+    
     data.transactions.filter(t => {
         const d = new Date(t.date);
-        return t.type === TransactionType.EXPENSE && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      }).forEach(t => { const cat = t.category || "Lainnya"; groups[cat] = (groups[cat] || 0) + t.amount; });
-    return Object.entries(groups).sort((a, b) => b[1] - a[1]);
+        return t.type === TransactionType.EXPENSE && !t.isInstallment && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      }).forEach(t => { 
+        let cat = t.description ? t.description.trim() : "Lainnya";
+        // Capitalize first letter to normalize
+        cat = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+        
+        if (!groups[cat]) groups[cat] = { total: 0, personal: 0, business: 0 };
+        
+        let p = t.splitAmounts?.personal || 0;
+        let b = t.splitAmounts?.business || 0;
+        if (p === 0 && b === 0) {
+           if (t.owner === OwnerType.PERSONAL || !t.owner) p = t.amount;
+           else if (t.owner === OwnerType.BUSINESS) b = t.amount;
+        }
+        
+        groups[cat].total += t.amount;
+        groups[cat].personal += p;
+        groups[cat].business += b;
+        totalAll += t.amount;
+      });
+      
+    return {
+      items: Object.entries(groups).sort((a, b) => b[1].total - a[1].total),
+      totalAll
+    };
   }, [data.transactions]);
 
   const yearlyData = useMemo(() => {
@@ -1000,7 +1039,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveSaving = (e: React.FormEvent) => {
-    e.preventDefault(); const amountVal = getNumericValue(savingAmount); if (!savingCardId || amountVal <= 0) return;
+    e.preventDefault(); const amountVal = getNumericValue(savingAmount); if (!savingCardId || amountVal === 0) return;
     if (editingSaving) {
       const updatedSavings = data.savings.map(s => s.id === editingSaving.id ? { ...s, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : s);
       saveData({ ...data, savings: updatedSavings });
@@ -1012,6 +1051,37 @@ const App: React.FC = () => {
     popView(); setSavingAmount(''); setSavingNote('');
   };
 
+  const handleSaveTransfer = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountVal = getNumericValue(transferAmount);
+    if (!transferSourceCardId || !transferTargetCardId || amountVal <= 0) return;
+    
+    const sourceSaving: Saving = {
+      id: generateId(),
+      cardId: transferSourceCardId,
+      amount: -Math.ceil(amountVal),
+      date: new Date().toISOString(),
+      note: transferNote || `Transfer ke ${data.cards.find(c => c.id === transferTargetCardId)?.name || 'Tabungan Lain'}`,
+      targetPeriod: { month: transferSourceMonth, year: transferSourceYear },
+      isTransferred: false
+    };
+
+    const targetSaving: Saving = {
+      id: generateId(),
+      cardId: transferTargetCardId,
+      amount: Math.ceil(amountVal),
+      date: new Date().toISOString(),
+      note: transferNote || `Transfer dari ${data.cards.find(c => c.id === transferSourceCardId)?.name || 'Tabungan Lain'}`,
+      targetPeriod: { month: transferTargetMonth, year: transferTargetYear },
+      isTransferred: false
+    };
+
+    saveData({ ...data, savings: [sourceSaving, targetSaving, ...data.savings] });
+    popView();
+    setTransferAmount('');
+    setTransferNote('');
+  };
+
   const handleSavePiutang = (e: React.FormEvent) => {
     e.preventDefault(); const amountVal = getNumericValue(piutangAmount); if (!piutangCardId || amountVal <= 0 || !piutangDebtor) return;
     const currentPiutangs = data.piutangs || [];
@@ -1020,10 +1090,36 @@ const App: React.FC = () => {
       saveData({ ...data, piutangs: updatedPiutangs });
       setEditingPiutang(null);
     } else {
-      const newPiutang: PiutangType = { id: generateId(), cardId: piutangCardId, debtorName: piutangDebtor, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: piutangNote || 'Piutang', targetPeriod: { month: piutangTargetMonth, year: piutangTargetYear }, isCollected: false };
-      saveData({ ...data, piutangs: [...currentPiutangs, newPiutang] });
+      if (piutangIsInstallment && piutangInstallmentMonths > 1) {
+        const monthlyAmount = Math.ceil(amountVal / piutangInstallmentMonths);
+        const newPiutangs: PiutangType[] = [];
+        let currentM = piutangTargetMonth;
+        let currentY = piutangTargetYear;
+        
+        for (let i = 0; i < piutangInstallmentMonths; i++) {
+          newPiutangs.push({
+            id: generateId(),
+            cardId: piutangCardId,
+            debtorName: piutangDebtor,
+            amount: monthlyAmount,
+            date: new Date().toISOString(),
+            note: `${piutangNote || 'Piutang'} (Cicilan ${i + 1}/${piutangInstallmentMonths})`,
+            targetPeriod: { month: currentM, year: currentY },
+            isCollected: false
+          });
+          currentM++;
+          if (currentM > 11) {
+            currentM = 0;
+            currentY++;
+          }
+        }
+        saveData({ ...data, piutangs: [...currentPiutangs, ...newPiutangs] });
+      } else {
+        const newPiutang: PiutangType = { id: generateId(), cardId: piutangCardId, debtorName: piutangDebtor, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: piutangNote || 'Piutang', targetPeriod: { month: piutangTargetMonth, year: piutangTargetYear }, isCollected: false };
+        saveData({ ...data, piutangs: [...currentPiutangs, newPiutang] });
+      }
     }
-    popView(); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote('');
+    popView(); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); setPiutangIsInstallment(false); setPiutangInstallmentMonths(12);
   };
 
   // Shared content rendering function for both mobile and desktop
@@ -1093,14 +1189,36 @@ const App: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-8 flex items-center gap-3"><PieChart size={24} /> Pengeluaran Kelompok Bulan Ini</h3>
               <div className="grid md:grid-cols-2 gap-x-12 gap-y-6">
-                {categoryGrouping.map(([cat, val], idx) => (
-                  <div key={idx} className="space-y-2">
-                    <div className="flex justify-between items-end"><span className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-300">{cat}</span><span className="text-xs md:text-sm font-medium text-slate-400 dark:text-slate-500">{showAmounts ? formatIDR(val) : '••••'}</span></div>
-                    <div className="w-full h-2.5 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(val / (categoryGrouping.reduce((s, [, v]) => s + v, 0) || 1)) * 100}%` }}></div></div>
+                {categoryGrouping.items.map(([cat, val], idx) => (
+                  <div key={idx} className="space-y-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200 leading-tight">{cat}</span>
+                      <span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(val.total) : '••••'}</span>
+                    </div>
+                    
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                      {val.personal > 0 && <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(val.personal / val.total) * 100}%` }}></div>}
+                      {val.business > 0 && <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${(val.business / val.total) * 100}%` }}></div>}
+                    </div>
+                    
+                    {(val.personal > 0 || val.business > 0) && (
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                        {val.personal > 0 && (
+                          <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 px-2 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                            <span className="uppercase opacity-80">Pribadi</span><span>{showAmounts ? formatIDR(val.personal) : '••'}</span>
+                          </div>
+                        )}
+                        {val.business > 0 && (
+                          <div className="flex justify-between items-center bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 px-2 py-1.5 rounded-lg border border-amber-100 dark:border-amber-900/30">
+                            <span className="uppercase opacity-80">Bisnis</span><span>{showAmounts ? formatIDR(val.business) : '••'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              {categoryGrouping.length === 0 && <p className="text-center py-10 text-slate-400 font-medium">Belum ada pengeluaran yang dicatat bulan ini.</p>}
+              {categoryGrouping.items.length === 0 && <p className="text-center py-10 text-slate-400 font-medium">Belum ada pengeluaran yang dicatat bulan ini.</p>}
             </div>
           </div>
         );
@@ -1191,11 +1309,26 @@ const App: React.FC = () => {
                  <p className="text-emerald-100 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Dana Tahun {savingsSelectedYear}</p>
                  <h3 className="text-3xl md:text-5xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
                </div>
-               <div className="flex items-center gap-6 mt-6 md:mt-0 bg-white/10 p-4 rounded-2xl">
-                 <div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-xl font-black">{savingsSelectedYear}</span></div>
-                 <div className="flex gap-2">
-                   <button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
-                   <button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
+               <div className="flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0">
+                 <button onClick={() => {
+                   if (data.cards.length > 0) {
+                     setTransferSourceCardId(data.cards[0].id);
+                     setTransferTargetCardId(data.cards[0].id);
+                   }
+                   setTransferSourceMonth(new Date().getMonth());
+                   setTransferSourceYear(new Date().getFullYear());
+                   setTransferTargetMonth(new Date().getMonth());
+                   setTransferTargetYear(new Date().getFullYear());
+                   pushView('FORM_TRANSFER_SAVING');
+                 }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-3 rounded-2xl transition font-bold text-sm w-full md:w-auto justify-center">
+                   <ArrowRightLeft size={18} /> Transfer Dana
+                 </button>
+                 <div className="flex items-center justify-between w-full md:w-auto gap-6 bg-white/10 p-4 rounded-2xl">
+                   <div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-xl font-black">{savingsSelectedYear}</span></div>
+                   <div className="flex gap-2">
+                     <button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
+                     <button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
+                   </div>
                  </div>
                </div>
             </div>
@@ -1236,7 +1369,7 @@ const App: React.FC = () => {
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-success">{formatIDR(item.amount)}</span>
+                          <span className={`text-sm font-black ${item.amount < 0 ? 'text-danger' : 'text-success'}`}>{formatIDR(item.amount)}</span>
                           <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
                         </div>
                       </div>
@@ -1703,6 +1836,52 @@ const App: React.FC = () => {
              </form>
           </div>
         );
+      case 'FORM_TRANSFER_SAVING':
+        return (
+          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
+             <form onSubmit={handleSaveTransfer} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="text-center space-y-2">
+                 <div className="w-16 h-16 bg-success/10 text-success rounded-full flex items-center justify-center mx-auto mb-4">
+                   <ArrowRightLeft size={32} />
+                 </div>
+                 <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Transfer Dana Tabungan</h2>
+                 <p className="text-sm text-slate-500 font-medium">Pindahkan dana antar tabungan</p>
+               </div>
+               
+               <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Sumber Dana</h4>
+                 <div className="space-y-3">
+                   <select value={transferSourceCardId} onChange={(e)=>setTransferSourceCardId(e.target.value)} className="w-full p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{data.cards.map(c => <option key={`src_${c.id}`} value={c.id}>{c.name}</option>)}</select>
+                   <div className="grid grid-cols-2 gap-3">
+                     <select value={transferSourceMonth} onChange={(e)=>setTransferSourceMonth(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{monthNames.map((m, i) => <option key={`src_m_${i}`} value={i}>{m}</option>)}</select>
+                     <input type="number" value={transferSourceYear} onChange={(e)=>setTransferSourceYear(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm"/>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="flex justify-center -my-8 relative z-10">
+                 <div className="w-12 h-12 bg-white dark:bg-slate-900 border-4 border-slate-50 dark:border-slate-800 rounded-full flex items-center justify-center text-slate-400 shadow-sm">
+                   <ArrowDown size={20} />
+                 </div>
+               </div>
+
+               <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Tujuan Transfer</h4>
+                 <div className="space-y-3">
+                   <select value={transferTargetCardId} onChange={(e)=>setTransferTargetCardId(e.target.value)} className="w-full p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{data.cards.map(c => <option key={`tgt_${c.id}`} value={c.id}>{c.name}</option>)}</select>
+                   <div className="grid grid-cols-2 gap-3">
+                     <select value={transferTargetMonth} onChange={(e)=>setTransferTargetMonth(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{monthNames.map((m, i) => <option key={`tgt_m_${i}`} value={i}>{m}</option>)}</select>
+                     <input type="number" value={transferTargetYear} onChange={(e)=>setTransferTargetYear(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm"/>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="space-y-2 pt-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal Transfer</label><input type="text" value={transferAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTransferAmount)} required placeholder="Rp 0" className="w-full text-4xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               
+               <div className="pt-4"><button type="submit" className="w-full py-6 bg-success text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-emerald-600 active:scale-95 transition-all">Proses Transfer</button></div>
+             </form>
+          </div>
+        );
       case 'FORM_PIUTANG':
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
@@ -1710,7 +1889,26 @@ const App: React.FC = () => {
                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none font-bold text-lg" /></div>
                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal Piutang</label><input type="text" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-5xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Alokasi Untuk Hutang</label><select value={piutangCardId} onChange={(e)=>setPiutangCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-4"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
+               {!editingPiutang && (
+                 <div className="space-y-4">
+                   <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl cursor-pointer" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
+                     <div className={`w-6 h-6 rounded-md flex items-center justify-center ${piutangIsInstallment ? 'bg-indigo-600' : 'border-2 border-slate-300 dark:border-slate-600'}`}>
+                       {piutangIsInstallment && <Check size={16} className="text-white" />}
+                     </div>
+                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Jadikan Cicilan Bulanan</span>
+                   </div>
+                   {piutangIsInstallment && (
+                     <div className="space-y-2 animate-in slide-in-from-top duration-300">
+                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Berapa Bulan (Tenor)?</label>
+                       <input type="number" min="2" max="60" value={piutangInstallmentMonths} onChange={(e)=>setPiutangInstallmentMonths(parseInt(e.target.value))} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none focus:border-indigo-600 border-2 border-transparent" />
+                       {piutangInstallmentMonths > 1 && getNumericValue(piutangAmount) > 0 && (
+                          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pl-2">Setiap bulan akan ditagih sebesar: {formatIDR(getNumericValue(piutangAmount) / piutangInstallmentMonths)}</p>
+                       )}
+                     </div>
+                   )}
+                 </div>
+               )}
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan {piutangIsInstallment ? 'Pertama' : ''}</label><div className="grid grid-cols-2 gap-4"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
                <div className="pt-4"><button type="submit" className="w-full py-6 bg-indigo-600 text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">Simpan Catatan Piutang</button>{editingPiutang && (<button type="button" onClick={() => handleDeletePiutang(editingPiutang.id)} className="w-full mt-4 py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] transition">Hapus Piutang</button>)}</div>
              </form>
           </div>
@@ -1813,7 +2011,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
                <button 
                   onClick={() => {
                     setEditingTransaction(null);
@@ -1825,12 +2023,12 @@ const App: React.FC = () => {
                     setTxIsInstallment(false);
                     pushView('FORM_TRANSACTION');
                   }}
-                  className="flex items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-primary group"
+                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-primary group"
                >
                   <div className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-danger flex items-center justify-center group-hover:bg-danger group-hover:text-white transition-colors">
                     <Plus size={18} />
                   </div>
-                  Catat Pemakaian
+                  Catat
                </button>
                <button 
                   onClick={() => {
@@ -1843,12 +2041,29 @@ const App: React.FC = () => {
                     setTxTargetYear(statementYear);
                     pushView('FORM_TRANSACTION');
                   }}
-                  className="flex items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-success group"
+                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-success group"
                >
                   <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-success flex items-center justify-center group-hover:bg-success group-hover:text-white transition-colors">
                     <ArrowDownCircle size={18} />
                   </div>
-                  Bayar Tagihan
+                  Bayar
+               </button>
+               <button 
+                  onClick={() => {
+                    setEditingSaving(null);
+                    setSavingAmount('');
+                    setSavingNote('');
+                    setSavingCardId(activeStatementCard.id);
+                    setSavingTargetMonth(statementMonth);
+                    setSavingTargetYear(statementYear);
+                    pushView('FORM_SAVING');
+                  }}
+                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-indigo-500 group"
+               >
+                  <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <Vault size={18} />
+                  </div>
+                  Nabung
                </button>
             </div>
 

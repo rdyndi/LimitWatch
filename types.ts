@@ -103,6 +103,7 @@ export type ViewMode =
   | 'FORM_TRANSACTION'
   | 'FORM_CARD'
   | 'FORM_SAVING'
+  | 'FORM_TRANSFER_SAVING'
   | 'FORM_PIUTANG'
   | 'VIEW_STATEMENT'
   | 'VIEW_PROFILE';
