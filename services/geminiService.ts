@@ -57,7 +57,7 @@ export const getFinancialAdvice = async (data: AppState): Promise<string> => {
       },
       body: JSON.stringify({
         prompt,
-        model: 'gemini-1.5-flash', // Default to flash for cost/speed
+        model: 'gemini-3.8-flash',
         config: {
           temperature: 0.7,
         }

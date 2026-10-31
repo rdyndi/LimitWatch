@@ -1,19 +1,16 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
+import "./index.css";
 import App from "./App";
 
-// Service Worker Registration
+// Unregister service worker in dev/preview environment to avoid script caching errors
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(registration => {
-        console.log('SW registered: ', registration);
-      })
-      .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(() => {});
 }
 
 const rootElement = document.getElementById("root");

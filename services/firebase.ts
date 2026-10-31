@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported } from "firebase/analytics";
 import * as firestore from "firebase/firestore";
 import { 
   getAuth, 
@@ -29,11 +29,17 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-let analytics = null;
-try {
-  analytics = getAnalytics(app);
-} catch (error) {
-  console.warn("Firebase Analytics initialization failed (this is optional):", error);
+let analytics: any = null;
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      try {
+        analytics = getAnalytics(app);
+      } catch (e) {
+        console.warn("Analytics skipped:", e);
+      }
+    }
+  }).catch(() => {});
 }
 
 const db = getFirestore(app);
@@ -92,21 +98,41 @@ export const updateUserProfile = async (displayName: string) => {
 };
 
 export const subscribeToAuth = (callback: (user: User | null) => void) => {
-  return onAuthStateChanged(auth, callback);
+  try {
+    return onAuthStateChanged(auth, callback, (err) => {
+      console.warn("Auth state error:", err);
+      callback(null);
+    });
+  } catch (err) {
+    console.warn("Failed to subscribe to auth:", err);
+    callback(null);
+    return () => {};
+  }
 };
 
 export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) => void) => {
   if (!userId) return () => {};
 
-  const userDocRef = doc(db, "users", userId);
+  try {
+    const userDocRef = doc(db, "users", userId);
 
-  const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-    if (docSnap.exists()) {
-      const state = docSnap.data() as AppState;
-      if (!state.piutangs) state.piutangs = [];
-      onUpdate(state);
-    } else {
-      console.log("No user data found, creating new empty state.");
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const state = docSnap.data() as AppState;
+        if (!state.piutangs) state.piutangs = [];
+        onUpdate(state);
+      } else {
+        console.log("No user data found, creating new empty state.");
+        onUpdate({
+          cards: [],
+          transactions: [],
+          installments: [],
+          savings: [],
+          piutangs: []
+        });
+      }
+    }, (error) => {
+      console.error("Firestore subscription error:", error);
       onUpdate({
         cards: [],
         transactions: [],
@@ -114,11 +140,12 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
         savings: [],
         piutangs: []
       });
-    }
-  }, (error) => {
-    console.error("Firestore subscription error:", error);
-  });
-  return unsubscribe;
+    });
+    return unsubscribe;
+  } catch (err) {
+    console.error("Failed to subscribe to app state:", err);
+    return () => {};
+  }
 };
 
 export const saveAppState = async (userId: string, data: AppState) => {

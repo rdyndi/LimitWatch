@@ -1,11 +1,10 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 
@@ -13,13 +12,14 @@ async function startServer() {
   app.post("/api/gemini", async (req, res) => {
     const { prompt, model, config } = req.body;
     
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
     }
 
     try {
       const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: apiKey,
         httpOptions: {
           headers: {
             'User-Agent': 'aistudio-build',
@@ -27,8 +27,13 @@ async function startServer() {
         }
       });
       
+      let targetModel = model || "gemini-3.8-flash";
+      if (typeof targetModel === 'string' && (targetModel.includes("1.5") || targetModel.includes("2.0") || targetModel === "gemini-pro")) {
+        targetModel = "gemini-3.8-flash";
+      }
+
       const response = await ai.models.generateContent({
-        model: model || "gemini-3.5-flash",
+        model: targetModel,
         contents: prompt,
         config: config
       });
@@ -42,6 +47,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -56,7 +62,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
