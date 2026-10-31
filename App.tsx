@@ -741,77 +741,67 @@ const MainAppShell: React.FC = () => {
             </Routes>
           </main>
 
-          {/* MOBILE BOTTOM NAVIGATION (6 Nav Items matching design) */}
+          {/* MOBILE BOTTOM NAVIGATION (4 Nav Items + Elevated Center (+) CTA) */}
           {!isDetailOrFormRoute && isMobileDevice && (
             <nav
-              className="fixed left-0 right-0 bottom-0 bg-[#090e1a]/95 dark:bg-[#070b14]/95 backdrop-blur-lg border-t border-slate-800/80 z-[60] shadow-2xl"
-              style={{ height: 'calc(62px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
+              className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+              style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
             >
-              <div className="h-[62px] px-1 flex justify-around items-center max-w-md mx-auto">
+              <div className="h-[60px] px-2 flex justify-around items-center max-w-lg mx-auto">
                 <button
                   type="button"
                   onClick={() => navigate('/')}
                   className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
+                    currentPath === '/' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <Home size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">BERANDA</span>
+                  <Home size={20} />
+                  <span className="text-[11px] font-bold tracking-tight leading-none">Beranda</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => navigate('/cards')}
                   className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/cards' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
+                    currentPath === '/cards' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <Briefcase size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">HUTANG</span>
+                  <Briefcase size={20} />
+                  <span className="text-[11px] font-bold tracking-tight leading-none">Kartu</span>
                 </button>
+
+                {/* Elevated Center (+) Button */}
+                <div className="flex items-center justify-center px-1">
+                  <button
+                    type="button"
+                    onClick={() => openQuickRecord('EXPENSE')}
+                    aria-label="Catat Transaksi Cepat"
+                    className="w-12 h-12 -translate-y-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/35 active:scale-90 transition-all border-4 border-white dark:border-slate-950 cursor-pointer"
+                  >
+                    <Plus size={26} strokeWidth={2.75} />
+                  </button>
+                </div>
 
                 <button
                   type="button"
                   onClick={() => navigate('/savings')}
                   className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/savings' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
+                    currentPath === '/savings' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <Vault size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">TABUNG</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate('/piutangs')}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/piutangs' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <HandCoins size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">PIUTANG</span>
+                  <Vault size={20} />
+                  <span className="text-[11px] font-bold tracking-tight leading-none">Tabung</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => navigate('/yearly')}
                   className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/yearly' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
+                    currentPath === '/yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <CalendarRange size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">TAHUN</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate('/transactions')}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/transactions' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  <History size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-wider leading-none">RIWAYAT</span>
+                  <CalendarRange size={20} />
+                  <span className="text-[11px] font-bold tracking-tight leading-none">Tahunan</span>
                 </button>
               </div>
             </nav>
