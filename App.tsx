@@ -232,7 +232,22 @@ const MainAppShell: React.FC = () => {
   };
 
   const handleDeleteTransactionFromSheet = (id: string) => {
-    if (window.confirm('Hapus transaksi ini secara permanen?')) {
+    const tx = data.transactions.find((t) => t.id === id);
+    const hasLegacySavingsUsed =
+      tx?.type === TransactionType.PAYMENT &&
+      !data.savings.some((s) => s.usedByTransactionId === id) &&
+      data.savings.some(
+        (s) =>
+          s.isTransferred &&
+          s.targetPeriod?.month === tx.targetPeriod?.month &&
+          s.targetPeriod?.year === tx.targetPeriod?.year
+      );
+
+    const message = hasLegacySavingsUsed
+      ? 'Hapus transaksi pembayaran ini secara permanen?\n\n(Catatan: tabungan lama dikembalikan manual dari halaman Tabungan)'
+      : 'Hapus transaksi ini secara permanen?';
+
+    if (window.confirm(message)) {
       const updated = executeDeleteTransaction(data, id);
       saveData(updated);
       setEditingTransaction(null);
@@ -449,6 +464,7 @@ const MainAppShell: React.FC = () => {
   const isDetailOrFormRoute = ['/statement', '/form-card', '/form-transfer', '/profile'].includes(currentPath);
 
   const getPageTitle = () => {
+    if (currentPath.startsWith('/yearly')) return 'Anggaran Tahunan';
     switch (currentPath) {
       case '/':
         return 'Beranda';
@@ -458,8 +474,6 @@ const MainAppShell: React.FC = () => {
         return 'Tabungan';
       case '/piutangs':
         return 'Piutang';
-      case '/yearly':
-        return 'Anggaran Tahunan';
       case '/transactions':
         return 'Riwayat Aktivitas';
       case '/statement':
@@ -495,7 +509,7 @@ const MainAppShell: React.FC = () => {
             <DesktopNavItem icon={<Briefcase size={22} />} label="Kartu & Hutang" active={currentPath === '/cards'} onClick={() => navigate('/cards')} />
             <DesktopNavItem icon={<Vault size={22} />} label="Tabungan" active={currentPath === '/savings'} onClick={() => navigate('/savings')} />
             <DesktopNavItem icon={<HandCoins size={22} />} label="Piutang" active={currentPath === '/piutangs'} onClick={() => navigate('/piutangs')} />
-            <DesktopNavItem icon={<CalendarRange size={22} />} label="Anggaran Tahunan" active={currentPath === '/yearly'} onClick={() => navigate('/yearly')} />
+            <DesktopNavItem icon={<CalendarRange size={22} />} label="Anggaran Tahunan" active={currentPath.startsWith('/yearly')} onClick={() => navigate('/yearly')} />
             <DesktopNavItem icon={<History size={22} />} label="Riwayat Aktivitas" active={currentPath === '/transactions'} onClick={() => navigate('/transactions')} />
           </nav>
 
@@ -699,16 +713,15 @@ const MainAppShell: React.FC = () => {
 
               <Route
                 path="/yearly"
-                element={
-                  <YearlyView
-                    data={data}
-                    showAmounts={showAmounts}
-                    onOpenStatement={(card) => {
-                      setActiveCard(card);
-                      navigate('/statement');
-                    }}
-                  />
-                }
+                element={<YearlyView data={data} showAmounts={showAmounts} />}
+              />
+              <Route
+                path="/yearly/:year/:month"
+                element={<YearlyView data={data} showAmounts={showAmounts} />}
+              />
+              <Route
+                path="/yearly/:year/:month/:cardId"
+                element={<YearlyView data={data} showAmounts={showAmounts} />}
               />
 
               <Route
@@ -797,7 +810,7 @@ const MainAppShell: React.FC = () => {
                   type="button"
                   onClick={() => navigate('/yearly')}
                   className={`flex flex-col items-center justify-center gap-1 transition-all flex-1 py-1 cursor-pointer ${
-                    currentPath === '/yearly' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
+                    currentPath.startsWith('/yearly') ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   <CalendarRange size={20} />

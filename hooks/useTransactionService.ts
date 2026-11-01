@@ -30,6 +30,52 @@ export interface SaveTransactionPayload {
   splitBusiness?: number;
 }
 
+export function revertSavingsForTransaction(savings: Saving[], txId: string): Saving[] {
+  // 1. Revert all savings used by txId
+  let revertedList = savings.map((s) => {
+    if (s.usedByTransactionId === txId) {
+      return {
+        ...s,
+        isTransferred: false,
+        transferredAt: undefined,
+        usedAmount: undefined,
+        usedByTransactionId: undefined
+      };
+    }
+    return s;
+  });
+
+  // 2. Merge back any split fragments
+  const fragmentIdsToRemove = new Set<string>();
+
+  revertedList = revertedList.map((parent) => {
+    if (parent.isTransferred || fragmentIdsToRemove.has(parent.id)) {
+      return parent;
+    }
+
+    const fragments = revertedList.filter(
+      (f) =>
+        f.id !== parent.id &&
+        f.splitFromSavingId === parent.id &&
+        !f.isTransferred &&
+        !fragmentIdsToRemove.has(f.id)
+    );
+
+    if (fragments.length > 0) {
+      const addedAmount = fragments.reduce((sum, f) => sum + f.amount, 0);
+      fragments.forEach((f) => fragmentIdsToRemove.add(f.id));
+      return {
+        ...parent,
+        amount: parent.amount + addedAmount
+      };
+    }
+
+    return parent;
+  });
+
+  return revertedList.filter((s) => !fragmentIdsToRemove.has(s.id));
+}
+
 export function executeSaveTransaction(
   data: AppState,
   payload: SaveTransactionPayload,
@@ -43,6 +89,12 @@ export function executeSaveTransaction(
   let finalDesc = description.trim();
   let updatedSavings = [...data.savings];
   let updatedInstallments = [...data.installments];
+  const txIdToSave = editingTransaction ? editingTransaction.id : generateId();
+
+  // If editing an existing PAYMENT transaction, revert any savings previously used by it first
+  if (editingTransaction && editingTransaction.type === TransactionType.PAYMENT) {
+    updatedSavings = revertSavingsForTransaction(updatedSavings, editingTransaction.id);
+  }
 
   let splitPersonalAmount = 0;
   let splitBusinessAmount = 0;
@@ -63,7 +115,18 @@ export function executeSaveTransaction(
   if (type === TransactionType.EXPENSE) {
     if (finalAmount <= 0 || !finalDesc) return null;
   } else {
-    const maxSavings = Math.max(0, availableSavingsForPeriod || 0);
+    // Calculate current available savings in updatedSavings after reverting previous edit
+    const currentAvailableSavings = updatedSavings
+      .filter(
+        (s) =>
+          s.cardId === cardId &&
+          !s.isTransferred &&
+          s.targetPeriod?.month === targetMonth &&
+          s.targetPeriod?.year === targetYear
+      )
+      .reduce((sum, s) => sum + s.amount, 0);
+
+    const maxSavings = Math.max(0, currentAvailableSavings);
     const savingsUsed = useSavings
       ? savingsAmount !== undefined
         ? Math.max(0, Math.min(savingsAmount, maxSavings))
@@ -78,18 +141,75 @@ export function executeSaveTransaction(
     }
 
     if (useSavings && savingsUsed > 0) {
-      updatedSavings = data.savings.map((s) =>
-        s.cardId === cardId &&
-        !s.isTransferred &&
-        s.targetPeriod?.month === targetMonth &&
-        s.targetPeriod?.year === targetYear
-          ? { ...s, isTransferred: true }
-          : s
-      );
+      const transferTimestamp = new Date(date).toISOString();
+      const eligibleSavings = updatedSavings
+        .filter(
+          (s) =>
+            s.cardId === cardId &&
+            !s.isTransferred &&
+            s.targetPeriod?.month === targetMonth &&
+            s.targetPeriod?.year === targetYear
+        )
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      let remainingToUse = savingsUsed;
+      const modifiedMap = new Map<string, Saving>();
+      const newSplitRecords: Saving[] = [];
+
+      for (const s of eligibleSavings) {
+        if (remainingToUse <= 0) break;
+
+        if (s.amount <= remainingToUse) {
+          // Record terpakai penuh
+          modifiedMap.set(s.id, {
+            ...s,
+            isTransferred: true,
+            transferredAt: transferTimestamp,
+            usedAmount: s.amount,
+            usedByTransactionId: txIdToSave
+          });
+          remainingToUse -= s.amount;
+        } else {
+          // Record terpakai sebagian: PECAH jadi dua record
+          const portionUsed = remainingToUse;
+          const portionRemaining = s.amount - portionUsed;
+
+          modifiedMap.set(s.id, {
+            ...s,
+            amount: portionUsed,
+            isTransferred: true,
+            transferredAt: transferTimestamp,
+            usedAmount: portionUsed,
+            usedByTransactionId: txIdToSave
+          });
+
+          newSplitRecords.push({
+            id: generateId(),
+            cardId: s.cardId,
+            amount: portionRemaining,
+            date: s.date,
+            note: s.note,
+            targetPeriod: s.targetPeriod ? { ...s.targetPeriod } : undefined,
+            isTransferred: false,
+            splitFromSavingId: s.id
+          });
+
+          remainingToUse = 0;
+        }
+      }
+
+      updatedSavings = updatedSavings.flatMap((s) => {
+        if (modifiedMap.has(s.id)) {
+          return [modifiedMap.get(s.id)!];
+        }
+        return [s];
+      });
+
+      if (newSplitRecords.length > 0) {
+        updatedSavings = [...newSplitRecords, ...updatedSavings];
+      }
     }
   }
-
-  const txIdToSave = editingTransaction ? editingTransaction.id : generateId();
 
   if (isInstallment && type === TransactionType.EXPENSE) {
     if (editingTransaction && !editingTransaction.isInstallment) {
@@ -225,10 +345,20 @@ export function executeDeleteTransaction(data: AppState, id: string): AppState {
     });
   }
 
+  // BUG 2: Hapus transaksi PAYMENT membatalkan pemakaian tabungan dan menyatukan pecahan kembali
+  let updatedSavings = data.savings;
+  if (
+    deletedTx?.type === TransactionType.PAYMENT ||
+    data.savings.some((s) => s.usedByTransactionId === id)
+  ) {
+    updatedSavings = revertSavingsForTransaction(data.savings, id);
+  }
+
   return {
     ...data,
     transactions: updatedTx,
-    installments: updatedInstallments
+    installments: updatedInstallments,
+    savings: updatedSavings
   };
 }
 
@@ -448,4 +578,45 @@ export function executeSaveCard(
     };
     return { ...data, cards: [...data.cards, newCard] };
   }
+}
+
+export function executeToggleSavingTransferred(
+  data: AppState,
+  savingId: string,
+  transferredAt?: string,
+  usedAmount?: number
+): AppState {
+  return {
+    ...data,
+    savings: data.savings.map((s) => {
+      if (s.id !== savingId) return s;
+      const willBeTransferred = !s.isTransferred;
+      return {
+        ...s,
+        isTransferred: willBeTransferred,
+        transferredAt: willBeTransferred ? (transferredAt || new Date().toISOString()) : undefined,
+        usedAmount: willBeTransferred ? (usedAmount ?? s.amount) : undefined,
+        usedByTransactionId: willBeTransferred ? s.usedByTransactionId : undefined
+      };
+    })
+  };
+}
+
+export function executeTogglePiutangCollected(
+  data: AppState,
+  piutangId: string,
+  collectedAt?: string
+): AppState {
+  return {
+    ...data,
+    piutangs: (data.piutangs || []).map((p) => {
+      if (p.id !== piutangId) return p;
+      const willBeCollected = !p.isCollected;
+      return {
+        ...p,
+        isCollected: willBeCollected,
+        collectedAt: willBeCollected ? (collectedAt || new Date().toISOString()) : undefined
+      };
+    })
+  };
 }

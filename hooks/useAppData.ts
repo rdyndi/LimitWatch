@@ -50,7 +50,32 @@ export function useAppData() {
         t => t.cardId === inst.cardId && t.description === inst.name && t.amount === inst.totalAmount && t.isInstallment
       );
     });
-    return { ...state, installments: validInstallments };
+
+    const validSavings = (state.savings || []).map(s => ({
+      ...s,
+      amount: Number(s.amount) || 0,
+      isTransferred: Boolean(s.isTransferred),
+      // Do not guess or fabricate transferredAt for legacy records without dates
+      transferredAt: s.transferredAt ? String(s.transferredAt) : undefined,
+      usedAmount: s.usedAmount !== undefined ? Number(s.usedAmount) : (s.isTransferred ? Number(s.amount) : undefined),
+      usedByTransactionId: s.usedByTransactionId ? String(s.usedByTransactionId) : undefined,
+      splitFromSavingId: s.splitFromSavingId ? String(s.splitFromSavingId) : undefined
+    }));
+
+    const validPiutangs = (state.piutangs || []).map(p => ({
+      ...p,
+      amount: Number(p.amount) || 0,
+      isCollected: Boolean(p.isCollected),
+      // Do not guess or fabricate collectedAt for legacy records without dates
+      collectedAt: p.collectedAt ? String(p.collectedAt) : undefined
+    }));
+
+    return {
+      ...state,
+      installments: validInstallments,
+      savings: validSavings,
+      piutangs: validPiutangs
+    };
   };
 
   useEffect(() => {

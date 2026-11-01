@@ -65,6 +65,10 @@ export interface Saving {
   note: string;
   targetPeriod?: { month: number, year: number }; // Target pembayaran untuk tagihan bulan apa
   isTransferred: boolean; // Jika true, berarti sudah dipakai bayar tagihan
+  transferredAt?: string; // ISO String kapan dipakai bayar tagihan
+  usedAmount?: number; // Jumlah yang dipakai (default = amount)
+  usedByTransactionId?: string; // ID transaksi pembayaran yang memakai tabungan ini
+  splitFromSavingId?: string; // ID tabungan asal jika record ini merupakan sisa dari pemakaian sebagian
 }
 
 export interface Piutang {
@@ -76,6 +80,7 @@ export interface Piutang {
   note: string;
   targetPeriod?: { month: number, year: number };
   isCollected: boolean; // Jika true, berarti uang sudah diterima
+  collectedAt?: string; // ISO String kapan uang kembali
 }
 
 export interface AppState {
