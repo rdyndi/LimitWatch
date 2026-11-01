@@ -222,7 +222,9 @@ export const getStatementData = (data: AppState, cardId: string, month: number, 
   const totalBill = Math.ceil(baseAmount + adminFee + materai);
   const totalValidated = Math.ceil(validatedBase + adminFee + materai);
   const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
-  const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0) + cardPiutangs.reduce((s, v) => s + v.amount, 0));
+  const totalSavingsAmount = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0));
+  const totalPiutangAmount = Math.ceil(cardPiutangs.reduce((s, v) => s + v.amount, 0));
+  const totalSaved = Math.ceil(totalSavingsAmount + totalPiutangAmount);
 
   return {
     transactions: cardTransactions,
@@ -232,6 +234,8 @@ export const getStatementData = (data: AppState, cardId: string, month: number, 
     piutangs: cardPiutangs,
     totalBill,
     totalPaid,
+    totalSavingsAmount,
+    totalPiutangAmount,
     totalSaved,
     totalValidated,
     adminFee,

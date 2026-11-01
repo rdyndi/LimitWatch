@@ -5,6 +5,7 @@ export interface StickyActionBarProps {
   primaryLabel: string;
   onPrimaryClick?: () => void;
   primaryType?: 'submit' | 'button';
+  form?: string;
   isValid?: boolean;
   isLoading?: boolean;
   color?: 'danger' | 'success' | 'indigo' | 'primary';
@@ -19,6 +20,7 @@ export const StickyActionBar: React.FC<StickyActionBarProps> = ({
   primaryLabel,
   onPrimaryClick,
   primaryType = 'submit',
+  form,
   isValid = true,
   isLoading = false,
   color = 'primary',
@@ -37,7 +39,7 @@ export const StickyActionBar: React.FC<StickyActionBarProps> = ({
 
   return (
     <div
-      className={`sticky bottom-0 -mx-4 -mb-4 sm:-mx-8 sm:-mb-8 p-4 sm:p-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 rounded-b-3xl z-10 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-2 ${className}`}
+      className={`p-3.5 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] space-y-2 ${className}`}
     >
       {!isValid && invalidMessage && (
         <div className="text-center animate-in fade-in duration-200">
@@ -49,6 +51,7 @@ export const StickyActionBar: React.FC<StickyActionBarProps> = ({
 
       <button
         type={primaryType}
+        form={form}
         onClick={onPrimaryClick}
         disabled={!isValid || isLoading}
         className={`w-full min-h-[52px] py-4 text-white font-black text-base rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all ${

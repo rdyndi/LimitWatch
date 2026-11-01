@@ -742,7 +742,7 @@ const MainAppShell: React.FC = () => {
           </main>
 
           {/* MOBILE BOTTOM NAVIGATION (4 Nav Items + Elevated Center (+) CTA) */}
-          {!isDetailOrFormRoute && isMobileDevice && (
+          {!isDetailOrFormRoute && !isQuickRecordOpen && isMobileDevice && (
             <nav
               className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
               style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}

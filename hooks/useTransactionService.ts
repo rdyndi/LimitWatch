@@ -22,6 +22,7 @@ export interface SaveTransactionPayload {
   isInstallment?: boolean;
   installmentMonths?: number;
   useSavings?: boolean;
+  savingsAmount?: number;
   targetMonth?: number;
   targetYear?: number;
   owner?: OwnerType;
@@ -35,7 +36,7 @@ export function executeSaveTransaction(
   availableSavingsForPeriod: number,
   editingTransaction?: Transaction | null
 ): AppState | null {
-  const { cardId, type, amount, description, date, category, isInstallment, installmentMonths = 12, useSavings, targetMonth = new Date().getMonth(), targetYear = new Date().getFullYear(), owner, splitPersonal = 0, splitBusiness = 0 } = payload;
+  const { cardId, type, amount, description, date, category, isInstallment, installmentMonths = 12, useSavings, savingsAmount, targetMonth = new Date().getMonth(), targetYear = new Date().getFullYear(), owner, splitPersonal = 0, splitBusiness = 0 } = payload;
 
   if (!cardId) return null;
   let finalAmount = Math.ceil(amount);
@@ -62,7 +63,12 @@ export function executeSaveTransaction(
   if (type === TransactionType.EXPENSE) {
     if (finalAmount <= 0 || !finalDesc) return null;
   } else {
-    const savingsUsed = useSavings ? availableSavingsForPeriod : 0;
+    const maxSavings = Math.max(0, availableSavingsForPeriod || 0);
+    const savingsUsed = useSavings
+      ? savingsAmount !== undefined
+        ? Math.max(0, Math.min(savingsAmount, maxSavings))
+        : maxSavings
+      : 0;
     const totalPaymentReduction = Math.ceil(finalAmount + savingsUsed);
     if (totalPaymentReduction <= 0) return null;
 

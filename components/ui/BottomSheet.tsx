@@ -7,6 +7,7 @@ export interface BottomSheetProps {
   title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxHeight?: string; // e.g. 'max-h-[90dvh]'
 }
 
@@ -16,6 +17,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   title,
   subtitle,
   children,
+  footer,
   maxHeight = 'max-h-[92dvh]'
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {children}
         </div>
+
+        {/* Optional Footer */}
+        {footer && (
+          <div className="shrink-0 border-t border-slate-100 dark:border-slate-800">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

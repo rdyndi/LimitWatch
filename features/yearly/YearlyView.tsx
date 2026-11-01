@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { AppState, CreditCard, TransactionType, OwnerType } from '../../types';
+import { AppState, CreditCard, TransactionType } from '../../types';
 import { MONTH_NAMES } from '../../lib/constants';
 import { formatIDR } from '../../lib/format';
-import { getBillingPeriod, getOwnerSplit, getMonthlyBillByOwner } from '../../lib/billing';
-import { CalendarRange, Calendar } from 'lucide-react';
+import { getBillingPeriod, getMonthlyBillByOwner } from '../../lib/billing';
+import { CalendarRange, ArrowDownRight, CheckCircle2 } from 'lucide-react';
 
 interface YearlyViewProps {
   data: AppState;
@@ -19,50 +19,20 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const yearlyBudgetAnalysis = useMemo(() => {
-    const cardAggregatesMap: Record<string, {
-      cardId: string;
-      cardName: string;
-      cardColor: string;
-      cardObj: CreditCard;
-      totalBill: number;
-      totalPaid: number;
-      totalGap: number;
-      totalSaved: number;
-      totalPersonal: number;
-      totalBusiness: number;
-      totalUnclassified: number;
-      monthsWithBillsCount: number;
-    }> = {};
-
-    data.cards.forEach(card => {
-      cardAggregatesMap[card.id] = {
-        cardId: card.id,
-        cardName: card.name,
-        cardColor: card.color || 'bg-slate-400',
-        cardObj: card,
-        totalBill: 0,
-        totalPaid: 0,
-        totalGap: 0,
-        totalSaved: 0,
-        totalPersonal: 0,
-        totalBusiness: 0,
-        totalUnclassified: 0,
-        monthsWithBillsCount: 0
-      };
-    });
-
     let totalYearBill = 0;
     let totalYearPaid = 0;
     let totalYearSaved = 0;
-    let totalYearPersonal = 0;
-    let totalYearBusiness = 0;
 
     const activeMonthsBreakdown: Array<{
       monthIdx: number;
       monthName: string;
+      shortMonthName: string;
       totalMonthBill: number;
       totalMonthPaid: number;
-      totalMonthGap: number;
+      totalMonthSaved: number;
+      totalMonthPiutang: number;
+      totalMonthGrossGap: number;
+      totalMonthNetGap: number;
       status: 'LUNAS' | 'SEBAGIAN' | 'BELUM';
       cardsInMonth: Array<{
         cardId: string;
@@ -80,6 +50,8 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
     MONTH_NAMES.forEach((monthName, monthIdx) => {
       let monthBillTotal = 0;
       let monthPaidTotal = 0;
+      let monthSavedTotal = 0;
+      let monthPiutangTotal = 0;
 
       const cardsInThisMonth: Array<{
         cardId: string;
@@ -121,13 +93,16 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
         const cardPiutang = (data.piutangs || []).filter(p => p.cardId === card.id && !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === selectedYear).reduce((s, v) => s + v.amount, 0);
         const totalSavedCardMonth = cardSaved + cardPiutang;
 
+        monthSavedTotal += cardSaved;
+        monthPiutangTotal += cardPiutang;
+
         const ownerSplit = getMonthlyBillByOwner(data, card.id, monthIdx, selectedYear);
 
         if (cardBill > 0 || cardPaid > 0) {
           cardsInThisMonth.push({
             cardId: card.id,
             cardName: card.name,
-            cardColor: card.color || 'bg-slate-400',
+            cardColor: card.color || 'bg-blue-500',
             cardObj: card,
             bill: cardBill,
             paid: cardPaid,
@@ -136,308 +111,244 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
             business: ownerSplit.business
           });
 
-          if (cardAggregatesMap[card.id]) {
-            const agg = cardAggregatesMap[card.id];
-            agg.totalBill += cardBill;
-            agg.totalPaid += cardPaid;
-            agg.totalSaved += totalSavedCardMonth;
-            agg.totalPersonal += ownerSplit.personal;
-            agg.totalBusiness += ownerSplit.business;
-            agg.totalUnclassified += ownerSplit.unclassified;
-            if (cardBill > 0) agg.monthsWithBillsCount++;
-          }
-
           monthBillTotal += cardBill;
           monthPaidTotal += cardPaid;
 
           totalYearBill += cardBill;
           totalYearPaid += cardPaid;
           totalYearSaved += totalSavedCardMonth;
-          totalYearPersonal += ownerSplit.personal;
-          totalYearBusiness += ownerSplit.business;
         }
       });
 
-      if (cardsInThisMonth.length > 0) {
-        const monthGapTotal = Math.max(0, monthBillTotal - monthPaidTotal);
+      const unlinkedSavings = data.savings.filter(s => (!s.cardId || !data.cards.some(c => c.id === s.cardId)) && !s.isTransferred && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === selectedYear).reduce((s, v) => s + v.amount, 0);
+      const unlinkedPiutangs = (data.piutangs || []).filter(p => (!p.cardId || !data.cards.some(c => c.id === p.cardId)) && !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === selectedYear).reduce((s, v) => s + v.amount, 0);
+
+      monthSavedTotal += unlinkedSavings;
+      monthPiutangTotal += unlinkedPiutangs;
+
+      if (cardsInThisMonth.length > 0 || monthSavedTotal > 0 || monthPiutangTotal > 0) {
+        const monthGrossGap = Math.max(0, monthBillTotal - monthPaidTotal);
+        const monthLiquidAsset = monthSavedTotal + monthPiutangTotal;
+        const monthNetGap = Math.max(0, monthBillTotal - monthPaidTotal - monthLiquidAsset);
+
         let monthStatus: 'LUNAS' | 'SEBAGIAN' | 'BELUM' = 'BELUM';
-        if (monthBillTotal > 0 && monthGapTotal === 0) monthStatus = 'LUNAS';
-        else if (monthPaidTotal > 0) monthStatus = 'SEBAGIAN';
+        if (monthBillTotal > 0 && monthNetGap === 0) monthStatus = 'LUNAS';
+        else if (monthPaidTotal > 0 || monthLiquidAsset > 0) monthStatus = 'SEBAGIAN';
+
+        const shortMonthName = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'][monthIdx];
 
         activeMonthsBreakdown.push({
           monthIdx,
           monthName,
+          shortMonthName,
           totalMonthBill: monthBillTotal,
           totalMonthPaid: monthPaidTotal,
-          totalMonthGap: monthGapTotal,
+          totalMonthSaved: monthSavedTotal,
+          totalMonthPiutang: monthPiutangTotal,
+          totalMonthGrossGap: monthGrossGap,
+          totalMonthNetGap: monthNetGap,
           status: monthStatus,
           cardsInMonth: cardsInThisMonth
         });
       }
     });
 
-    const cardsSummaryList = Object.values(cardAggregatesMap).map(c => {
-      const gap = Math.max(0, c.totalBill - c.totalPaid);
-      return { ...c, totalGap: gap };
-    }).sort((a, b) => b.totalGap - a.totalGap);
-
     const totalYearGap = Math.max(0, totalYearBill - totalYearPaid);
 
     return {
       monthlyBreakdown: activeMonthsBreakdown,
-      cardsSummaryList,
       totalYearBill,
       totalYearPaid,
       totalYearGap,
       totalYearSaved,
-      totalYearPersonal,
-      totalYearBusiness,
       hasData: totalYearBill > 0 || totalYearPaid > 0 || totalYearSaved > 0
     };
   }, [data, selectedYear]);
 
   return (
-    <div className="space-y-8 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4 md:py-8">
-      {/* Hero Header */}
-      <div className="bg-[#1a2332] rounded-[32px] p-6 sm:p-8 text-white shadow-xl space-y-6 relative overflow-hidden border border-slate-800">
-        <div className="absolute -right-12 -top-12 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-6 max-w-2xl mx-auto w-full px-4 py-4 sm:py-6 pb-28 text-slate-100">
+      {/* Top Header Row */}
+      <div className="flex justify-between items-center px-1">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-widest text-white uppercase">
+          YEARLY
+        </h1>
 
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                <CalendarRange size={22} />
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight">Anggaran & Rekap Tahunan</h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">Evaluasi kesehatan finansial & pemetaan beban hutang tahunan</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {[2024, 2025, 2026, 2027].map(y => (
-              <button
-                key={y}
-                onClick={() => setSelectedYear(y)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
-                  selectedYear === y ? 'bg-primary text-white shadow-md' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Global Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-800/80">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400">Total Tagihan</span>
-            <p className="text-lg sm:text-2xl font-black text-slate-100 mt-0.5">
-              {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearBill) : '••••'}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400">Total Dibayar</span>
-            <p className="text-lg sm:text-2xl font-black text-emerald-400 mt-0.5">
-              {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearPaid) : '••••'}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400">Sisa Kurang</span>
-            <p className={`text-lg sm:text-2xl font-black mt-0.5 ${yearlyBudgetAnalysis.totalYearGap > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearGap) : '••••'}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400">Cadangan Likuid</span>
-            <p className="text-lg sm:text-2xl font-black text-blue-400 mt-0.5">
-              {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearSaved) : '••••'}
-            </p>
-          </div>
+        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          {[2024, 2025, 2026, 2027].map(y => (
+            <button
+              key={y}
+              onClick={() => setSelectedYear(y)}
+              className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                selectedYear === y
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {y}
+            </button>
+          ))}
         </div>
       </div>
 
       {!yearlyBudgetAnalysis.hasData ? (
-        <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
-          <CalendarRange size={48} className="mx-auto text-slate-200 dark:text-slate-800 mb-3" />
-          <p className="text-slate-400 dark:text-slate-500 font-bold text-sm">Belum ada data anggaran di tahun {selectedYear}.</p>
+        <div className="text-center py-20 bg-slate-900/60 rounded-[32px] border border-dashed border-slate-800 p-8">
+          <CalendarRange size={48} className="mx-auto text-slate-700 mb-3" />
+          <p className="text-slate-400 font-bold text-sm">Belum ada data anggaran di tahun {selectedYear}.</p>
         </div>
       ) : (
-        <>
-          {/* Section A: Card Aggregates */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
-              <CalendarRange size={22} className="text-primary" /> Rincian Per Kartu / Hutang ({selectedYear})
-            </h3>
+        <div className="space-y-6">
+          {yearlyBudgetAnalysis.monthlyBreakdown.map(m => {
+            const hasMonthNetGap = m.totalMonthNetGap > 0;
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {yearlyBudgetAnalysis.cardsSummaryList.map(c => {
-                const hasGap = c.totalGap > 0;
-                const isLunas = c.totalBill > 0 && c.totalGap === 0;
-                const progressPct = c.totalBill > 0 ? Math.min(100, Math.round((c.totalPaid / c.totalBill) * 100)) : 0;
-
-                return (
-                  <div
-                    key={c.cardId}
-                    className={`bg-white dark:bg-slate-900 rounded-[28px] p-5 sm:p-6 border shadow-xs transition-all flex flex-col justify-between space-y-4 ${
-                      hasGap
-                        ? 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10'
-                        : isLunas
-                        ? 'border-emerald-200 dark:border-emerald-900/40'
-                        : 'border-slate-100 dark:border-slate-800'
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ${c.cardColor}`} />
-                          <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 leading-tight truncate">
-                            {c.cardName}
-                          </h4>
-                        </div>
-                        <span
-                          className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase shrink-0 ${
-                            hasGap
-                              ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-                              : isLunas
-                              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {hasGap ? 'Ada Kurang' : isLunas ? 'Lunas' : 'Tanpa Tagihan'}
+            return (
+              <div
+                key={m.monthIdx}
+                className="bg-[#0f172a] dark:bg-[#0c1322] rounded-[32px] p-5 sm:p-6 border border-slate-800/90 shadow-2xl space-y-5"
+              >
+                {/* Month Header Banner */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    {/* Calendar Badge */}
+                    <div className="w-12 h-13 bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-md flex flex-col shrink-0">
+                      <div className="bg-red-600 h-3.5 w-full flex items-center justify-center">
+                        <span className="w-1 h-1 bg-white/70 rounded-full mx-0.5" />
+                        <span className="w-1 h-1 bg-white/70 rounded-full mx-0.5" />
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-0.5">
+                        <span className="text-[10px] font-black text-slate-100 tracking-tighter leading-none">
+                          {m.shortMonthName}
+                        </span>
+                        <span className="text-[8px] font-bold text-slate-400 leading-none mt-0.5">
+                          {selectedYear}
                         </span>
                       </div>
-
-                      <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800/80 text-xs sm:text-sm">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500 font-medium">Tagihan</span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">
-                            {showAmounts ? formatIDR(c.totalBill) : '••••'}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500 font-medium">Dibayar</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                            {showAmounts ? formatIDR(c.totalPaid) : '••••'}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-1 border-t border-dashed border-slate-100 dark:border-slate-800">
-                          <span className="font-bold text-slate-700 dark:text-slate-300">Kurang</span>
-                          <span className={`font-black text-sm ${hasGap ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {showAmounts ? formatIDR(c.totalGap) : '••••'}
-                          </span>
-                        </div>
-                      </div>
                     </div>
 
-                    <div className="space-y-2 pt-1">
-                      {c.totalBill > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold">
-                            <span>Progress</span>
-                            <span>{progressPct}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-500 ${isLunas ? 'bg-emerald-500' : 'bg-primary'}`}
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      {m.monthName}
+                    </h2>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Section B: Monthly Breakdown */}
-          <div className="space-y-4 pt-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
-              <Calendar size={22} className="text-indigo-500" /> Ringkasan Bulanan
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {yearlyBudgetAnalysis.monthlyBreakdown.map(m => {
-                const isLunas = m.status === 'LUNAS';
-                const isSebagian = m.status === 'SEBAGIAN';
-
-                return (
-                  <div
-                    key={m.monthIdx}
-                    className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-xs flex flex-col overflow-hidden relative"
-                  >
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center">
-                      <h4 className="font-black text-base sm:text-lg text-slate-800 dark:text-slate-100 tracking-tight leading-none uppercase">
-                        {m.monthName} {selectedYear}
-                      </h4>
-                      <span
-                        className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase ${
-                          isLunas
-                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                            : isSebagian
-                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                            : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {m.status}
+                  {/* Deficit / Lunas Status Badge */}
+                  <div>
+                    {hasMonthNetGap ? (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-800/60 text-rose-300 font-extrabold text-[11px] sm:text-xs tracking-wide">
+                        KURANG {showAmounts ? formatIDR(m.totalMonthNetGap) : '••••'}
                       </span>
-                    </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-extrabold text-[11px] sm:text-xs tracking-wide">
+                        <CheckCircle2 size={12} /> LUNAS
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                    <div className="p-5 bg-slate-100/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500 font-medium">Tagihan</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200">
-                          {showAmounts ? formatIDR(m.totalMonthBill) : '••••'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500 font-medium">Dibayar</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                          {showAmounts ? formatIDR(m.totalMonthPaid) : '••••'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1 border-t border-dashed border-slate-200 dark:border-slate-700">
-                        <span className="font-bold text-slate-700 dark:text-slate-300">Kurang</span>
-                        <span className={`font-black text-sm ${m.totalMonthGap > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {showAmounts ? formatIDR(m.totalMonthGap) : '••••'}
-                        </span>
-                      </div>
-                    </div>
+                {/* Cards List inside Month */}
+                <div className="space-y-3">
+                  {m.cardsInMonth.map(ce => {
+                    const cardGap = ce.gap;
+                    const isFullyPaid = ce.bill > 0 && cardGap === 0;
+                    const pct = ce.bill > 0 ? Math.min(100, Math.round((ce.paid / ce.bill) * 100)) : 0;
 
-                    <div className="p-4 sm:p-5 space-y-3 flex-1">
-                      {m.cardsInMonth.map(ce => (
-                        <div
-                          key={ce.cardId}
-                          onClick={() => ce.cardObj && onOpenStatement(ce.cardObj, m.monthIdx, selectedYear)}
-                          className="space-y-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer border border-slate-100 dark:border-slate-700/50"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${ce.cardColor}`} />
-                              <span className="font-bold text-slate-700 dark:text-slate-200 text-xs truncate">
-                                {ce.cardName}
+                    return (
+                      <div
+                        key={ce.cardId}
+                        onClick={() => ce.cardObj && onOpenStatement(ce.cardObj, m.monthIdx, selectedYear)}
+                        className="bg-[#172033] hover:bg-[#1c273e] p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-3 transition-all cursor-pointer shadow-md"
+                      >
+                        {/* Row 1: Card Title & Amount Status */}
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`w-3 h-3 rounded-full shrink-0 shadow-xs ${ce.cardColor}`} />
+                            <span className="font-extrabold text-white text-sm sm:text-base truncate">
+                              {ce.cardName}
+                            </span>
+                            {cardGap > 0 && (
+                              <span className="flex items-center gap-0.5 text-rose-400 font-black text-[11px] shrink-0">
+                                <ArrowDownRight size={12} /> Kurang
                               </span>
-                            </div>
-                            <span className={`text-[10px] font-black ${ce.gap > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              {ce.gap > 0 ? `Kurang ${showAmounts ? formatIDR(ce.gap) : '••'}` : 'Lunas'}
+                            )}
+                          </div>
+
+                          <div className="text-right">
+                            <span className={`font-black text-xs sm:text-sm ${isFullyPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
+                              {showAmounts ? formatIDR(ce.paid) : '••'} / {showAmounts ? formatIDR(ce.bill) : '••'}
                             </span>
                           </div>
                         </div>
-                      ))}
+
+                        {/* Row 2: Pribadi / Bisnis Owner Split Row */}
+                        {(ce.personal > 0 || ce.business > 0) && (
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {ce.personal > 0 && (
+                              <div className="bg-[#121c2e] border border-blue-900/40 rounded-xl px-3 py-1.5 flex justify-between items-center text-xs">
+                                <span className="font-bold text-blue-400">Pribadi</span>
+                                <span className="font-extrabold text-blue-200">
+                                  {showAmounts ? formatIDR(ce.personal) : '••'}
+                                </span>
+                              </div>
+                            )}
+
+                            {ce.business > 0 && (
+                              <div className="bg-[#1c1328] border border-purple-900/40 rounded-xl px-3 py-1.5 flex justify-between items-center text-xs">
+                                <span className="font-bold text-purple-400">Bisnis</span>
+                                <span className="font-extrabold text-purple-200">
+                                  {showAmounts ? formatIDR(ce.business) : '••'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Row 3: Progress Bar */}
+                        <div className="pt-1">
+                          <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${isFullyPaid ? 'bg-emerald-400' : 'bg-blue-500'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Monthly Savings & Receivables Summary Row */}
+                {(m.totalMonthSaved > 0 || m.totalMonthPiutang > 0) && (
+                  <div className="bg-[#121b2d] p-3.5 rounded-2xl border border-slate-800/80 flex flex-wrap justify-between items-center text-xs text-slate-300 gap-2">
+                    <div className="flex items-center gap-4">
+                      {m.totalMonthSaved > 0 && (
+                        <div>
+                          <span className="text-slate-400 font-bold uppercase text-[9px] mr-1">Tabungan:</span>
+                          <span className="font-extrabold text-blue-400">
+                            {showAmounts ? formatIDR(m.totalMonthSaved) : '••'}
+                          </span>
+                        </div>
+                      )}
+
+                      {m.totalMonthPiutang > 0 && (
+                        <div>
+                          <span className="text-slate-400 font-bold uppercase text-[9px] mr-1">Piutang:</span>
+                          <span className="font-extrabold text-indigo-400">
+                            {showAmounts ? formatIDR(m.totalMonthPiutang) : '••'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-slate-400 font-bold uppercase text-[9px] mr-1">Selisih Net:</span>
+                      <span className={`font-black ${m.totalMonthNetGap > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {showAmounts ? formatIDR(m.totalMonthNetGap) : '••'}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

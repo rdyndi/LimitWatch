@@ -147,13 +147,21 @@ export const StatementView: React.FC<StatementViewProps> = ({
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Dana Cadangan</span>
-            <span className="text-base font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••'}</span>
+            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Tabungan Dialokasi</span>
+            <span className="text-base font-black text-blue-600 dark:text-blue-400">-{showAmounts ? formatIDR(s.totalSavingsAmount || 0) : '••'}</span>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Piutang Ditargetkan</span>
+            <span className="text-base font-black text-indigo-600 dark:text-indigo-400">-{showAmounts ? formatIDR(s.totalPiutangAmount || 0) : '••'}</span>
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t-2 dark:border-slate-800">
-            <span className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Kewajiban</span>
-            <span className="text-2xl sm:text-3xl font-black text-danger">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-danger uppercase tracking-widest">Proyeksi Kekurangan</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase">(Setelah Potong Tabungan & Piutang)</span>
+            </div>
+            <span className={`text-2xl sm:text-3xl font-black ${Math.max(0, s.totalBill - s.totalPaid - s.totalSaved) > 0 ? 'text-danger' : 'text-success'}`}>
               {showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••'}
             </span>
           </div>
