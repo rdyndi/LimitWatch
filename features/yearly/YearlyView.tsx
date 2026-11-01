@@ -3,7 +3,6 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { AppState, CreditCard } from '../../types';
 import { buildMonthReport, buildYearReport } from '../../lib/yearlyReport';
 import { YearStrip } from './YearStrip';
-import { YearRecap } from './YearRecap';
 import { MonthDetail } from './MonthDetail';
 import { CardDetail } from './CardDetail';
 import { MONTH_NAMES } from '../../lib/constants';
@@ -25,9 +24,6 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
     month?: string;
     cardId?: string;
   }>();
-
-  // Active Main Tab on /yearly ("Bulan" vs "Rekap Tahun")
-  const [activeMainTab, setActiveMainTab] = useState<'BULAN' | 'REKAP'>('BULAN');
 
   const currentSystemYear = new Date().getFullYear();
   const currentSystemMonth = new Date().getMonth(); // 0-based: 0..11
@@ -122,24 +118,7 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
   // SCREEN 3: Detail Kartu (/yearly/:year/:month/:cardId)
   if (isYearParamPresent && isMonthParamPresent && routeCardId && cardReport) {
     return (
-      <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 space-y-6 animate-in fade-in pb-28">
-        {/* Navigation Breadcrumb / Header */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(`/yearly/${activeYear}/${parsedRouteMonth}`)}
-            className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div>
-            <h1 className="text-base sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              Detail Kartu – {MONTH_NAMES[activeMonthIndex]} {activeYear}
-            </h1>
-            <p className="text-xs text-slate-400 font-semibold">{cardReport.cardName}</p>
-          </div>
-        </div>
-
+      <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 animate-in fade-in pb-28">
         <CardDetail
           data={data}
           year={activeYear}
@@ -155,26 +134,7 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
   // SCREEN 2: Detail Bulan (/yearly/:year/:month)
   if (isYearParamPresent && isMonthParamPresent) {
     return (
-      <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 space-y-6 animate-in fade-in pb-28">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/yearly')}
-            className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div>
-            <h1 className="text-base sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              Detail Anggaran Bulan
-            </h1>
-            <p className="text-xs text-slate-400 font-semibold">
-              {MONTH_NAMES[activeMonthIndex]} {activeYear}
-            </p>
-          </div>
-        </div>
-
+      <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 animate-in fade-in pb-28">
         <MonthDetail
           data={data}
           year={activeYear}
@@ -191,82 +151,31 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
 
   // SCREEN 1: Anggaran Tahunan (/yearly)
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 space-y-6 animate-in fade-in pb-28">
-      {/* Top Header & Year Chips */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-            Anggaran Tahunan
-          </h1>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">
-            Pilih bulan untuk melihat rincian pengeluaran & ketersediaan tabungan
-          </p>
-        </div>
-
-        {/* Year Chips */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
-          {availableYears.map((y) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setSelectedYearState(y)}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer min-h-[40px] whitespace-nowrap ${
-                activeYear === y
-                  ? 'bg-primary text-white shadow-md'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
+    <div className="max-w-4xl mx-auto w-full px-4 py-4 sm:py-6 space-y-4 animate-in fade-in pb-28">
+      {/* Compact Year Selector Chips */}
+      <div className="flex items-center gap-1.5 bg-slate-900/80 dark:bg-slate-900 p-1 rounded-xl border border-slate-800/80 overflow-x-auto no-scrollbar">
+        {availableYears.map((y) => (
+          <button
+            key={y}
+            type="button"
+            onClick={() => setSelectedYearState(y)}
+            className={`flex-1 min-w-[64px] py-1.5 px-3 rounded-lg text-xs font-extrabold transition-all cursor-pointer min-h-[38px] whitespace-nowrap text-center ${
+              activeYear === y
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            {y}
+          </button>
+        ))}
       </div>
 
-      {/* Segmented Tab: "Bulan" vs "Rekap Tahun" */}
-      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-sm">
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('BULAN')}
-          className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer min-h-[44px] ${
-            activeMainTab === 'BULAN'
-              ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          Ringkasan Bulan
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('REKAP')}
-          className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer min-h-[44px] ${
-            activeMainTab === 'REKAP'
-              ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-          }`}
-        >
-          Rekap Tahun {activeYear}
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      {activeMainTab === 'BULAN' ? (
-        <YearStrip
-          year={activeYear}
-          months={yearReport.months}
-          showAmounts={showAmounts}
-          onSelectMonth={(monthIdx) => navigate(`/yearly/${activeYear}/${monthIdx + 1}`)}
-        />
-      ) : (
-        <YearRecap
-          year={activeYear}
-          report={yearReport}
-          showAmounts={showAmounts}
-          onSelectCard={(cardId) => {
-            // Navigate to current month's card detail (1-based: currentSystemMonth + 1)
-            navigate(`/yearly/${activeYear}/${currentSystemMonth + 1}/${cardId}`);
-          }}
-        />
-      )}
+      <YearStrip
+        year={activeYear}
+        months={yearReport.months}
+        showAmounts={showAmounts}
+        onSelectMonth={(monthIdx) => navigate(`/yearly/${activeYear}/${monthIdx + 1}`)}
+      />
     </div>
   );
 };

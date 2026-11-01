@@ -273,11 +273,11 @@ export function buildMonthReport(data: AppState, year: number, month: number): M
       const bucketId = getCardBucketId(s.cardId, knownCardIds);
       if (bucketId !== cardId) return;
 
-      // untukTagihan: targetPeriod matches this month
+      // untukTagihan: targetPeriod matches this month (only untransferred savings)
       if (s.targetPeriod?.month === month && s.targetPeriod?.year === year) {
-        untukTagihan += s.amount;
-        untukTagihanSavingIds.push(s.id);
         if (!s.isTransferred) {
+          untukTagihan += s.amount;
+          untukTagihanSavingIds.push(s.id);
           tabunganBelumTerpakai += s.amount;
         }
       }
@@ -336,9 +336,9 @@ export function buildMonthReport(data: AppState, year: number, month: number): M
       if (bucketId !== cardId) return;
 
       if (p.targetPeriod?.month === month && p.targetPeriod?.year === year) {
-        piutangUntukTagihan += p.amount;
-        untukTagihanPiutangIds.push(p.id);
         if (!p.isCollected) {
+          piutangUntukTagihan += p.amount;
+          untukTagihanPiutangIds.push(p.id);
           piutangBelumKembali += p.amount;
         }
       }

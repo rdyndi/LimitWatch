@@ -854,6 +854,78 @@ describe('Yearly Report Calculation Engine', () => {
       expect(status.subLabel).toContain('perlu');
       expect(status.subLabel).toContain('1.500.000');
     });
+
+    it('excludes transferred savings and collected piutangs from untukTagihan calculation', () => {
+      const state: AppState = {
+        cards: [
+          {
+            id: 'c1',
+            name: 'Card 1',
+            limit: 10_000_000,
+            color: 'bg-red-500',
+            type: DebtType.CREDIT_CARD,
+            dueDay: 15,
+            eStatementFee: 0
+          }
+        ],
+        transactions: [],
+        installments: [],
+        savings: [
+          {
+            id: 's1',
+            cardId: 'c1',
+            amount: 5_000_000,
+            date: '2026-01-05T00:00:00Z',
+            note: 'Tabungan Jan Untransferred',
+            targetPeriod: { month: 0, year: 2026 },
+            isTransferred: false
+          },
+          {
+            id: 's2',
+            cardId: 'c1',
+            amount: 3_000_000,
+            date: '2026-01-05T00:00:00Z',
+            note: 'Tabungan Jan Transferred',
+            targetPeriod: { month: 0, year: 2026 },
+            isTransferred: true,
+            transferredAt: '2026-01-10T00:00:00Z'
+          }
+        ],
+        piutangs: [
+          {
+            id: 'p1',
+            cardId: 'c1',
+            debtorName: 'Budi',
+            note: 'Piutang Budi',
+            amount: 2_000_000,
+            date: '2026-01-05T00:00:00Z',
+            targetPeriod: { month: 0, year: 2026 },
+            isCollected: false
+          },
+          {
+            id: 'p2',
+            cardId: 'c1',
+            debtorName: 'Andi',
+            note: 'Piutang Andi',
+            amount: 1_000_000,
+            date: '2026-01-05T00:00:00Z',
+            targetPeriod: { month: 0, year: 2026 },
+            isCollected: true,
+            collectedAt: '2026-01-12T00:00:00Z'
+          }
+        ]
+      };
+
+      const monthReport = buildMonthReport(state, 2026, 0);
+
+      // untukTagihan should ONLY count s1 (5,000,000) and ignore s2 (3,000,000)
+      expect(monthReport.total.tabungan.untukTagihan).toBe(5_000_000);
+      expect(monthReport.total.tabungan.untukTagihanSavingIds).toEqual(['s1']);
+
+      // piutangUntukTagihan should ONLY count p1 (2,000,000) and ignore p2 (1,000,000)
+      expect(monthReport.total.piutang.untukTagihan).toBe(2_000_000);
+      expect(monthReport.total.piutang.untukTagihanPiutangIds).toEqual(['p1']);
+    });
   });
 });
 
