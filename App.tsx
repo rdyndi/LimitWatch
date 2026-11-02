@@ -126,15 +126,24 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 
 // --- Sub-components ---
 
+const isIOSDevice = typeof navigator !== 'undefined' && (
+  /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
+
 const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
   <>
     <div
       aria-hidden="true"
-      className="flex-none w-full bg-white dark:bg-slate-900 pointer-events-none select-none"
-      style={{ height: 'var(--sat, 0px)' }}
+      className="flex-none w-full bg-white dark:bg-slate-950 pointer-events-none select-none"
+      style={{
+        height: isIOSDevice
+          ? 'calc(max(env(safe-area-inset-top, 0px), var(--sat, 0px), 44px) + 24px)'
+          : 'var(--sat, 0px)'
+      }}
     />
     <header
-      className={`flex-none bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 z-[60] relative ${className}`}
+      className={`flex-none bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80 z-[60] relative ${className}`}
     >
       <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
@@ -367,77 +376,6 @@ const App: React.FC = () => {
       meta.setAttribute('content', isDark ? '#020617' : '#ffffff');
     });
   }, [data.theme]);
-
-  useEffect(() => {
-    if (!authInited) return;
-    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    if (!isIOS) return;
-
-    let styleEl = document.getElementById('ios27-blur-fix-style') as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = 'ios27-blur-fix-style';
-      styleEl.textContent = `
-        #ojapp-blur-cover {
-          display: none;
-          position: fixed;
-          inset: 0;
-          z-index: 2147483646;
-          background: rgba(255, 255, 255, 0.01);
-          pointer-events: none;
-          animation: ojapp-cover-fade 0.25s;
-        }
-        #ojapp-blur-panel {
-          position: fixed;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          width: 90%;
-          height: 100%;
-          z-index: 2147483647;
-          background: rgba(255, 255, 255, 0.01);
-          pointer-events: none;
-          transform: translateX(110%);
-          transition: transform 0.25s;
-        }
-        @keyframes ojapp-cover-fade {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `;
-      document.head.appendChild(styleEl);
-    }
-
-    const cover = document.createElement('div');
-    cover.id = 'ojapp-blur-cover';
-    const panel = document.createElement('div');
-    panel.id = 'ojapp-blur-panel';
-    document.body.append(cover, panel);
-    void panel.offsetWidth;
-
-    let timer1: number;
-    let timer2: number;
-    const raf = requestAnimationFrame(() => {
-      cover.style.display = 'block';
-      panel.style.transform = 'translateX(0%)';
-      timer1 = window.setTimeout(() => {
-        cover.style.display = 'none';
-        panel.style.transform = 'translateX(110%)';
-        timer2 = window.setTimeout(() => {
-          cover.remove();
-          panel.remove();
-        }, 300);
-      }, 350);
-    });
-
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      cover.remove();
-      panel.remove();
-    };
-  }, [authInited, user]);
 
   useEffect(() => {
     if (user) {
