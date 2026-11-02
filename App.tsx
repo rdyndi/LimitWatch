@@ -128,7 +128,8 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 
 const isIOSDevice = typeof navigator !== 'undefined' && (
   /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+  Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
 );
 
 const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => {
@@ -136,11 +137,15 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
     return (
       <header
         className={`fixed top-0 left-0 right-0 z-[60] bg-transparent border-none pointer-events-none ${className}`}
-        style={{ paddingTop: 'calc(var(--sat, 0px) + 6px)' }}
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
+        }}
       >
         <div className="px-4 h-13 flex justify-between items-center max-w-7xl mx-auto w-full">
           <div
-            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-6 h-11 rounded-full bg-white/50 dark:bg-slate-900/45 border border-white/75 dark:border-white/28 shadow-[0_10px_28px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(255,255,255,0.35)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.55),inset_0_2px_3px_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(148,163,184,0.35),inset_3px_0_8px_rgba(255,255,255,0.22),inset_-3px_0_8px_rgba(255,255,255,0.22)]"
+            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-6 h-11 rounded-full bg-white/60 dark:bg-slate-900/45 border border-slate-300/80 dark:border-white/28 shadow-[0_10px_28px_rgba(0,0,0,0.10),inset_0_2px_4px_rgba(255,255,255,0.8),inset_0_-2px_4px_rgba(255,255,255,0.35)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.55),inset_0_2px_3px_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(148,163,184,0.35),inset_3px_0_8px_rgba(255,255,255,0.22),inset_-3px_0_8px_rgba(255,255,255,0.22)]"
             style={{
               WebkitBackdropFilter: 'blur(26px) saturate(190%)',
               backdropFilter: 'blur(26px) saturate(190%)'
@@ -153,7 +158,7 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
             {onBack && (
               <button
                 onClick={onBack}
-                className="relative z-10 -ml-2 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full"
+                className="relative z-10 -ml-2 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full cursor-pointer"
               >
                 <ChevronLeft size={19} strokeWidth={2.5} />
               </button>
@@ -242,7 +247,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authInited, setAuthInited] = useState(false);
   const [data, setData] = useState<AppState>(() => {
-    const savedTheme = typeof window !== 'undefined' && localStorage.getItem('limitwatch_theme') === 'dark' ? 'dark' : 'light';
+    const savedTheme = typeof window !== 'undefined'
+      ? (localStorage.getItem('limitwatch_theme') === 'light' ? 'light' : 'dark')
+      : 'dark';
     return {
       cards: [],
       transactions: [],
@@ -401,7 +408,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const isDark = data.theme === 'dark';
+    const isDark = data.theme !== 'light';
     document.documentElement.classList.toggle('dark', isDark);
     document.body.classList.toggle('dark', isDark);
     try {
@@ -409,7 +416,7 @@ const App: React.FC = () => {
     } catch {}
     const metaThemes = document.querySelectorAll('meta[name="theme-color"]');
     metaThemes.forEach((meta) => {
-      meta.setAttribute('content', isDark ? '#020617' : '#ffffff');
+      meta.setAttribute('content', isDark ? '#020617' : '#f8fafc');
     });
   }, [data.theme]);
 
@@ -417,9 +424,9 @@ const App: React.FC = () => {
     if (user) {
       const unsubscribe = subscribeToAppState(user.uid, (newState) => {
         const cleanState = sanitizeData(newState);
-        const resolvedTheme = cleanState.theme === 'dark' || cleanState.theme === 'light'
-          ? cleanState.theme
-          : (localStorage.getItem('limitwatch_theme') === 'dark' ? 'dark' : 'light');
+        const resolvedTheme = cleanState.theme === 'light'
+          ? 'light'
+          : (localStorage.getItem('limitwatch_theme') === 'light' ? 'light' : 'dark');
         setData({ ...cleanState, theme: resolvedTheme });
       });
       return () => unsubscribe();
@@ -5162,7 +5169,16 @@ const App: React.FC = () => {
 
           <main
             className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : isIOSDevice ? 'pb-28' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}
-            style={isIOSDevice ? { paddingTop: 'calc(var(--sat, 0px) + 58px)' } : undefined}
+            style={
+              isIOSDevice
+                ? {
+                    paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
+                    paddingLeft: 'env(safe-area-inset-left, 0px)',
+                    paddingRight: 'env(safe-area-inset-right, 0px)',
+                    WebkitOverflowScrolling: 'touch',
+                  }
+                : undefined
+            }
           >
             {renderCurrentView()}
           </main>
@@ -5171,11 +5187,14 @@ const App: React.FC = () => {
           {!isFormOrDetailView && isMobileDevice && (
             isIOSDevice ? (
               <nav
-                className="fixed left-3 right-3 z-[70] rounded-full bg-gradient-to-b from-white/60 via-white/35 to-white/50 dark:from-white/[0.15] dark:via-slate-950/65 dark:to-slate-900/80 backdrop-blur-2xl border border-white/80 dark:border-white/[0.26] shadow-[0_14px_36px_rgba(0,0,0,0.14),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(255,255,255,0.5)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.75),inset_0_1.5px_2.5px_rgba(255,255,255,0.52),inset_0_-2px_5px_rgba(255,255,255,0.22),inset_3px_0_8px_rgba(255,255,255,0.14),inset_-3px_0_8px_rgba(255,255,255,0.14)] overflow-hidden"
+                className="fixed z-[70] rounded-full bg-gradient-to-b from-white/70 via-white/45 to-white/60 dark:from-white/[0.15] dark:via-slate-950/65 dark:to-slate-900/80 backdrop-blur-2xl border border-slate-300/80 dark:border-white/[0.26] shadow-[0_14px_36px_rgba(0,0,0,0.14),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(255,255,255,0.5)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.75),inset_0_1.5px_2.5px_rgba(255,255,255,0.52),inset_0_-2px_5px_rgba(255,255,255,0.22),inset_3px_0_8px_rgba(255,255,255,0.14),inset_-3px_0_8px_rgba(255,255,255,0.14)] overflow-hidden"
                 style={{
-                  bottom: 'max(14px, calc(var(--sab, 0px) * 0.65))',
+                  left: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+                  right: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+                  bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
                   height: '68px',
                   WebkitBackdropFilter: 'blur(28px) saturate(195%)',
+                  backdropFilter: 'blur(28px) saturate(195%)',
                 }}
               >
                 {/* Specular 3D Liquid Glass Top & Side Glare Overlay */}

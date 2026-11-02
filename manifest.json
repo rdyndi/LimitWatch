@@ -5,8 +5,8 @@
   "description": "Kelola kartu kredit dan hutang Anda dengan cerdas.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#071A36",
-  "theme_color": "#071A36",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "orientation": "portrait",
   "icons": [
     {
