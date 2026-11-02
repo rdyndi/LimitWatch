@@ -1679,51 +1679,81 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Bottom 3 Interactive Bento Sub-Cards */}
-                <div className="relative z-10 grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-white/10">
+                {/* Bottom 3 Interactive Bento Sub-Cards (Full un-truncated numbers on mobile & desktop) */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-2.5 border-t border-white/10">
                   <button
                     type="button"
                     onClick={() => pushView('SAVINGS')}
-                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
+                    className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left transition group cursor-pointer"
                   >
-                    <div className="flex items-center justify-between text-emerald-300 mb-1">
-                      <Vault size={14} />
-                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-emerald-400/15 text-emerald-300 flex items-center justify-center shrink-0">
+                        <Vault size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Tabungan
+                      </span>
+                      <ChevronRight size={13} className="hidden sm:block text-blue-200/60 group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Tabungan</p>
-                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
-                      {showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}
-                    </p>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Tabungan
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}
+                      </p>
+                      <ChevronRight size={14} className="sm:hidden text-blue-200/60 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => pushView('PIUTANGS')}
-                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
+                    className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left transition group cursor-pointer"
                   >
-                    <div className="flex items-center justify-between text-cyan-300 mb-1">
-                      <HandCoins size={14} />
-                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-cyan-400/15 text-cyan-300 flex items-center justify-center shrink-0">
+                        <HandCoins size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Piutang
+                      </span>
+                      <ChevronRight size={13} className="hidden sm:block text-blue-200/60 group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Piutang</p>
-                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
-                      {showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}
-                    </p>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Piutang
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••••••'}
+                      </p>
+                      <ChevronRight size={14} className="sm:hidden text-blue-200/60 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => pushView('OWNER_BILLS')}
-                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
+                    className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left transition group cursor-pointer"
                   >
-                    <div className="flex items-center justify-between text-purple-300 mb-1">
-                      <Briefcase size={14} />
-                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-purple-400/15 text-purple-300 flex items-center justify-center shrink-0">
+                        <Briefcase size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Bisnis ({dashYear})
+                      </span>
+                      <ChevronRight size={13} className="hidden sm:block text-blue-200/60 group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Bisnis ({dashYear})</p>
-                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
-                      {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalBusiness) : '••••'}
-                    </p>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Bisnis ({dashYear})
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalBusiness) : '••••••••'}
+                      </p>
+                      <ChevronRight size={14} className="sm:hidden text-blue-200/60 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </div>
                   </button>
                 </div>
               </div>
