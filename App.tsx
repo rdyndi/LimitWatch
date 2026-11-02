@@ -842,6 +842,51 @@ const App: React.FC = () => {
     });
   }, [data.transactions, data.cards, historyCardFilter, historyMonthFilter, historyYearFilter]);
 
+  const descriptionSuggestions = useMemo(() => {
+    const relevantTxs = [...data.transactions]
+      .filter(t => t.type === txType && t.description && t.description.trim().length > 0)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const freqMap = new Map<string, { label: string; count: number; lastSeenIdx: number }>();
+    relevantTxs.forEach((t, idx) => {
+      const clean = t.description.trim();
+      const key = clean.toLowerCase();
+      if (txType === TransactionType.EXPENSE && key.startsWith('pelunasan')) return;
+      const existing = freqMap.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        freqMap.set(key, { label: clean, count: 1, lastSeenIdx: idx });
+      }
+    });
+
+    const entries = Array.from(freqMap.values());
+    // Terakhir diinput (3 terbaru)
+    const recentTop = entries.slice(0, 3).map(e => e.label);
+    // Sering diinput (urut berdasarkan frekuensi tertinggi, lalu terbaru)
+    const frequentTop = [...entries]
+      .sort((a, b) => b.count - a.count || a.lastSeenIdx - b.lastSeenIdx)
+      .map(e => e.label);
+
+    const combined = new Set<string>();
+    recentTop.forEach(item => combined.add(item));
+    frequentTop.forEach(item => {
+      if (combined.size < 8) combined.add(item);
+    });
+
+    const defaults = txType === TransactionType.EXPENSE
+      ? ['Makan & Minum', 'Belanja Bulanan', 'Bensin / Transport', 'Kopi & Camilan', 'Tagihan Rutin', 'Langganan']
+      : ['Bayar Tagihan Penuh', 'Cicilan Bulan Ini', 'Transfer M-Banking', 'Pelunasan Kartu'];
+
+    defaults.forEach(d => {
+      if (combined.size < 6 && !Array.from(combined).some(x => x.toLowerCase() === d.toLowerCase())) {
+        combined.add(d);
+      }
+    });
+
+    return Array.from(combined);
+  }, [data.transactions, txType]);
+
   const upcomingBills = useMemo(() => {
       return data.cards.filter(c => c.dueDay || c.type === DebtType.OTHER_DEBT).map(c => {
              const today = new Date();
@@ -2548,56 +2593,81 @@ const App: React.FC = () => {
       case 'FORM_TRANSACTION':
         const currentBillEstimate = getMonthlyBill(txCardId, txTargetMonth, txTargetYear);
         const totalImpact = Math.ceil(getNumericValue(txAmount) + (txUseSavings ? availableSavingsForPeriod : 0));
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
         
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2 md:px-5 md:py-5">
-             <form onSubmit={handleSaveTransaction} className="space-y-2.5 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-1.5 md:px-5 md:py-5">
+             <form onSubmit={handleSaveTransaction} className="space-y-2 bg-white dark:bg-slate-900 p-3.5 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800 overflow-hidden">
                {/* TYPE TOGGLE */}
                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                 <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-2 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-sm' : 'text-slate-500'}`}><ArrowUpCircle size={15}/> PAKAI</button>
-                 <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-2 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-sm' : 'text-slate-500'}`}><ArrowDownCircle size={15}/> BAYAR</button>
+                 <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-1.5 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-sm' : 'text-slate-500'}`}><ArrowUpCircle size={15}/> PAKAI</button>
+                 <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-1.5 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-sm' : 'text-slate-500'}`}><ArrowDownCircle size={15}/> BAYAR</button>
                </div>
 
-               {/* CARD SELECT */}
+               {/* CARD SELECT (Pilihan Sumber Dana Langsung Terlihat) */}
                <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Sumber Dana / Kartu</label>
-                 <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none border border-transparent focus:border-primary transition">
-                   {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                 </select>
+                 <div className="flex justify-between items-center px-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Sumber Dana / Kartu</label>
+                   <span className="text-[9px] font-bold text-slate-400">{data.cards.length} Sumber</span>
+                 </div>
+                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                   {data.cards.map(c => {
+                     const isSelected = c.id === txCardId;
+                     return (
+                       <button
+                         key={c.id}
+                         type="button"
+                         onClick={() => setTxCardId(c.id)}
+                         className={`shrink-0 px-3 py-1.5 rounded-xl flex items-center gap-1.5 border transition-all active:scale-95 cursor-pointer ${
+                           isSelected
+                             ? 'bg-primary text-white border-primary shadow-sm'
+                             : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700 hover:border-primary/40'
+                         }`}
+                       >
+                         <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : (c.color || 'bg-slate-500')}`} />
+                         <span className="text-xs font-bold whitespace-nowrap">{c.name}</span>
+                         {isSelected && <Check size={12} className="text-white shrink-0" />}
+                       </button>
+                     );
+                   })}
+                 </div>
                </div>
 
                {/* PAYMENT SPECIFIC FIELDS */}
                {txType === TransactionType.PAYMENT && (
-                 <div className="space-y-2.5 animate-in slide-in-from-top duration-200">
-                    <div className="grid grid-cols-2 gap-2.5">
+                 <div className="space-y-2 animate-in slide-in-from-top duration-200">
+                    <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Bulan Tagihan</label>
-                        <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none">
+                        <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none">
                           {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
                         </select>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Tahun</label>
-                        <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none"/>
+                        <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none"/>
                       </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-1.5">
                        <div className="flex justify-between items-center px-1">
-                          <div className="flex items-center gap-1.5"><Info size={13} className="text-slate-400"/><span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
+                          <div className="flex items-center gap-1.5"><Info size={12} className="text-slate-400"/><span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
                           <span className="text-xs font-black text-slate-800 dark:text-slate-100">{formatIDR(currentBillEstimate)}</span>
                        </div>
                        
-                       <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border' : 'bg-white dark:bg-slate-800 border border-transparent'}`}>
-                          <div className="flex items-center gap-2.5">
-                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={15}/></div>
+                       <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border' : 'bg-white dark:bg-slate-800 border border-transparent'}`}>
+                          <div className="flex items-center gap-2">
+                             <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={14}/></div>
                              <div className="flex flex-col">
-                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tabungan Tersedia</span>
+                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Tabungan Tersedia</span>
                                 <span className="text-xs font-black text-slate-700 dark:text-slate-200">{formatIDR(availableSavingsForPeriod)}</span>
                              </div>
                           </div>
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${txUseSavings ? 'bg-success border-success' : 'border-slate-300'}`}>
-                             {txUseSavings && <CheckCircle2 size={13} className="text-white"/>}
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${txUseSavings ? 'bg-success border-success' : 'border-slate-300'}`}>
+                             {txUseSavings && <CheckCircle2 size={11} className="text-white"/>}
                           </div>
                        </div>
                     </div>
@@ -2606,28 +2676,28 @@ const App: React.FC = () => {
 
                {/* EXPENSE SPECIFIC: INSTALLMENT OPTION */}
                {txType === TransactionType.EXPENSE && (
-                 <div className="space-y-2 animate-in slide-in-from-top duration-200">
-                    <div onClick={() => setTxIsInstallment(!txIsInstallment)} className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all border ${txIsInstallment ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
+                 <div className="space-y-1.5 animate-in slide-in-from-top duration-200">
+                    <div onClick={() => setTxIsInstallment(!txIsInstallment)} className={`flex items-center justify-between px-3 py-1.5 rounded-xl cursor-pointer transition-all border ${txIsInstallment ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${txIsInstallment ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
-                          <Zap size={16} />
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${txIsInstallment ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                          <Zap size={14} />
                         </div>
                         <div>
-                          <p className={`text-xs font-black uppercase tracking-tight leading-tight ${txIsInstallment ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Konversi ke Cicilan</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">Pecah Tagihan Jadi Ringan</p>
+                          <p className={`text-[11px] font-black uppercase tracking-tight leading-tight ${txIsInstallment ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Konversi ke Cicilan</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase leading-tight">Pecah Tagihan Jadi Ringan</p>
                         </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 ${txIsInstallment ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
-                        {txIsInstallment && <CheckCircle2 size={13} className="text-white"/>}
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${txIsInstallment ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                        {txIsInstallment && <CheckCircle2 size={11} className="text-white"/>}
                       </div>
                     </div>
 
                     {txIsInstallment && (
-                      <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 space-y-2.5 animate-in zoom-in-95 duration-200">
-                        <div className="space-y-1.5">
+                      <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 space-y-2 animate-in zoom-in-95 duration-200">
+                        <div className="space-y-1">
                            <div className="flex justify-between items-center px-1">
                              <label className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Durasi Cicilan (Bulan)</label>
-                             <span className="text-sm font-black text-indigo-700 dark:text-indigo-300">{txInstallmentMonths}x</span>
+                             <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">{txInstallmentMonths}x</span>
                            </div>
                            <input 
                             type="range" 
@@ -2647,7 +2717,7 @@ const App: React.FC = () => {
                            </div>
                         </div>
                         
-                        <div className="bg-white dark:bg-slate-900 px-3 py-2 rounded-xl shadow-xs flex justify-between items-center border border-indigo-50 dark:border-indigo-800">
+                        <div className="bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl shadow-xs flex justify-between items-center border border-indigo-50 dark:border-indigo-800">
                           <div className="flex flex-col">
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Angsuran / Bln</span>
                             <span className="text-xs font-black text-indigo-600">{formatIDR(Math.ceil(getNumericValue(txAmount) / (txInstallmentMonths || 1)))}</span>
@@ -2663,7 +2733,7 @@ const App: React.FC = () => {
                )}
 
                {/* MAIN AMOUNT INPUT */}
-               <div className="space-y-1 text-center py-0.5">
+               <div className="space-y-0.5 text-center">
                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
                     {txType === TransactionType.EXPENSE ? 'Nominal Pemakaian' : 'Nominal Bayar Tunai'}
                  </label>
@@ -2674,11 +2744,11 @@ const App: React.FC = () => {
                    onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} 
                    required 
                    placeholder="Rp 0" 
-                   className={`w-full ${txAmount.length > 14 ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black py-1.5 px-2 border-b-2 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-200 dark:border-red-900/50 focus:border-danger' : 'border-green-200 dark:border-green-900/50 focus:border-success'}`} 
+                   className={`w-full ${txAmount.length > 14 ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black py-1 px-2 border-b-2 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-200 dark:border-red-900/50 focus:border-danger' : 'border-green-200 dark:border-green-900/50 focus:border-success'}`} 
                  />
                  
                  {txType === TransactionType.PAYMENT && txUseSavings && availableSavingsForPeriod > 0 && (
-                   <div className="pt-1 flex items-center justify-center gap-2 animate-in zoom-in duration-200">
+                   <div className="pt-0.5 flex items-center justify-center gap-2 animate-in zoom-in duration-200">
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Total Pengurangan:</span>
                       <span className="text-xs font-black text-success">{formatIDR(totalImpact)}</span>
                    </div>
@@ -2686,12 +2756,12 @@ const App: React.FC = () => {
                </div>
 
                {txType === TransactionType.EXPENSE && (
-                 <div className="space-y-1.5">
+                 <div className="space-y-1">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider text-center block">Kepemilikan Transaksi</label>
                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                     <button type="button" onClick={() => setTxOwner(OwnerType.PERSONAL)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.PERSONAL ? 'bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Pribadi</button>
-                     <button type="button" onClick={() => setTxOwner(OwnerType.BUSINESS)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.BUSINESS ? 'bg-white dark:bg-slate-700 shadow-xs text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Bisnis</button>
-                     <button type="button" onClick={() => setTxOwner(OwnerType.SPLIT)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.SPLIT ? 'bg-white dark:bg-slate-700 shadow-xs text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Split</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.PERSONAL)} className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.PERSONAL ? 'bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Pribadi</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.BUSINESS)} className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.BUSINESS ? 'bg-white dark:bg-slate-700 shadow-xs text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Bisnis</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.SPLIT)} className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.SPLIT ? 'bg-white dark:bg-slate-700 shadow-xs text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Split</button>
                    </div>
                    {txOwner === OwnerType.SPLIT && (
                      <div className="grid grid-cols-2 gap-2 pt-1 animate-in slide-in-from-top-1">
@@ -2702,7 +2772,7 @@ const App: React.FC = () => {
                              const personalVal = getNumericValue(e.target.value);
                              const amountVal = getNumericValue(txAmount);
                              setTxSplitBusiness(formatIDR(Math.max(0, amountVal - personalVal)));
-                           }} required placeholder="Rp 0" className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-blue-400 outline-none transition font-bold text-xs text-center" />
+                           }} required placeholder="Rp 0" className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-blue-400 outline-none transition font-bold text-xs text-center" />
                        </div>
                        <div className="space-y-1">
                          <label className="text-[9px] font-black text-purple-500 uppercase ml-1 block">Bisnis</label>
@@ -2711,32 +2781,84 @@ const App: React.FC = () => {
                              const businessVal = getNumericValue(e.target.value);
                              const amountVal = getNumericValue(txAmount);
                              setTxSplitPersonal(formatIDR(Math.max(0, amountVal - businessVal)));
-                           }} required placeholder="Rp 0" className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-purple-400 outline-none transition font-bold text-xs text-center" />
+                           }} required placeholder="Rp 0" className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-purple-400 outline-none transition font-bold text-xs text-center" />
                        </div>
                      </div>
                    )}
                  </div>
                )}
 
-               {/* DESCRIPTION & DATE (Side by side for compact seamless mobile view) */}
-               <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Keterangan</label>
-                    <input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar via apa?"} className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Tanggal Transaksi</label>
-                    <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full px-2.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm"/>
-                  </div>
+               {/* 1. TANGGAL TRANSAKSI (Di atas Keterangan) */}
+               <div className="space-y-1">
+                 <div className="flex justify-between items-center px-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Tanggal Transaksi</label>
+                   <div className="flex items-center gap-1">
+                     <button
+                       type="button"
+                       onClick={() => setTxDate(todayStr)}
+                       className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition ${txDate === todayStr ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                     >
+                       Hari Ini
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => setTxDate(yesterdayStr)}
+                       className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition ${txDate === yesterdayStr ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                     >
+                       Kemarin
+                     </button>
+                   </div>
+                 </div>
+                 <input 
+                   type="date" 
+                   value={txDate} 
+                   onChange={(e)=>setTxDate(e.target.value)} 
+                   className="block w-full min-w-0 max-w-full box-border px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm"
+                 />
+               </div>
+
+               {/* 2. KETERANGAN (Di bawah Tanggal Transaksi) */}
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Keterangan</label>
+                 <input 
+                   type="text" 
+                   value={txDesc} 
+                   onChange={(e)=>setTxDesc(e.target.value)} 
+                   placeholder={txType === TransactionType.EXPENSE ? "Beli apa? (cth: Makan Siang, Belanja)" : "Bayar via apa?"} 
+                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm" 
+                 />
+
+                 {/* 3. DAFTAR SUGESTI (Sering / Terakhir Diinput di bawah Keterangan) */}
+                 {descriptionSuggestions.length > 0 && (
+                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 pb-0.5">
+                     {descriptionSuggestions.map((sug, idx) => {
+                       const isActive = txDesc.trim().toLowerCase() === sug.toLowerCase();
+                       return (
+                         <button
+                           key={idx}
+                           type="button"
+                           onClick={() => setTxDesc(sug)}
+                           className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95 cursor-pointer ${
+                             isActive
+                               ? 'bg-primary text-white border-primary shadow-xs'
+                               : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700 hover:border-primary/40'
+                           }`}
+                         >
+                           {sug}
+                         </button>
+                       );
+                     })}
+                   </div>
+                 )}
                </div>
 
                {/* ACTION BUTTONS */}
-               <div className="space-y-2 pt-1.5">
-                 <button type="submit" className={`w-full py-3 text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
+               <div className="space-y-1.5 pt-1">
+                 <button type="submit" className={`w-full py-2.5 text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
                     {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? (txIsInstallment ? 'Proses Cicilan Baru' : 'Catat Pengeluaran') : 'Konfirmasi Pembayaran')}
                  </button>
                  {editingTransaction && (
-                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl hover:bg-red-100 transition">Hapus Transaksi Ini</button>
+                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl hover:bg-red-100 transition">Hapus Transaksi Ini</button>
                  )}
                </div>
              </form>
@@ -2746,7 +2868,30 @@ const App: React.FC = () => {
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
              <form onSubmit={handleSaveSaving} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Sumber Dana / Kartu</label>
+                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                   {data.cards.map(c => {
+                     const isSelected = c.id === savingCardId;
+                     return (
+                       <button
+                         key={c.id}
+                         type="button"
+                         onClick={() => setSavingCardId(c.id)}
+                         className={`shrink-0 px-3 py-1.5 rounded-xl flex items-center gap-1.5 border transition-all active:scale-95 cursor-pointer ${
+                           isSelected
+                             ? 'bg-success text-white border-success shadow-sm'
+                             : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700'
+                         }`}
+                       >
+                         <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : (c.color || 'bg-slate-500')}`} />
+                         <span className="text-xs font-bold whitespace-nowrap">{c.name}</span>
+                         {isSelected && <Check size={12} className="text-white shrink-0" />}
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
                <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Dana Disisihkan</label><input type="text" inputMode="numeric" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-2.5"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold"/></div></div>
                <div className="pt-2"><button type="submit" className="w-full py-3 bg-success text-white font-black text-sm rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">Amankan Dana Pelunasan</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full mt-2 py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition">Hapus Tabungan</button>)}</div>
@@ -2805,7 +2950,30 @@ const App: React.FC = () => {
              <form onSubmit={handleSavePiutang} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none font-bold text-xs sm:text-sm" /></div>
                <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Nominal Piutang</label><input type="text" inputMode="numeric" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
-               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk Hutang</label><select value={piutangCardId} onChange={(e)=>setPiutangCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk Hutang</label>
+                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                   {data.cards.map(c => {
+                     const isSelected = c.id === piutangCardId;
+                     return (
+                       <button
+                         key={c.id}
+                         type="button"
+                         onClick={() => setPiutangCardId(c.id)}
+                         className={`shrink-0 px-3 py-1.5 rounded-xl flex items-center gap-1.5 border transition-all active:scale-95 cursor-pointer ${
+                           isSelected
+                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                             : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700'
+                         }`}
+                       >
+                         <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : (c.color || 'bg-slate-500')}`} />
+                         <span className="text-xs font-bold whitespace-nowrap">{c.name}</span>
+                         {isSelected && <Check size={12} className="text-white shrink-0" />}
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
                {!editingPiutang && (
                  <div className="space-y-2">
                    <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 rounded-xl cursor-pointer" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
