@@ -1395,9 +1395,9 @@ const App: React.FC = () => {
               <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm md:text-base font-bold uppercase tracking-wider">Total Liabilitas</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={24} /> : <EyeOff size={24} />}</button></div>
               <h3 className="text-3xl md:text-5xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
               <div className="space-y-3 pt-6 border-t border-white/10 relative z-10 grid md:grid-cols-3 md:gap-10">
-                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></div>
-                <div className="flex justify-between items-center"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Piutang</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p></div>
-                <div className="flex justify-between items-center"><p className="text-white text-[10px] md:text-xs uppercase font-black tracking-widest">Sisa Hutang</p><p className="font-black text-xl md:text-2xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></div>
+                <button type="button" onClick={() => pushView('SAVINGS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></button>
+                <button type="button" onClick={() => pushView('PIUTANGS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Piutang</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p></button>
+                <button type="button" onClick={() => pushView('CARDS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-white text-[10px] md:text-xs uppercase font-black tracking-widest">Sisa Hutang</p><p className="font-black text-xl md:text-2xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></button>
               </div>
             </div>
 
@@ -1426,11 +1426,61 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 md:gap-8">
-              <button onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"><PlusCircle size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Catat</span></button>
-              <button onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"><Vault size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nabung</span></button>
-              <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
-              <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardLogoUrl(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
+            <div className="grid grid-cols-5 gap-2 sm:gap-4 md:gap-8">
+              <button 
+                type="button"
+                onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} 
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
+                  <PlusCircle size={26} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} 
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
+                  <Vault size={26} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} 
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
+                  <HandCoins size={26} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => pushView('CARDS')} 
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                  <Briefcase size={26} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => pushView('TRANSACTIONS')} 
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
+                  <History size={26} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
+              </button>
             </div>
 
             {/* MONTHLY & PER-CARD OVERVIEW SECTION (Setiap Bulan & Perkartu: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang) */}
@@ -3132,7 +3182,15 @@ const App: React.FC = () => {
           {/* HEADER (Only for certain views or small screens) */}
           {(currentView !== 'DASHBOARD' || isMobileDevice) && (
              <PageHeader 
-              title={currentView === 'DASHBOARD' ? 'Beranda' : currentView.replace('FORM_', 'Input ').replace('VIEW_', 'Rincian ').replace('_', ' ')} 
+              title={
+                currentView === 'DASHBOARD' ? 'Beranda' :
+                currentView === 'CARDS' ? 'Kartu & Hutang' :
+                currentView === 'TRANSACTIONS' ? 'Riwayat Aktivitas' :
+                currentView === 'SAVINGS' ? 'Tabungan' :
+                currentView === 'PIUTANGS' ? 'Piutang' :
+                currentView === 'YEARLY' ? 'Anggaran Tahunan' :
+                currentView.replace('FORM_', 'Input ').replace('VIEW_', 'Rincian ').replace('_', ' ')
+              } 
               onBack={viewStack.length > 1 ? popView : undefined}
               rightElement={
                 isMobileDevice && currentView === 'DASHBOARD' && (
@@ -3154,13 +3212,10 @@ const App: React.FC = () => {
               className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
               style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
             >
-              <div className="h-[56px] px-6 flex justify-between items-center max-w-lg mx-auto overflow-x-auto no-scrollbar">
-                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-                <button onClick={()=>navigateToRoot('CARDS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'CARDS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Briefcase size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Hutang</span></button>
-                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={20} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
-                <button onClick={()=>navigateToRoot('PIUTANGS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'PIUTANGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><HandCoins size={20} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Piutang</span></button>
-                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
-                <button onClick={()=>navigateToRoot('TRANSACTIONS')} className={`flex flex-col items-center gap-1 transition-all min-w-[60px] ${currentView === 'TRANSACTIONS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><History size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Riwayat</span></button>
+              <div className="h-[56px] px-6 grid grid-cols-3 items-center max-w-lg mx-auto">
+                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Home size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
+                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><Vault size={20} /><span className="text-[9px] font-black uppercase tracking-tighter shadow-sm leading-none">Tabung</span></button>
+                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-300 dark:text-slate-700'}`}><CalendarRange size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
               </div>
             </nav>
           )}

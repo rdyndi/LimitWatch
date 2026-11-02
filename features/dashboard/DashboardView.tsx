@@ -13,7 +13,8 @@ import {
   AlertCircle,
   ArrowDownRight,
   PieChart,
-  ChevronRight
+  ChevronRight,
+  History
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -195,16 +196,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Quick Action Grid */}
-      <div className="grid grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-5 gap-2 sm:gap-4 md:gap-6">
         <button
           type="button"
           onClick={() => onOpenQuickRecord('EXPENSE')}
           className="flex flex-col items-center gap-2 group cursor-pointer"
         >
-          <div className="w-full aspect-square max-w-[80px] bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
-            <PlusCircle size={28} />
+          <div className="w-full aspect-square max-w-[72px] sm:max-w-[80px] bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
+            <PlusCircle size={26} className="sm:size-7" />
           </div>
-          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Catat</span>
+          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase truncate w-full text-center">Catat</span>
         </button>
 
         <button
@@ -212,10 +213,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={() => onOpenQuickRecord('SAVING')}
           className="flex flex-col items-center gap-2 group cursor-pointer"
         >
-          <div className="w-full aspect-square max-w-[80px] bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
-            <Vault size={28} />
+          <div className="w-full aspect-square max-w-[72px] sm:max-w-[80px] bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
+            <Vault size={26} className="sm:size-7" />
           </div>
-          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Nabung</span>
+          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase truncate w-full text-center">Nabung</span>
         </button>
 
         <button
@@ -224,21 +225,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="flex flex-col items-center gap-2 group cursor-pointer"
           title="Buka Menu Piutang"
         >
-          <div className="w-full aspect-square max-w-[80px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all border-2 border-indigo-200 dark:border-indigo-800/60">
-            <HandCoins size={28} />
+          <div className="w-full aspect-square max-w-[72px] sm:max-w-[80px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all border border-indigo-200 dark:border-indigo-800/60">
+            <HandCoins size={26} className="sm:size-7" />
           </div>
-          <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">Menu Piutang</span>
+          <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase truncate w-full text-center">Piutang</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onOpenCardForm(null)}
+          onClick={() => navigate('/cards')}
           className="flex flex-col items-center gap-2 group cursor-pointer"
+          title="Kartu & Hutang"
         >
-          <div className="w-full aspect-square max-w-[80px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-            <Briefcase size={28} />
+          <div className="w-full aspect-square max-w-[72px] sm:max-w-[80px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+            <Briefcase size={26} className="sm:size-7" />
           </div>
-          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Hutang</span>
+          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase truncate w-full text-center">Hutang</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate('/transactions')}
+          className="flex flex-col items-center gap-2 group cursor-pointer"
+          title="Riwayat Aktivitas"
+        >
+          <div className="w-full aspect-square max-w-[72px] sm:max-w-[80px] bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
+            <History size={26} className="sm:size-7" />
+          </div>
+          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase truncate w-full text-center">Riwayat</span>
         </button>
       </div>
 
