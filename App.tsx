@@ -3022,119 +3022,227 @@ const App: React.FC = () => {
         if (!activeStatementCard) return null;
         const s = getStatementData(activeStatementCard.id, statementMonth, statementYear);
         const isReconciled = s.totalValidated === s.totalBill && s.totalBill > 0;
+        const reconcilePercent = s.totalBill > 0 ? Math.min(100, Math.round((s.totalValidated / s.totalBill) * 100)) : 0;
+        const totalInstallmentsAmount = Math.ceil(s.installments.reduce((sum, i) => sum + i.monthlyAmount, 0));
+        const totalTransactionsAmount = Math.ceil(s.transactions.reduce((sum, t) => sum + t.amount, 0));
+
+        const handlePrevStatementMonth = () => {
+          if (statementMonth === 0) {
+            setStatementMonth(11);
+            setStatementYear(y => y - 1);
+          } else {
+            setStatementMonth(m => m - 1);
+          }
+        };
+
+        const handleNextStatementMonth = () => {
+          if (statementMonth === 11) {
+            setStatementMonth(0);
+            setStatementYear(y => y + 1);
+          } else {
+            setStatementMonth(m => m + 1);
+          }
+        };
         
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-5xl mx-auto w-full px-5 py-8 space-y-8 pb-32">
-            <div className={`relative p-8 md:p-12 text-white rounded-[40px] shadow-xl flex justify-between items-center overflow-hidden`}>
-                <div className={`absolute inset-0 ${activeStatementCard.color || 'bg-slate-800'}`}></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20 pointer-events-none"></div>
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_20%,rgba(255,255,255,0.05)_25%,transparent_30%)] pointer-events-none"></div>
-                
-                <div className="absolute -right-10 -bottom-10 opacity-10"><Receipt size={200} /></div>
-                
-                <div className="relative z-10 flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    {activeStatementCard.logoUrl ? (
-                      <div className="w-12 h-12 bg-white rounded-lg p-1.5 shadow-md flex-shrink-0">
-                        <img src={activeStatementCard.logoUrl} alt={activeStatementCard.name} className="w-full h-full object-contain" />
+          <div className="animate-in slide-in-from-right duration-300 max-w-4xl mx-auto w-full px-3.5 py-3 md:px-6 md:py-6 space-y-3.5 pb-24">
+            
+            {/* 1. TOP BAR: CARD SWITCHER & PERIOD SELECTOR */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              {data.cards.length > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  {data.cards.map(c => {
+                    const isSelected = c.id === activeStatementCard.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setActiveStatementCard(c)}
+                        className={`shrink-0 px-3 py-1.5 rounded-xl flex items-center gap-1.5 border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                          isSelected
+                            ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs'
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${c.color || 'bg-slate-500'}`} />
+                        <span className="whitespace-nowrap">{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Sleek Period Navigator */}
+              <div className="flex items-center justify-between sm:justify-end gap-1 bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs shrink-0">
+                <button
+                  type="button"
+                  onClick={handlePrevStatementMonth}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
+                  title="Bulan Sebelumnya"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex items-center gap-1 px-1">
+                  <select
+                    value={statementMonth}
+                    onChange={(e) => setStatementMonth(parseInt(e.target.value))}
+                    className="text-xs font-extrabold bg-transparent text-slate-800 dark:text-slate-100 py-1 px-1.5 rounded-lg outline-none cursor-pointer"
+                  >
+                    {monthNames.map((m, i) => (
+                      <option key={i} value={i} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={statementYear}
+                    onChange={(e) => setStatementYear(parseInt(e.target.value))}
+                    className="w-16 text-xs font-extrabold bg-slate-100/80 dark:bg-slate-800 text-slate-800 dark:text-slate-100 py-1 px-2 rounded-lg text-center outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNextStatementMonth}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
+                  title="Bulan Berikutnya"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* 2. UNIFIED BANKING E-STATEMENT CARD */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md overflow-hidden">
+              
+              {/* Hero Header Banner */}
+              <div className="relative p-4 sm:p-6 text-white overflow-hidden">
+                <div className={`absolute inset-0 ${activeStatementCard.color || 'bg-slate-800'}`} />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/35 pointer-events-none" />
+                <div className="absolute -right-6 -bottom-8 opacity-10 pointer-events-none">
+                  <Receipt size={140} />
+                </div>
+
+                <div className="relative z-10 space-y-4">
+                  {/* Top Row: Card Identity & Status Pill */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {activeStatementCard.logoUrl ? (
+                        <div className="w-10 h-10 bg-white rounded-xl p-1.5 shadow-sm shrink-0">
+                          <img src={activeStatementCard.logoUrl} alt={activeStatementCard.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-sm shrink-0 backdrop-blur-sm border border-white/25">
+                          {activeStatementCard.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] uppercase tracking-widest font-extrabold text-white/80">
+                            {activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank e-Statement' : 'Pinjaman'}
+                          </span>
+                          {activeStatementCard.dueDay && (
+                            <span className="text-[9px] font-bold text-white/75 bg-black/20 px-1.5 py-0.5 rounded">
+                              Jatuh Tempo Tgl {activeStatementCard.dueDay}
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-lg sm:text-xl font-black tracking-tight truncate drop-shadow-xs">
+                          {activeStatementCard.name}
+                        </h4>
                       </div>
-                    ) : (
-                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-black text-2xl text-white shadow-sm flex-shrink-0 backdrop-blur-sm border border-white/30">
-                        {activeStatementCard.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    </div>
+
+                    <span className={`shrink-0 whitespace-nowrap text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border backdrop-blur-md ${
+                      s.totalKurang === 0
+                        ? 'bg-emerald-500/25 text-emerald-100 border-emerald-300/40'
+                        : 'bg-rose-500/30 text-rose-100 border-rose-300/40'
+                    }`}>
+                      {s.totalKurang === 0 ? '✓ Lunas / Cukup' : 'Ada Kurang'}
+                    </span>
+                  </div>
+
+                  {/* Main Statement Figures: Total Tagihan & Kekurangan */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/15 items-end">
                     <div>
-                      <p className="text-xs opacity-80 uppercase tracking-widest font-black mb-0.5 drop-shadow-md">{activeStatementCard.type === DebtType.CREDIT_CARD ? 'Bank Statement' : 'Private Loan'}</p>
-                      <h4 className="text-3xl font-black tracking-tight drop-shadow-md">{activeStatementCard.name}</h4>
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-white/75">
+                        Total Tagihan ({monthNames[statementMonth].substring(0, 3)} {statementYear})
+                      </p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tight tabular-nums mt-0.5">
+                        {showAmounts ? formatIDR(s.totalBill) : '••••••••'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-white/75">
+                        Kurang Dana
+                      </p>
+                      <p className={`text-lg sm:text-xl font-black tracking-tight tabular-nums mt-0.5 ${
+                        s.totalKurang > 0 ? 'text-rose-200' : 'text-emerald-200'
+                      }`}>
+                        {showAmounts ? (s.totalKurang > 0 ? formatIDR(s.totalKurang) : 'Rp 0') : '••••••••'}
+                      </p>
+                      {s.totalSavingsAmount + s.totalPiutangsAmount > 0 && s.totalUnpaid > s.totalKurang && showAmounts && (
+                        <p className="text-[9px] font-bold text-white/75">
+                          Belum setor: {formatIDR(s.totalUnpaid)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex flex-col items-end relative z-10"><p className="text-[10px] opacity-80 uppercase font-black tracking-widest drop-shadow-sm">Bulan Tagihan</p><p className="text-xl font-black uppercase drop-shadow-md">{monthNames[statementMonth]} {statementYear}</p></div>
-            </div>
-            
-            <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b dark:border-slate-800">
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">RINGKASAN STATUS TAGIHAN</span>
-                  <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase ${s.totalKurang === 0 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'}`}>
-                    {s.totalKurang === 0 ? 'Lunas / Tercukupi' : 'Ada Kurang'}
-                  </span>
-                </div>
+              </div>
 
-                {/* 1. Total Tagihan */}
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Total Tagihan</span>
-                  <span className="text-xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span>
-                </div>
-
-                {/* 2. Tabungan */}
-                <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
-                  <span className="text-xs font-bold flex items-center gap-1.5"><Vault size={14}/> Tabungan</span>
-                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalSavingsAmount) : '••'}</span>
-                </div>
-
-                {/* 3. Piutang */}
-                <div className="flex justify-between items-center text-cyan-600 dark:text-cyan-400">
-                  <span className="text-xs font-bold flex items-center gap-1.5"><Receipt size={14}/> Piutang</span>
-                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalPiutangsAmount) : '••'}</span>
-                </div>
-
-                {/* 4. Sudah Dibayar */}
-                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                  <span className="text-xs font-bold flex items-center gap-1.5"><CheckCircle2 size={14}/> Sudah Dibayar</span>
-                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalPaid) : '••'}</span>
-                </div>
-
-                {/* 5. Kurang */}
-                <div className="flex justify-between items-center pt-3 border-t-2 dark:border-slate-800">
-                  <div>
-                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block">Kurang</span>
-                    {s.totalSavingsAmount + s.totalPiutangsAmount > 0 && s.totalUnpaid > s.totalKurang && showAmounts && (
-                      <span className="text-[10px] text-slate-400 font-bold block">Sisa belum setor: {formatIDR(s.totalUnpaid)}</span>
-                    )}
+              {/* Posisi Dana Grid: Tabungan, Piutang, Sudah Dibayar */}
+              <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-800 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                <div className="p-3 text-center sm:text-left sm:px-4">
+                  <div className="flex items-center justify-center sm:justify-start gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                    <Vault size={12} className="shrink-0" />
+                    <span>Tabungan</span>
                   </div>
-                  <span className={`text-2xl font-black ${s.totalKurang > 0 ? 'text-danger' : 'text-success'}`}>{showAmounts ? (s.totalKurang > 0 ? formatIDR(s.totalKurang) : 'Rp 0') : '••••'}</span>
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 tabular-nums mt-0.5 truncate">
+                    {showAmounts ? formatIDR(s.totalSavingsAmount) : '••••'}
+                  </p>
                 </div>
-                
-                {/* Checklist Rekonsiliasi Card */}
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 space-y-2.5 mt-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-primary"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rekonsiliasi (Ceklist)</span></div>
-                    <span className={`text-sm font-black ${isReconciled ? 'text-success' : 'text-primary'}`}>{showAmounts ? formatIDR(s.totalValidated) : '••••'}</span>
+
+                <div className="p-3 text-center sm:text-left sm:px-4">
+                  <div className="flex items-center justify-center sm:justify-start gap-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-400">
+                    <Receipt size={12} className="shrink-0" />
+                    <span>Piutang</span>
                   </div>
-                  <div className="h-2 bg-slate-50 dark:bg-slate-950 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-1000 ${isReconciled ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, (s.totalValidated / (s.totalBill || 1)) * 100)}%` }}></div>
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 tabular-nums mt-0.5 truncate">
+                    {showAmounts ? formatIDR(s.totalPiutangsAmount) : '••••'}
+                  </p>
+                </div>
+
+                <div className="p-3 text-center sm:text-left sm:px-4">
+                  <div className="flex items-center justify-center sm:justify-start gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 size={12} className="shrink-0" />
+                    <span>Dibayar</span>
                   </div>
-                  <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-tighter">
-                    {isReconciled ? '✅ Angka Cocok dengan Record Bank' : `⚠️ Selisih ${formatIDR(Math.abs(s.totalBill - s.totalValidated))} dari App Record`}
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 tabular-nums mt-0.5 truncate">
+                    {showAmounts ? formatIDR(s.totalPaid) : '••••'}
                   </p>
                 </div>
               </div>
-              
-              <div className="space-y-6">
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-4">
-                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Briefcase size={12}/> Breakdown Biaya</h5>
-                  <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl space-y-3 shadow-sm">
-                    <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">E-Statement Fee</span><span>{showAmounts ? formatIDR(s.adminFee) : '••'}</span></div>
-                    <div className="flex justify-between text-xs font-bold text-slate-500"><span className="uppercase">Biaya Materai</span><span>{showAmounts ? formatIDR(s.materai) : '••'}</span></div>
-                    <div className="pt-2 border-t dark:border-slate-700 flex justify-between text-xs font-black text-slate-800 dark:text-slate-200"><span className="uppercase">Total Tambahan</span><span>{showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span></div>
-                  </div>
+
+              {/* Breakdown Biaya Strip */}
+              <div className="px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <div className="flex items-center gap-1.5 text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
+                  <Briefcase size={12} className="text-slate-400" />
+                  <span>Breakdown Biaya</span>
                 </div>
-
-                {!isReconciled && s.totalBill > 0 && (
-                  <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 p-5 rounded-3xl flex items-start gap-4">
-                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400 shrink-0"><ShieldAlert size={20}/></div>
-                    <div><p className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-tight">Tips Rekonsiliasi</p><p className="text-[10px] font-bold text-amber-700/70 dark:text-amber-400/60 leading-relaxed mt-1">Ceklist transaksi di bawah satu per satu sambil melihat tagihan di aplikasi bank. Jika total tervalidasi sudah sama, berarti catatan Anda sudah akurat.</p></div>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
+                  <span>e-Statement: <strong className="text-slate-700 dark:text-slate-200">{showAmounts ? formatIDR(s.adminFee) : '••'}</strong></span>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <span>Materai: <strong className="text-slate-700 dark:text-slate-200">{showAmounts ? formatIDR(s.materai) : '••'}</strong></span>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <span className="text-slate-800 dark:text-slate-100 font-black">Total: {showAmounts ? formatIDR(s.adminFee + s.materai) : '••'}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 md:gap-4">
-               <button 
+              {/* Integrated Banking Quick Actions */}
+              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/90 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
                   onClick={() => {
                     setEditingTransaction(null);
                     setTxAmount('');
@@ -3145,14 +3253,16 @@ const App: React.FC = () => {
                     setTxIsInstallment(false);
                     pushView('FORM_TRANSACTION');
                   }}
-                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-primary group"
-               >
-                  <div className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-danger flex items-center justify-center group-hover:bg-danger group-hover:text-white transition-colors">
-                    <Plus size={18} />
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs active:scale-95 transition hover:border-danger cursor-pointer"
+                >
+                  <div className="w-5 h-5 rounded-full bg-red-500/10 text-danger flex items-center justify-center shrink-0">
+                    <Plus size={13} />
                   </div>
-                  Catat
-               </button>
-               <button 
+                  <span>Catat</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setEditingTransaction(null);
                     setTxAmount('');
@@ -3163,14 +3273,16 @@ const App: React.FC = () => {
                     setTxTargetYear(statementYear);
                     pushView('FORM_TRANSACTION');
                   }}
-                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-success group"
-               >
-                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-success flex items-center justify-center group-hover:bg-success group-hover:text-white transition-colors">
-                    <ArrowDownCircle size={18} />
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs active:scale-95 transition hover:border-success cursor-pointer"
+                >
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-success flex items-center justify-center shrink-0">
+                    <ArrowDownCircle size={13} />
                   </div>
-                  Bayar
-               </button>
-               <button 
+                  <span>Bayar</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setEditingSaving(null);
                     setSavingAmount('');
@@ -3180,93 +3292,224 @@ const App: React.FC = () => {
                     setSavingTargetYear(statementYear);
                     pushView('FORM_SAVING');
                   }}
-                  className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3 p-4 md:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-3xl text-xs md:text-sm font-black text-slate-700 dark:text-slate-200 shadow-sm active:scale-95 transition hover:border-indigo-500 group"
-               >
-                  <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                    <Vault size={18} />
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs active:scale-95 transition hover:border-indigo-500 cursor-pointer"
+                >
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                    <Vault size={13} />
                   </div>
-                  Nabung
-               </button>
+                  <span>Nabung</span>
+                </button>
+              </div>
             </div>
 
-            <section className="space-y-4">
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><CalendarClock size={14}/> Tagihan Cicilan Berjalan</h5>
-              <div className="grid md:grid-cols-2 gap-4">
-                {s.installments.map(inst => (
-                   <div key={inst.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center group shadow-sm transition-all hover:shadow-md">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${inst.isValidated ? 'bg-primary/10 text-primary' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
-                        <CalendarRange size={20}/>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{inst.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded font-black uppercase">Tenor {inst.currentTenor}/{inst.totalMonths}</span>
-                          {!inst.owner ? (
-                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                               <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-bold hover:bg-blue-200">PRIBADI</button>
-                               <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[9px] font-bold hover:bg-purple-200">BISNIS</button>
-                            </div>
-                          ) : (
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${inst.owner === OwnerType.PERSONAL ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : inst.owner === OwnerType.BUSINESS ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
-                              {inst.owner}
+            {/* 3. COMPACT REKONSILIASI (CEKLIST) WIDGET */}
+            <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isReconciled ? 'bg-emerald-500/15 text-emerald-500' : 'bg-primary/15 text-primary'}`}>
+                    <CheckCircle2 size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider block leading-none">
+                      Rekonsiliasi Mutasi Bank
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 block mt-0.5 truncate">
+                      {isReconciled
+                        ? 'Cocok 100% dengan lembar tagihan bank'
+                        : `Selisih ${formatIDR(Math.abs(s.totalBill - s.totalValidated))} • Ceklist rincian di bawah`}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className={`text-xs sm:text-sm font-black tabular-nums ${isReconciled ? 'text-emerald-500' : 'text-primary'}`}>
+                    {showAmounts ? formatIDR(s.totalValidated) : '••••'}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-slate-400 block leading-none">
+                    {reconcilePercent}% Tervalidasi
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${isReconciled ? 'bg-emerald-500' : 'bg-primary'}`}
+                  style={{ width: `${reconcilePercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 4. TAGIHAN CICILAN BERJALAN (BANK LEDGER LIST) */}
+            <section className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <h5 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CalendarClock size={14} className="text-indigo-500" />
+                  <span>Tagihan Cicilan Berjalan</span>
+                  <span className="text-[10px] bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-md font-extrabold">
+                    {s.installments.length}
+                  </span>
+                </h5>
+                {s.installments.length > 0 && (
+                  <span className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 tabular-nums">
+                    {showAmounts ? formatIDR(totalInstallmentsAmount) : '••••'}
+                  </span>
+                )}
+              </div>
+
+              {s.installments.length > 0 ? (
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-xs">
+                  {s.installments.map(inst => (
+                    <div
+                      key={inst.id}
+                      className="px-3.5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                          inst.isValidated ? 'bg-primary/15 text-primary' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                        }`}>
+                          <CalendarRange size={15} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase truncate leading-tight">
+                            {inst.name}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className="whitespace-nowrap text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                              Tenor {inst.currentTenor}/{inst.totalMonths}
                             </span>
-                          )}
+                            {!inst.owner ? (
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[9px] font-bold hover:bg-blue-500/20 whitespace-nowrap">PRIBADI</button>
+                                <button type="button" onClick={() => updateInstallmentOwner(inst.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded text-[9px] font-bold hover:bg-purple-500/20 whitespace-nowrap">BISNIS</button>
+                              </div>
+                            ) : (
+                              <span className={`whitespace-nowrap text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                                inst.owner === OwnerType.PERSONAL
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : inst.owner === OwnerType.BUSINESS
+                                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                              }`}>
+                                {inst.owner}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <span className="font-black text-slate-800 dark:text-slate-100 text-xs sm:text-sm tabular-nums whitespace-nowrap">
+                          {showAmounts ? formatIDR(inst.monthlyAmount) : '••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleInstallmentValidation(inst.id, statementMonth, statementYear)}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center transform active:scale-90 transition-all cursor-pointer ${
+                            inst.isValidated
+                              ? 'bg-primary text-white shadow-sm shadow-primary/30'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 hover:text-slate-400'
+                          }`}
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-black text-slate-800 dark:text-slate-200 text-base">{showAmounts ? formatIDR(inst.monthlyAmount) : '••'}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => toggleInstallmentValidation(inst.id, statementMonth, statementYear)} 
-                        className={`p-2.5 rounded-full transform active:scale-90 transition-all ${inst.isValidated ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}
-                      >
-                        <CheckCircle2 size={24}/>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {s.installments.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Tidak ada cicilan aktif pada periode ini.</div>}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-slate-400 font-bold text-xs bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                  Tidak ada cicilan aktif pada periode ini.
+                </div>
+              )}
             </section>
 
-            <section className="space-y-4">
-              <div className="flex justify-between items-center px-4">
-                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14}/> Log Transaksi Periode Ini</h5>
+            {/* 5. LOG TRANSAKSI PERIODE INI (BANK LEDGER LIST) */}
+            <section className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <h5 className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <History size={14} className="text-primary" />
+                  <span>Log Transaksi Periode Ini</span>
+                  <span className="text-[10px] bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-md font-extrabold">
+                    {s.transactions.length}
+                  </span>
+                </h5>
+                {s.transactions.length > 0 && (
+                  <span className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 tabular-nums">
+                    {showAmounts ? formatIDR(totalTransactionsAmount) : '••••'}
+                  </span>
+                )}
               </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {s.transactions.map(t => (
-                  <div key={t.id} onClick={() => openEditTransaction(t)} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-50 dark:border-slate-800 flex justify-between items-center hover:border-primary transition group cursor-pointer shadow-sm hover:shadow-md">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${t.isValidated ? 'bg-primary/10 text-primary' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
-                        <History size={20}/>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase leading-tight">{t.description}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(t.date).toLocaleDateString('id-ID')}</p>
-                          {!t.owner ? (
-                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                               <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-bold hover:bg-blue-200">PRIBADI</button>
-                               <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[9px] font-bold hover:bg-purple-200">BISNIS</button>
-                            </div>
-                          ) : (
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${t.owner === OwnerType.PERSONAL ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : t.owner === OwnerType.BUSINESS ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
-                              {t.owner}
+
+              {s.transactions.length > 0 ? (
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-xs">
+                  {s.transactions.map(t => (
+                    <div
+                      key={t.id}
+                      onClick={() => openEditTransaction(t)}
+                      className="px-3.5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 active:bg-slate-100 dark:active:bg-slate-800 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                          t.isValidated ? 'bg-primary/15 text-primary' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                        }`}>
+                          <History size={15} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase truncate leading-tight">
+                            {t.description}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">
+                              {new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
-                          )}
+                            {!t.owner ? (
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.PERSONAL)} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[9px] font-bold hover:bg-blue-500/20 whitespace-nowrap">PRIBADI</button>
+                                <button type="button" onClick={() => updateTransactionOwner(t.id, OwnerType.BUSINESS)} className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded text-[9px] font-bold hover:bg-purple-500/20 whitespace-nowrap">BISNIS</button>
+                              </div>
+                            ) : (
+                              <span className={`whitespace-nowrap text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                                t.owner === OwnerType.PERSONAL
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : t.owner === OwnerType.BUSINESS
+                                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                              }`}>
+                                {t.owner}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <span className="font-black text-danger text-xs sm:text-sm tabular-nums whitespace-nowrap">
+                          {showAmounts ? formatIDR(t.amount) : '••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTransactionValidation(t.id);
+                          }}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center transform active:scale-90 transition-all cursor-pointer ${
+                            t.isValidated
+                              ? 'bg-primary text-white shadow-sm shadow-primary/30'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 hover:text-slate-400'
+                          }`}
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-black text-danger text-base">{showAmounts ? formatIDR(t.amount) : '••'}</span>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTransactionValidation(t.id); }} className={`p-2.5 rounded-full transform active:scale-90 transition-all ${t.isValidated ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}><CheckCircle2 size={24}/></button>
-                    </div>
-                  </div>
-                ))}
-                {s.transactions.length === 0 && <div className="col-span-full py-10 text-center text-slate-300 font-bold text-xs italic bg-slate-50/50 dark:bg-slate-900/50 rounded-3xl border border-dashed dark:border-slate-800">Belum ada pemakaian baru di periode ini.</div>}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-slate-400 font-bold text-xs bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                  Belum ada pemakaian baru di periode ini.
+                </div>
+              )}
             </section>
           </div>
         );
@@ -3370,6 +3613,8 @@ const App: React.FC = () => {
                 currentView === 'FORM_PIUTANG' ? 'Input Piutang' :
                 currentView === 'FORM_CARD' ? 'Input Kartu / Hutang' :
                 currentView === 'FORM_TRANSFER_SAVING' ? 'Transfer Tabungan' :
+                currentView === 'VIEW_STATEMENT' ? 'Rincian e-Statement' :
+                currentView === 'VIEW_PROFILE' ? 'Profil & Keamanan' :
                 currentView.replace('FORM_', 'Input ').replace('VIEW_', 'Rincian ').replace('_', ' ')
               } 
               onBack={viewStack.length > 1 ? popView : undefined}
