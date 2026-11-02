@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-primary: #2563eb;
@@ -20,6 +21,11 @@
 :root {
   --sat: env(safe-area-inset-top);
   --sab: env(safe-area-inset-bottom);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 html, body {
@@ -28,13 +34,17 @@ html, body {
   margin: 0;
   padding: 0;
   background-color: #f8fafc;
+  color: #0f172a;
   font-family: 'Inter', sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
 
+html.dark,
+html.dark body,
 .dark body {
   background-color: #020617;
+  color: #f8fafc;
 }
 
 #root {
