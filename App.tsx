@@ -138,7 +138,7 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
       className="flex-none w-full bg-white dark:bg-slate-950 pointer-events-none select-none"
       style={{
         height: isIOSDevice
-          ? 'calc(var(--sat, 0px) + 28px)'
+          ? 'calc(var(--sat, 0px) + 14px)'
           : 'var(--sat, 0px)'
       }}
     />
