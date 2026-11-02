@@ -22,7 +22,6 @@ import {
   subscribeToAppState, 
   saveAppState 
 } from "./services/firebase";
-import { getFinancialAdvice } from "./services/geminiService";
 import { User } from "firebase/auth";
 import { 
   Home, 
@@ -292,24 +291,7 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  const [aiAdviceModalOpen, setAiAdviceModalOpen] = useState(false);
-  const [aiAdviceLoading, setAiAdviceLoading] = useState(false);
-  const [aiAdviceContent, setAiAdviceContent] = useState('');
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-
-  const handleFetchAiAdvice = async () => {
-    setAiAdviceLoading(true);
-    setAiAdviceModalOpen(true);
-    setAiAdviceContent('');
-    try {
-      const advice = await getFinancialAdvice(data);
-      setAiAdviceContent(advice);
-    } catch (err) {
-      setAiAdviceContent("Terjadi kesalahan saat meminta analisis AI.");
-    } finally {
-      setAiAdviceLoading(false);
-    }
-  };
 
   // Navigation Logic
   const pushView = (view: ViewMode) => {
@@ -1263,18 +1245,28 @@ const App: React.FC = () => {
   }, [data, ownerBillsYear]);
 
   const dashboardMonthlyData = useMemo(() => {
+    let monthBusinessBill = 0;
+    let monthPersonalBill = 0;
+
     const cardsInMonth = data.cards.map(card => {
       const stmt = getStatementData(card.id, dashMonth, dashYear);
+      const ownerGross = getMonthlyGrossBillByOwner(card.id, dashMonth, dashYear);
+      monthBusinessBill += ownerGross.business;
+      monthPersonalBill += ownerGross.personal;
+
       const bill = stmt.totalBill;
       const paid = stmt.totalPaid;
       const savings = stmt.totalSavingsAmount;
       const piutangs = stmt.totalPiutangsAmount;
       const kurang = stmt.totalKurang;
       const unpaid = stmt.totalUnpaid;
+      const coveredAmount = paid + savings + piutangs;
+      const coveragePct = bill > 0 ? Math.min(100, Math.round((coveredAmount / bill) * 100)) : 100;
+
       return {
         cardId: card.id,
         cardName: card.name,
-        cardColor: card.color || 'bg-slate-400',
+        cardColor: card.color || 'bg-slate-500',
         cardObj: card,
         bill,
         savings,
@@ -1282,6 +1274,9 @@ const App: React.FC = () => {
         paid,
         kurang,
         unpaid,
+        coveragePct,
+        businessBill: ownerGross.business,
+        personalBill: ownerGross.personal,
         isFullyPaid: bill > 0 && kurang === 0
       };
     });
@@ -1292,6 +1287,14 @@ const App: React.FC = () => {
     const totalMonthPiutangs = cardsInMonth.reduce((s, c) => s + c.piutangs, 0);
     const totalMonthKurang = Math.max(0, totalMonthBill - totalMonthPaid - totalMonthSavings - totalMonthPiutangs);
     const totalMonthUnpaid = Math.max(0, totalMonthBill - totalMonthPaid);
+    const monthCoveragePct = totalMonthBill > 0
+      ? Math.min(100, Math.round(((totalMonthPaid + totalMonthSavings + totalMonthPiutangs) / totalMonthBill) * 100))
+      : 100;
+
+    const totalLimit = data.cards.reduce((sum, c) => sum + (c.limit || 0), 0);
+    const totalUsedLimit = data.cards.reduce((sum, c) => sum + Math.max(0, getCardBalance(c.id)), 0);
+    const totalRemainingLimit = Math.max(0, totalLimit - totalUsedLimit);
+    const limitUtilizationPct = totalLimit > 0 ? Math.min(100, Math.round((totalUsedLimit / totalLimit) * 100)) : 0;
 
     let status: 'LUNAS' | 'SEBAGIAN' | 'KURANG' | '-' = '-';
     if (totalMonthBill > 0) {
@@ -1313,6 +1316,13 @@ const App: React.FC = () => {
       totalMonthPaid,
       totalMonthKurang,
       totalMonthUnpaid,
+      monthCoveragePct,
+      monthBusinessBill,
+      monthPersonalBill,
+      totalLimit,
+      totalUsedLimit,
+      totalRemainingLimit,
+      limitUtilizationPct,
       status
     };
   }, [data, dashMonth, dashYear]);
@@ -1590,154 +1600,339 @@ const App: React.FC = () => {
   // Shared content rendering function for both mobile and desktop
   const renderCurrentView = () => {
     switch (currentView) {
-      case 'DASHBOARD':
+      case 'DASHBOARD': {
+        const globalCoveragePct = totalDebt > 0
+          ? Math.min(100, Math.round((totalAssets / totalDebt) * 100))
+          : 100;
+        const recentDashboardTransactions = [...data.transactions]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 5);
+
         return (
-          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
-            <div className="bg-gradient-to-br from-violet-600 to-primary rounded-[32px] p-6 md:p-10 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute -right-8 -top-8 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-              <div className="flex justify-between items-start mb-1 relative z-10"><p className="text-blue-100 text-sm md:text-base font-bold uppercase tracking-wider">Total Liabilitas</p><button type="button" onClick={() => setShowAmounts(!showAmounts)} className="text-blue-100 hover:text-white transition p-1">{showAmounts ? <Eye size={24} /> : <EyeOff size={24} />}</button></div>
-              <h3 className="text-3xl md:text-5xl font-black mb-6 relative z-10">{showAmounts ? formatIDR(totalDebt) : '••••••••'}</h3>
-              <div className="space-y-3 pt-6 border-t border-white/10 relative z-10 grid md:grid-cols-3 md:gap-10">
-                <button type="button" onClick={() => pushView('SAVINGS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Tabungan</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p></button>
-                <button type="button" onClick={() => pushView('PIUTANGS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-blue-200 text-[10px] md:text-xs uppercase font-bold tracking-widest">Piutang</p><p className="font-bold text-base md:text-lg">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p></button>
-                <button type="button" onClick={() => pushView('CARDS')} className="flex justify-between items-center text-left hover:opacity-80 transition cursor-pointer"><p className="text-white text-[10px] md:text-xs uppercase font-black tracking-widest">Sisa Hutang</p><p className="font-black text-xl md:text-2xl text-yellow-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p></button>
-              </div>
-            </div>
+          <div className="space-y-5 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4 md:py-7">
+            {/* 1. 2026 EXECUTIVE FINTECH BENTO HERO */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Main Net Liability & Coverage Command Card */}
+              <div className="lg:col-span-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 dark:from-slate-900 dark:via-indigo-950/90 dark:to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-white/10 relative overflow-hidden flex flex-col justify-between gap-5">
+                <div className="absolute -right-12 -top-12 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-12 -bottom-12 w-56 h-56 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            {/* AI Advisor Banner */}
-            <div className="bg-gradient-to-r from-indigo-50/90 via-white to-blue-50/90 dark:from-indigo-950/90 dark:via-slate-900 dark:to-blue-950/90 p-5 md:p-6 rounded-[28px] border border-indigo-200/80 dark:border-indigo-500/30 shadow-sm dark:shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 dark:border-indigo-500/30 shrink-0">
-                  <Zap size={24} className="text-amber-500 dark:text-yellow-400" />
-                </div>
-                <div>
-                  <h4 className="text-sm md:text-base font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                    Penasihat Keuangan AI (Gemini)
-                  </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Dapatkan analisis cerdas & strategi pelunasan hutang kartu kredit Anda.
-                  </p>
-                </div>
-              </div>
-              <button 
-                type="button"
-                onClick={handleFetchAiAdvice}
-                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs md:text-sm rounded-2xl transition shadow-md flex items-center justify-center gap-2 shrink-0 active:scale-95 cursor-pointer"
-              >
-                <Zap size={16} className="text-yellow-300" />
-                Analisis Keuangan Saya
-              </button>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2 md:gap-6">
-              <button 
-                type="button"
-                onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
-                  <PlusCircle size={24} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingOwner(OwnerType.PERSONAL); pushView('FORM_SAVING'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
-                  <Vault size={24} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
-                  <HandCoins size={24} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => pushView('CARDS')} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                  <Briefcase size={24} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => pushView('TRANSACTIONS')} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
-                  <History size={24} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
-              </button>
-            </div>
-
-            {/* MONTHLY & PER-CARD OVERVIEW SECTION (Setiap Bulan & Perkartu: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang) */}
-            <div className="space-y-5 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2.5">
-                    <Calendar size={22} className="text-primary"/>
-                    RINCIAN TAGIHAN BULANAN
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                    Total Tagihan, Tabungan, Piutang, Sudah Dibayar, dan Kurang setiap bulan & perkartu
-                  </p>
-                </div>
-
-                {/* Month Navigator */}
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  <button 
+                {/* Top Status & Privacy Bar */}
+                <div className="relative z-10 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/10 text-blue-200 border border-white/10 backdrop-blur-md">
+                      <span className={`w-1.5 h-1.5 rounded-full ${currentDebtGap === 0 ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                      Portfolio Liabilitas
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-300/80 hidden sm:inline">
+                      • {data.cards.length} Instrumen Aktif
+                    </span>
+                  </div>
+                  <button
                     type="button"
-                    onClick={() => {
-                      if (dashMonth === 0) {
-                        setDashMonth(11);
-                        setDashYear(y => y - 1);
-                      } else {
-                        setDashMonth(m => m - 1);
-                      }
-                    }}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-500 dark:text-slate-400"
-                    title="Bulan Sebelumnya"
+                    onClick={() => setShowAmounts(!showAmounts)}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-blue-100 transition cursor-pointer border border-white/10"
+                    title={showAmounts ? 'Sembunyikan Nominal' : 'Tampilkan Nominal'}
                   >
-                    <ChevronLeft size={18} />
+                    {showAmounts ? <Eye size={17} /> : <EyeOff size={17} />}
                   </button>
+                </div>
 
-                  <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <Calendar size={14} className="text-primary"/>
-                    <span>{dashboardMonthlyData.monthName} {dashYear}</span>
+                {/* Primary Figures: Total Liabilitas & Sisa Kewajiban Bersih */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-end">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-200/75">
+                      Total Proyeksi Liabilitas
+                    </p>
+                    <h3 className="text-2xl sm:text-4xl font-black tracking-tight tabular-nums mt-1">
+                      {showAmounts ? formatIDR(totalDebt) : '••••••••'}
+                    </h3>
                   </div>
 
-                  <button 
+                  <div className="sm:text-right bg-white/5 sm:bg-transparent p-3 sm:p-0 rounded-2xl border border-white/10 sm:border-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300/90">
+                      Sisa Hutang Bersih (Net Gap)
+                    </p>
+                    <p className="text-xl sm:text-2xl font-black tracking-tight tabular-nums text-amber-300 mt-0.5">
+                      {showAmounts ? formatIDR(currentDebtGap) : '••••••••'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Coverage Progress Bar */}
+                <div className="relative z-10 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider">
+                    <span className="text-blue-200/80">Rasio Kesiapan Dana Pelunasan</span>
+                    <span className={globalCoveragePct >= 100 ? 'text-emerald-300' : 'text-blue-200'}>
+                      {globalCoveragePct}% Terkover ({showAmounts ? formatIDR(totalAssets) : '••••'})
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden p-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        globalCoveragePct >= 100
+                          ? 'bg-gradient-to-r from-emerald-400 to-teal-300'
+                          : 'bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400'
+                      }`}
+                      style={{ width: `${globalCoveragePct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom 3 Interactive Bento Sub-Cards */}
+                <div className="relative z-10 grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-white/10">
+                  <button
                     type="button"
-                    onClick={() => {
-                      if (dashMonth === 11) {
-                        setDashMonth(0);
-                        setDashYear(y => y + 1);
-                      } else {
-                        setDashMonth(m => m + 1);
-                      }
-                    }}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-500 dark:text-slate-400"
-                    title="Bulan Berikutnya"
+                    onClick={() => pushView('SAVINGS')}
+                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
                   >
-                    <ChevronRight size={18} />
+                    <div className="flex items-center justify-between text-emerald-300 mb-1">
+                      <Vault size={14} />
+                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Tabungan</p>
+                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
+                      {showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}
+                    </p>
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => pushView('PIUTANGS')}
+                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between text-cyan-300 mb-1">
+                      <HandCoins size={14} />
+                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Piutang</p>
+                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
+                      {showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => pushView('OWNER_BILLS')}
+                    className="p-2.5 sm:p-3 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 text-left transition group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between text-purple-300 mb-1">
+                      <Briefcase size={14} />
+                      <ChevronRight size={12} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/75 truncate">Bisnis ({dashYear})</p>
+                    <p className="text-xs sm:text-sm font-black tabular-nums truncate mt-0.5">
+                      {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalBusiness) : '••••'}
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Side Bento Card: Credit Limit & Plafon Utilization */}
+              <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                      Kesehatan Plafon Kredit
+                    </span>
+                    <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
+                      Utilisasi Limit Kartu
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => pushView('CARDS')}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-primary dark:text-blue-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                  >
+                    Kelola Kartu
+                  </button>
+                </div>
+
+                {/* Circular / Big Utilization Readout */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 space-y-3">
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Sisa Limit Tersedia</span>
+                      <p className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">
+                        {showAmounts ? formatIDR(dashboardMonthlyData.totalRemainingLimit) : '••••••••'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                        dashboardMonthlyData.limitUtilizationPct > 75
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : dashboardMonthlyData.limitUtilizationPct > 40
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {dashboardMonthlyData.limitUtilizationPct}% Terpakai
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        dashboardMonthlyData.limitUtilizationPct > 75
+                          ? 'bg-rose-500'
+                          : dashboardMonthlyData.limitUtilizationPct > 40
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${dashboardMonthlyData.limitUtilizationPct}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span>Terpakai: <strong className="text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(dashboardMonthlyData.totalUsedLimit) : '••••'}</strong></span>
+                    <span>Plafon: <strong className="text-slate-800 dark:text-slate-200">{showAmounts ? formatIDR(dashboardMonthlyData.totalLimit) : '••••'}</strong></span>
+                  </div>
+                </div>
+
+                {/* Quick 5-Action Neobank Dock */}
+                <div className="grid grid-cols-5 gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-primary dark:text-blue-400 transition active:scale-95 cursor-pointer"
+                  >
+                    <PlusCircle size={18} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600 dark:text-slate-300">Catat</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingOwner(OwnerType.PERSONAL); pushView('FORM_SAVING'); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-success dark:text-emerald-400 transition active:scale-95 cursor-pointer"
+                  >
+                    <Vault size={18} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600 dark:text-slate-300">Nabung</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 transition active:scale-95 cursor-pointer"
+                  >
+                    <HandCoins size={18} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600 dark:text-slate-300">Piutang</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pushView('CARDS')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition active:scale-95 cursor-pointer"
+                  >
+                    <CreditCard size={18} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600 dark:text-slate-300">Kartu</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pushView('TRANSACTIONS')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-600 dark:text-amber-400 transition active:scale-95 cursor-pointer"
+                  >
+                    <History size={18} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600 dark:text-slate-300">Riwayat</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. RADAR JATUH TEMPO TERDEKAT (IF ANY) */}
+            {upcomingBills.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <CalendarClock size={15} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm uppercase tracking-wider">
+                        Radar Jatuh Tempo Terdekat
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-slate-400">
+                    {upcomingBills.length} Tagihan Aktif
+                  </span>
+                </div>
+
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 snap-x snap-mandatory">
+                  {upcomingBills.map(bill => (
+                    <div
+                      key={bill.id}
+                      onClick={() => openStatement(bill)}
+                      className="min-w-[260px] sm:min-w-[300px] bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 flex flex-col gap-2.5 snap-center active:scale-[0.99] hover:border-primary/50 transition cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${bill.color || 'bg-slate-500'}`} />
+                          <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 truncate">
+                            {bill.name}
+                          </span>
+                        </div>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                          bill.daysLeft <= 3
+                            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        }`}>
+                          {bill.daysLeft <= 0 ? 'Hari Ini' : `H-${bill.daysLeft}`}
+                        </span>
+                      </div>
+
+                      <div className="flex items-baseline justify-between text-xs">
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">Tagihan</span>
+                          <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                            {showAmounts ? formatIDR(bill.remainingBill) : '••••••'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">
+                            {bill.netGap > 0 ? 'Kurang Dana' : 'Status'}
+                          </span>
+                          <span className={`font-black tabular-nums ${bill.netGap > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {bill.netGap > 0 ? (showAmounts ? formatIDR(bill.netGap) : '••••') : '✓ Siap Lunas'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${bill.isCovered ? 'bg-emerald-500' : 'bg-primary'}`}
+                          style={{ width: `${Math.min(100, bill.progress)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. MONTHLY COMMAND CENTER (RINCIAN TAGIHAN BULANAN & PER KARTU) */}
+            <div className="space-y-5 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-7 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                      MONITORING TAGIHAN BULANAN
+                    </h3>
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
+                      dashboardMonthlyData.status === 'LUNAS'
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : dashboardMonthlyData.status === 'SEBAGIAN'
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        : dashboardMonthlyData.status === 'KURANG'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                    }`}>
+                      {dashboardMonthlyData.status === '-' ? 'NIHIL' : dashboardMonthlyData.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Posisi tagihan, tabungan, piutang, pembayaran & kekurangan tiap kartu
+                  </p>
+                </div>
+
+                {/* Sleek Month Navigator */}
+                <div className="flex items-center gap-1.5 self-start sm:self-auto">
                   {(dashMonth !== new Date().getMonth() || dashYear !== new Date().getFullYear()) && (
                     <button
                       type="button"
@@ -1745,74 +1940,141 @@ const App: React.FC = () => {
                         setDashMonth(new Date().getMonth());
                         setDashYear(new Date().getFullYear());
                       }}
-                      className="text-[10px] font-black uppercase text-primary dark:text-blue-400 hover:underline px-2"
+                      className="text-[10px] font-black uppercase bg-primary/10 text-primary dark:text-blue-400 px-2.5 py-1.5 rounded-xl hover:bg-primary/20 transition cursor-pointer"
                     >
                       Bulan Ini
                     </button>
                   )}
+
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dashMonth === 0) {
+                          setDashMonth(11);
+                          setDashYear(y => y - 1);
+                        } else {
+                          setDashMonth(m => m - 1);
+                        }
+                      }}
+                      className="w-7 h-7 flex items-center justify-center hover:bg-white dark:hover:bg-slate-700 rounded-xl transition text-slate-600 dark:text-slate-300 cursor-pointer"
+                      title="Bulan Sebelumnya"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+
+                    <div className="px-3 py-1 text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-primary" />
+                      <span>{dashboardMonthlyData.monthName} {dashYear}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dashMonth === 11) {
+                          setDashMonth(0);
+                          setDashYear(y => y + 1);
+                        } else {
+                          setDashMonth(m => m + 1);
+                        }
+                      }}
+                      className="w-7 h-7 flex items-center justify-center hover:bg-white dark:hover:bg-slate-700 rounded-xl transition text-slate-600 dark:text-slate-300 cursor-pointer"
+                      title="Bulan Berikutnya"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* OVERALL MONTH SUMMARY CARD (5 Metrics) */}
-              <div className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-800 dark:text-white rounded-3xl p-4 sm:p-5 md:p-6 shadow-xs border border-slate-200/80 dark:border-slate-700/80 space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-200/80 dark:border-slate-700/60 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                      TOTAL SEMUA KARTU ({dashboardMonthlyData.monthName} {dashYear})
+              {/* OVERALL MONTH SUMMARY BENTO (5 Metrics + Coverage Bar + Personal/Bisnis Pill) */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 sm:p-5 border border-slate-200/70 dark:border-slate-700/60 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                      Ringkasan {dashboardMonthlyData.monthName} {dashYear}
+                    </span>
+                    <span className="text-[10px] font-black text-primary dark:text-blue-400 bg-primary/10 px-2 py-0.5 rounded-md">
+                      {dashboardMonthlyData.monthCoveragePct}% Terkover
                     </span>
                   </div>
-                  <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase ${dashboardMonthlyData.status === 'LUNAS' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' : dashboardMonthlyData.status === 'SEBAGIAN' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30' : dashboardMonthlyData.status === 'KURANG' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
-                    {dashboardMonthlyData.status === '-' ? 'LUNAS' : dashboardMonthlyData.status}
-                  </span>
+
+                  {/* Mini Personal vs Business Split Pill for this Month */}
+                  <div className="flex items-center gap-2 text-[10px] font-extrabold">
+                    <button
+                      type="button"
+                      onClick={() => pushView('OWNER_BILLS')}
+                      className="px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition cursor-pointer"
+                    >
+                      Personal: {showAmounts ? formatIDR(dashboardMonthlyData.monthPersonalBill) : '••••'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pushView('OWNER_BILLS')}
+                      className="px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition cursor-pointer"
+                    >
+                      Bisnis: {showAmounts ? formatIDR(dashboardMonthlyData.monthBusinessBill) : '••••'}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+                {/* Month Coverage Progress Bar */}
+                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      dashboardMonthlyData.totalMonthKurang === 0 ? 'bg-emerald-500' : 'bg-primary'
+                    }`}
+                    style={{ width: `${dashboardMonthlyData.monthCoveragePct}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
                   {/* 1. Total Tagihan */}
-                  <div className="bg-white dark:bg-slate-900/80 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 shadow-2xs space-y-1">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <CreditCard size={13} className="text-blue-500 dark:text-blue-400"/> Total Tagihan
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-0.5">
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                      <CreditCard size={12} className="text-blue-500" /> Total Tagihan
                     </span>
-                    <p className="text-sm md:text-base font-black text-slate-900 dark:text-white">
+                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white tabular-nums">
                       {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthBill) : '••••••••'}
                     </p>
                   </div>
 
                   {/* 2. Tabungan */}
-                  <div className="bg-white dark:bg-slate-900/80 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 shadow-2xs space-y-1">
-                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Vault size={13} className="text-purple-500 dark:text-purple-400"/> Tabungan
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-0.5">
+                    <span className="text-[9px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                      <Vault size={12} /> Tabungan
                     </span>
-                    <p className="text-sm md:text-base font-black text-purple-600 dark:text-purple-300">
+                    <p className="text-sm sm:text-base font-black text-purple-600 dark:text-purple-300 tabular-nums">
                       {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthSavings) : '••••••••'}
                     </p>
                   </div>
 
                   {/* 3. Piutang */}
-                  <div className="bg-white dark:bg-slate-900/80 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 shadow-2xs space-y-1">
-                    <span className="text-[10px] font-bold text-cyan-600 dark:text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Receipt size={13} className="text-cyan-500 dark:text-cyan-400"/> Piutang
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-0.5">
+                    <span className="text-[9px] font-extrabold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider flex items-center gap-1">
+                      <Receipt size={12} /> Piutang
                     </span>
-                    <p className="text-sm md:text-base font-black text-cyan-600 dark:text-cyan-300">
+                    <p className="text-sm sm:text-base font-black text-cyan-600 dark:text-cyan-300 tabular-nums">
                       {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthPiutangs) : '••••••••'}
                     </p>
                   </div>
 
                   {/* 4. Sudah Dibayar */}
-                  <div className="bg-white dark:bg-slate-900/80 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 shadow-2xs space-y-1">
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-emerald-500 dark:text-emerald-400"/> Sudah Dibayar
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-0.5">
+                    <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Sudah Dibayar
                     </span>
-                    <p className="text-sm md:text-base font-black text-emerald-600 dark:text-emerald-400">
+                    <p className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
                       {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthPaid) : '••••••••'}
                     </p>
                   </div>
 
                   {/* 5. Kurang */}
-                  <div className="bg-rose-50/70 dark:bg-rose-950/25 p-3.5 rounded-2xl border border-rose-200/80 dark:border-rose-800/50 space-y-1 col-span-2 sm:col-span-1">
-                    <span className="text-[10px] font-bold text-rose-600 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <AlertCircle size={13} className="text-rose-500 dark:text-rose-400"/> Kurang
+                  <div className="bg-rose-50/70 dark:bg-rose-950/25 p-3 rounded-2xl border border-rose-200/80 dark:border-rose-800/50 space-y-0.5 col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                      <AlertCircle size={12} /> Kurang Dana
                     </span>
-                    <p className={`text-sm md:text-base font-black ${dashboardMonthlyData.totalMonthKurang > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    <p className={`text-sm sm:text-base font-black tabular-nums ${dashboardMonthlyData.totalMonthKurang > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       {showAmounts ? (dashboardMonthlyData.totalMonthKurang > 0 ? formatIDR(dashboardMonthlyData.totalMonthKurang) : 'Rp 0') : '••••••••'}
                     </p>
                     {dashboardMonthlyData.totalMonthSavings + dashboardMonthlyData.totalMonthPiutangs > 0 && dashboardMonthlyData.totalMonthUnpaid > dashboardMonthlyData.totalMonthKurang && showAmounts && (
@@ -1824,14 +2086,14 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* PER KARTU BREAKDOWN (e.g. Traveloka Card) */}
-              <div className="space-y-3 pt-2">
+              {/* PER KARTU BREAKDOWN GRID */}
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    RINCIAN PER KARTU ({dashboardMonthlyData.monthName})
+                  <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Rincian Per Kartu ({dashboardMonthlyData.monthName})
                   </h4>
                   <span className="text-[10px] font-bold text-slate-400">
-                    {dashboardMonthlyData.cardsInMonth.length} Kartu / Sumber Hutang
+                    Klik Detail untuk buka e-Statement
                   </span>
                 </div>
 
@@ -1839,85 +2101,104 @@ const App: React.FC = () => {
                   {dashboardMonthlyData.cardsInMonth.map(cardItem => {
                     const cardHasKurang = cardItem.kurang > 0;
                     return (
-                      <div 
+                      <div
                         key={cardItem.cardId}
-                        className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700/60 shadow-xs hover:border-primary/50 transition space-y-3"
+                        className="bg-white dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:border-primary/40 transition flex flex-col justify-between space-y-3"
                       >
-                        {/* Header: Dot + Card Name + Status */}
-                        <div className="flex justify-between items-center gap-2">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${cardItem.cardColor}`} />
-                            <h5 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 truncate">
-                              {cardItem.cardName}
-                            </h5>
-                          </div>
-                          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase shrink-0 ${cardHasKurang ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
-                            {cardHasKurang ? 'Ada Kurang' : (cardItem.bill > 0 || cardItem.paid > 0 ? 'Lunas' : 'Nihil')}
-                          </span>
-                        </div>
-
-                        {/* 5 Rows: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang */}
-                        <div className="space-y-1.5 text-xs pt-2 border-t border-slate-200/60 dark:border-slate-700/50">
-                          {/* 1. Total Tagihan */}
-                          <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                            <span>Total Tagihan</span>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
-                              {showAmounts ? formatIDR(cardItem.bill) : '••••••••'}
+                        <div className="space-y-2.5">
+                          {/* Card Header */}
+                          <div className="flex justify-between items-center gap-2">
+                            <div
+                              onClick={() => openStatement(cardItem.cardObj, dashMonth, dashYear)}
+                              className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                            >
+                              <div className={`w-8 h-8 rounded-xl ${cardItem.cardColor} text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs`}>
+                                {cardItem.cardName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <h5 className="font-black text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-primary transition">
+                                  {cardItem.cardName}
+                                </h5>
+                                <p className="text-[9px] font-bold text-slate-400">
+                                  {cardItem.cardObj.dueDay ? `Jatuh Tempo Tgl ${cardItem.cardObj.dueDay}` : 'Pinjaman / Hutang'}
+                                </p>
+                              </div>
+                            </div>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                              cardHasKurang
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : cardItem.bill > 0 || cardItem.paid > 0
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                            }`}>
+                              {cardHasKurang ? 'Ada Kurang' : (cardItem.bill > 0 || cardItem.paid > 0 ? '✓ Lunas' : 'Nihil')}
                             </span>
                           </div>
 
-                          {/* 2. Tabungan */}
-                          <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
-                            <span className="flex items-center gap-1.5"><Vault size={12}/> Tabungan</span>
-                            <span className="font-bold">
-                              {showAmounts ? formatIDR(cardItem.savings) : '••••••••'}
-                            </span>
+                          {/* Mini Coverage Bar */}
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${cardHasKurang ? 'bg-primary' : 'bg-emerald-500'}`}
+                              style={{ width: `${cardItem.coveragePct}%` }}
+                            />
                           </div>
 
-                          {/* 3. Piutang */}
-                          <div className="flex justify-between items-center text-cyan-600 dark:text-cyan-400">
-                            <span className="flex items-center gap-1.5"><Receipt size={12}/> Piutang</span>
-                            <span className="font-bold">
-                              {showAmounts ? formatIDR(cardItem.piutangs) : '••••••••'}
-                            </span>
-                          </div>
-
-                          {/* 4. Sudah Dibayar */}
-                          <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                            <span className="flex items-center gap-1.5"><CheckCircle2 size={12}/> Sudah Dibayar</span>
-                            <span className="font-bold">
-                              {showAmounts ? formatIDR(cardItem.paid) : '••••••••'}
-                            </span>
-                          </div>
-
-                          {/* 5. Kurang */}
-                          <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-slate-200 dark:border-slate-700">
+                          {/* 2x2 Metrics Grid + Kurang Highlight */}
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
                             <div>
-                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase">
-                                Kurang
+                              <span className="text-[9px] font-bold text-slate-400 uppercase block">Tagihan</span>
+                              <span className="font-extrabold text-slate-800 dark:text-slate-100 tabular-nums">
+                                {showAmounts ? formatIDR(cardItem.bill) : '••••'}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Dibayar</span>
+                              <span className="font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {showAmounts ? formatIDR(cardItem.paid) : '••••'}
+                              </span>
+                            </div>
+                            <div className="pt-1 border-t border-slate-200/50 dark:border-slate-800">
+                              <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase block">Tabungan</span>
+                              <span className="font-extrabold text-purple-600 dark:text-purple-300 tabular-nums">
+                                {showAmounts ? formatIDR(cardItem.savings) : '••••'}
+                              </span>
+                            </div>
+                            <div className="pt-1 border-t border-slate-200/50 dark:border-slate-800 text-right">
+                              <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase block">Piutang</span>
+                              <span className="font-extrabold text-cyan-600 dark:text-cyan-300 tabular-nums">
+                                {showAmounts ? formatIDR(cardItem.piutangs) : '••••'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Kurang Row */}
+                          <div className="flex justify-between items-center px-1">
+                            <div>
+                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase">
+                                Kurang Dana
                               </span>
                               {cardItem.savings + cardItem.piutangs > 0 && cardItem.unpaid > cardItem.kurang && showAmounts && (
                                 <span className="text-[9px] text-slate-400 font-bold block">
-                                  Sisa tagihan: {formatIDR(cardItem.unpaid)}
+                                  Belum setor: {formatIDR(cardItem.unpaid)}
                                 </span>
                               )}
                             </div>
-                            <span className={`font-black text-sm ${cardHasKurang ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                              {showAmounts ? (cardHasKurang ? formatIDR(cardItem.kurang) : 'Rp 0') : '••••••••'}
+                            <span className={`font-black text-xs sm:text-sm tabular-nums ${cardHasKurang ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {showAmounts ? (cardHasKurang ? formatIDR(cardItem.kurang) : 'Rp 0') : '••••••'}
                             </span>
                           </div>
                         </div>
 
                         {/* Quick actions for this card */}
-                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-700/40">
-                          <button 
+                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <button
                             type="button"
                             onClick={() => openStatement(cardItem.cardObj, dashMonth, dashYear)}
-                            className="py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                            className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <Receipt size={12}/> Detail
+                            <Receipt size={11} /> Detail
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               setEditingTransaction(null);
@@ -1929,24 +2210,25 @@ const App: React.FC = () => {
                               setTxTargetYear(dashYear);
                               pushView('FORM_TRANSACTION');
                             }}
-                            className="py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                            className="py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <Check size={12}/> Bayar
+                            <Check size={11} /> Bayar
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               setEditingSaving(null);
                               setSavingAmount('');
                               setSavingNote(`Tabungan ${cardItem.cardName}`);
+                              setSavingOwner(OwnerType.PERSONAL);
                               setSavingCardId(cardItem.cardId);
                               setSavingTargetMonth(dashMonth);
                               setSavingTargetYear(dashYear);
                               pushView('FORM_SAVING');
                             }}
-                            className="py-1.5 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                            className="py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/20 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <Vault size={12}/> Nabung
+                            <Vault size={11} /> Nabung
                           </button>
                         </div>
                       </div>
@@ -1962,83 +2244,141 @@ const App: React.FC = () => {
               </div>
             </div>
 
-
-            {upcomingBills.length > 0 && (
-              <div className="space-y-4">
-                 <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm md:text-base uppercase tracking-tight">Tagihan Terdekat</h3>
-                 <div className="flex gap-4 md:gap-6 overflow-x-auto no-scrollbar pb-2 snap-x snap-mandatory">
-                    {upcomingBills.map(bill => (
-                       <div key={bill.id} onClick={() => openStatement(bill)} className="min-w-[85vw] md:min-w-[400px] bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-4 snap-center active:scale-[0.98] hover:border-primary transition-all cursor-pointer">
-                          <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className={`w-10 h-10 ${bill.color} rounded-xl flex items-center justify-center text-white shadow-sm`}><AlertCircle size={18}/></div><span className="text-sm md:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{bill.name}</span></div><span className={`text-[9px] md:text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${bill.daysLeft <= 3 ? 'bg-red-50 dark:bg-red-900/30 text-danger dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>{bill.daysLeft} Hari Lagi</span></div>
-                          
-                          <div className="grid grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl relative overflow-hidden">
-                             <div className="flex flex-col">
-                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Tagihan</span>
-                                <span className="font-black text-slate-700 dark:text-slate-200 text-xs md:text-sm">{showAmounts ? formatIDR(bill.remainingBill) : '••••••••'}</span>
-                             </div>
-                             <div className="flex flex-col text-right">
-                                <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[8px] md:text-[9px]">Aset Likuid</span>
-                                <span className="font-black text-success text-xs md:text-sm">{showAmounts ? formatIDR(bill.savedForThisMonth || 0) : '••••••••'}</span>
-                             </div>
-                             {bill.netGap > 0 && (
-                               <div className="col-span-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                 <span className="text-danger font-black text-[10px] md:text-[11px] uppercase flex items-center gap-1">
-                                   <ArrowDownRight size={14} className="animate-bounce" />
-                                   Kurang {showAmounts ? formatIDR(bill.netGap) : '••••'}
-                                 </span>
-                                 <span className="text-[10px] font-black text-slate-400 uppercase">{Math.round(bill.progress)}% SIAP</span>
-                               </div>
-                             )}
-                          </div>
-                          
-                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full transition-all duration-1000 ${bill.isCovered ? 'bg-success' : 'bg-primary'}`} 
-                              style={{ width: `${Math.min(100, bill.progress)}%` }}
-                            ></div>
-                          </div>
-                       </div>
-                    ))}
-                 </div>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-8 flex items-center gap-3"><PieChart size={24} /> Pengeluaran Kelompok Bulan Ini</h3>
-              <div className="grid md:grid-cols-2 gap-x-12 gap-y-6">
-                {categoryGrouping.items.map(([cat, val], idx) => (
-                  <div key={idx} className="space-y-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200 leading-tight">{cat}</span>
-                      <span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(val.total) : '••••'}</span>
+            {/* 4. BOTTOM ANALYTICS & RECENT TRANSACTIONS BENTO GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Left: Top Spending Categories This Month */}
+              <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary dark:text-blue-400 flex items-center justify-center">
+                      <PieChart size={16} />
                     </div>
-                    
-                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
-                      {val.personal > 0 && <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(val.personal / val.total) * 100}%` }}></div>}
-                      {val.business > 0 && <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${(val.business / val.total) * 100}%` }}></div>}
+                    <div>
+                      <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                        Top Pengeluaran Bulan Ini
+                      </h3>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        Total Non-Cicilan: {showAmounts ? formatIDR(categoryGrouping.totalAll) : '••••'}
+                      </p>
                     </div>
-                    
-                    {(val.personal > 0 || val.business > 0) && (
-                      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
-                        {val.personal > 0 && (
-                          <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 px-2 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                            <span className="uppercase opacity-80">Pribadi</span><span>{showAmounts ? formatIDR(val.personal) : '••'}</span>
-                          </div>
-                        )}
-                        {val.business > 0 && (
-                          <div className="flex justify-between items-center bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 px-2 py-1.5 rounded-lg border border-amber-100 dark:border-amber-900/30">
-                            <span className="uppercase opacity-80">Bisnis</span><span>{showAmounts ? formatIDR(val.business) : '••'}</span>
-                          </div>
-                        )}
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {categoryGrouping.items.slice(0, 6).map(([cat, val], idx) => (
+                    <div key={idx} className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{cat}</span>
+                        <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums shrink-0">
+                          {showAmounts ? formatIDR(val.total) : '••••'}
+                        </span>
                       </div>
+
+                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                        {val.personal > 0 && <div className="h-full bg-blue-500" style={{ width: `${(val.personal / val.total) * 100}%` }} />}
+                        {val.business > 0 && <div className="h-full bg-purple-500" style={{ width: `${(val.business / val.total) * 100}%` }} />}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] font-extrabold">
+                        {val.personal > 0 ? (
+                          <span className="text-blue-600 dark:text-blue-400">Pribadi: {showAmounts ? formatIDR(val.personal) : '••'}</span>
+                        ) : <span />}
+                        {val.business > 0 ? (
+                          <span className="text-purple-600 dark:text-purple-400">Bisnis: {showAmounts ? formatIDR(val.business) : '••'}</span>
+                        ) : <span />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {categoryGrouping.items.length === 0 && (
+                  <p className="text-center py-8 text-xs text-slate-400 font-bold">
+                    Belum ada pengeluaran non-cicilan bulan ini.
+                  </p>
+                )}
+              </div>
+
+              {/* Right: Aktivitas Transaksi Terakhir */}
+              <div className="lg:col-span-5 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <History size={16} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                          Aktivitas Terakhir
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          5 transaksi & pembayaran terbaru
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => pushView('TRANSACTIONS')}
+                      className="text-[10px] font-black text-primary dark:text-blue-400 hover:underline uppercase cursor-pointer"
+                    >
+                      Semua
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {recentDashboardTransactions.map(t => {
+                      const card = data.cards.find(c => c.id === t.cardId);
+                      const isExpense = t.type === TransactionType.EXPENSE;
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => openEditTransaction(t)}
+                          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2.5 cursor-pointer transition"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                              isExpense ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
+                            }`}>
+                              {isExpense ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                                {t.description}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                <span>{card?.name || 'Kartu'}</span>
+                                <span>•</span>
+                                <span>{new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>
+                                {t.owner && (
+                                  <span className={`px-1.5 py-0.2 rounded uppercase font-black ${
+                                    t.owner === OwnerType.BUSINESS
+                                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  }`}>
+                                    {t.owner === OwnerType.BUSINESS ? 'BISNIS' : t.owner === OwnerType.PERSONAL ? 'PERSONAL' : 'SPLIT'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-black tabular-nums whitespace-nowrap ${
+                            isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                          }`}>
+                            {isExpense ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {recentDashboardTransactions.length === 0 && (
+                      <p className="text-center py-8 text-xs text-slate-400 font-bold">
+                        Belum ada riwayat transaksi.
+                      </p>
                     )}
                   </div>
-                ))}
+                </div>
               </div>
-              {categoryGrouping.items.length === 0 && <p className="text-center py-10 text-slate-400 font-medium">Belum ada pengeluaran yang dicatat bulan ini.</p>}
             </div>
           </div>
         );
+      }
       case 'CARDS':
         return (
           <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
@@ -4405,43 +4745,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* AI ADVICE MODAL */}
-      {aiAdviceModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 border border-slate-200 dark:border-slate-800">
-            <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
-                  <Zap size={18} className="text-yellow-500" />
-                </div>
-                <h3 className="font-black text-slate-800 dark:text-slate-100 text-base">Analisis & Rekomendasi Gemini AI</h3>
-              </div>
-              <button onClick={() => setAiAdviceModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
-            </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4 no-scrollbar">
-              {aiAdviceLoading ? (
-                <div className="py-16 text-center space-y-4 flex flex-col items-center">
-                  <Loader2 size={40} className="text-indigo-600 animate-spin" />
-                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Sedang menganalisis profil hutang & kartu kredit Anda...</p>
-                </div>
-              ) : (
-                <div className="text-sm text-slate-700 dark:text-slate-200 space-y-3 leading-relaxed whitespace-pre-wrap font-medium">
-                  {aiAdviceContent}
-                </div>
-              )}
-            </div>
-            <div className="p-4 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 text-center">
-              <button 
-                type="button" 
-                onClick={() => setAiAdviceModalOpen(false)} 
-                className="px-6 py-2.5 bg-slate-800 dark:bg-slate-700 text-white font-bold text-xs rounded-xl hover:bg-slate-700 transition"
-              >
-                Tutup Analisis
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
