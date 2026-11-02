@@ -295,6 +295,7 @@ const App: React.FC = () => {
   const [aiAdviceModalOpen, setAiAdviceModalOpen] = useState(false);
   const [aiAdviceLoading, setAiAdviceLoading] = useState(false);
   const [aiAdviceContent, setAiAdviceContent] = useState('');
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   const handleFetchAiAdvice = async () => {
     setAiAdviceLoading(true);
@@ -1628,71 +1629,60 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-6 gap-1.5 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-5 gap-2 md:gap-6">
               <button 
                 type="button"
                 onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
-                  <PlusCircle size={22} className="md:w-7 md:h-7" />
+                  <PlusCircle size={24} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingOwner(OwnerType.PERSONAL); pushView('FORM_SAVING'); }} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
-                  <Vault size={22} className="md:w-7 md:h-7" />
+                  <Vault size={24} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
-                  <HandCoins size={22} className="md:w-7 md:h-7" />
+                  <HandCoins size={24} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => pushView('CARDS')} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                  <Briefcase size={22} className="md:w-7 md:h-7" />
+                  <Briefcase size={24} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => pushView('TRANSACTIONS')} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
-                  <History size={22} className="md:w-7 md:h-7" />
+                  <History size={24} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => pushView('OWNER_BILLS')} 
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
-              >
-                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all">
-                  <PieChart size={22} className="md:w-7 md:h-7" />
-                </div>
-                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Bisnis</span>
+                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
               </button>
             </div>
 
@@ -4094,7 +4084,7 @@ const App: React.FC = () => {
       </div>
   );
 
-  const isFormOrDetailView = ['FORM_TRANSACTION', 'FORM_CARD', 'FORM_SAVING', 'FORM_PIUTANG', 'VIEW_STATEMENT', 'VIEW_PROFILE'].includes(currentView);
+  const isFormOrDetailView = ['FORM_TRANSACTION', 'FORM_CARD', 'FORM_SAVING', 'FORM_TRANSFER_SAVING', 'FORM_PIUTANG', 'VIEW_STATEMENT', 'VIEW_PROFILE'].includes(currentView);
 
   return (
     <div className={`${data.theme === 'dark' ? 'dark' : ''} h-full`}>
@@ -4103,6 +4093,16 @@ const App: React.FC = () => {
         {/* SHARED DESKTOP SIDEBAR */}
         <aside className="hidden md:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shrink-0 z-50">
            <div className="h-20 flex items-center px-8 border-b border-slate-50 dark:border-slate-800 shrink-0"><div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center mr-3 shadow-lg"><Wallet size={22} /></div><span className="font-black text-2xl text-slate-800 dark:text-slate-100 tracking-tighter">LimitWatch</span></div>
+           <div className="px-5 pt-5">
+             <button
+               type="button"
+               onClick={() => setQuickAddOpen(true)}
+               className="w-full py-3 px-4 bg-gradient-to-r from-primary to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/25 flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+             >
+               <Plus size={18} strokeWidth={3} />
+               <span>Input Cepat</span>
+             </button>
+           </div>
            <nav className="p-5 space-y-1.5 flex-1 overflow-y-auto no-scrollbar">
               <div className="text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.2em] mb-4 ml-2">Navigasi Utama</div>
               <DesktopNavItem icon={<Home size={22}/>} label="Beranda" active={currentView === 'DASHBOARD'} onClick={() => navigateToRoot('DASHBOARD')} />
@@ -4178,18 +4178,232 @@ const App: React.FC = () => {
           {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
             <nav 
-              className="fixed left-0 right-0 bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" 
-              style={{ height: 'calc(56px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
+              className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" 
+              style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
             >
-              <div className="h-[56px] px-6 grid grid-cols-3 items-center max-w-lg mx-auto">
-                <button onClick={()=>navigateToRoot('DASHBOARD')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'DASHBOARD' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}><Home size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span></button>
-                <button onClick={()=>navigateToRoot('SAVINGS')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'SAVINGS' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}><Vault size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span></button>
-                <button onClick={()=>navigateToRoot('YEARLY')} className={`flex flex-col items-center justify-center gap-1 transition-all py-1 ${currentView === 'YEARLY' ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}><CalendarRange size={20} /><span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span></button>
+              <div className="h-[60px] px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
+                <button
+                  type="button"
+                  onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
+                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                    currentView === 'DASHBOARD' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  <Home size={20} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
+                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                    currentView === 'SAVINGS' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  <Vault size={20} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span>
+                </button>
+
+                {/* CENTER UNIVERSAL + BUTTON */}
+                <div className="flex flex-col items-center justify-center -mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddOpen(prev => !prev)}
+                    aria-label="Menu Input Cepat"
+                    className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 active:scale-90 cursor-pointer border-4 border-white dark:border-slate-900 ${
+                      quickAddOpen
+                        ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-slate-900/30'
+                        : 'bg-gradient-to-tr from-primary to-blue-500 shadow-primary/40'
+                    }`}
+                  >
+                    <Plus size={26} strokeWidth={2.75} />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
+                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                    currentView === 'YEARLY' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  <CalendarRange size={20} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
+                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                    currentView === 'OWNER_BILLS' && !quickAddOpen ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  <PieChart size={20} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Bisnis</span>
+                </button>
               </div>
             </nav>
           )}
         </div>
       </div>
+
+      {/* UNIVERSAL QUICK ADD (+) MODAL / SHEET */}
+      {quickAddOpen && (
+        <div
+          onClick={() => setQuickAddOpen(false)}
+          className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-xs flex items-end md:items-center justify-center p-4 pb-24 md:pb-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 animate-in slide-in-from-bottom-4 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  Input Cepat Universal
+                </h3>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Pilih jenis pencatatan yang ingin ditambahkan
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* 1. Transaksi (Pakai) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickAddOpen(false);
+                  setEditingTransaction(null);
+                  if (!txCardId && data.cards.length > 0) setTxCardId(data.cards[0].id);
+                  setTxAmount('');
+                  setTxDesc('');
+                  setTxType(TransactionType.EXPENSE);
+                  setTxIsInstallment(false);
+                  setTxOwner(OwnerType.PERSONAL);
+                  setTxSplitPersonal('');
+                  setTxSplitBusiness('');
+                  pushView('FORM_TRANSACTION');
+                }}
+                className="p-4 rounded-2xl bg-red-50/70 dark:bg-red-950/25 border border-red-200/70 dark:border-red-800/40 hover:bg-red-100/70 dark:hover:bg-red-900/40 transition flex flex-col items-start gap-2.5 text-left active:scale-95 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-danger text-white flex items-center justify-center shadow-sm shadow-danger/30">
+                  <ArrowUpCircle size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Transaksi
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                    Catat pengeluaran / cicilan
+                  </p>
+                </div>
+              </button>
+
+              {/* 2. Pembayaran (Bayar) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickAddOpen(false);
+                  setEditingTransaction(null);
+                  const defaultCard = data.cards.find(c => c.id === txCardId) || data.cards[0];
+                  if (defaultCard) {
+                    setTxCardId(defaultCard.id);
+                    setTxDesc(`Bayar Tagihan ${defaultCard.name}`);
+                  } else {
+                    setTxDesc('Bayar Tagihan');
+                  }
+                  setTxAmount('');
+                  setTxType(TransactionType.PAYMENT);
+                  setTxIsInstallment(false);
+                  setTxTargetMonth(new Date().getMonth());
+                  setTxTargetYear(new Date().getFullYear());
+                  pushView('FORM_TRANSACTION');
+                }}
+                className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/70 dark:border-emerald-800/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 transition flex flex-col items-start gap-2.5 text-left active:scale-95 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-success text-white flex items-center justify-center shadow-sm shadow-success/30">
+                  <ArrowDownCircle size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Pembayaran
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                    Bayar tagihan kartu / hutang
+                  </p>
+                </div>
+              </button>
+
+              {/* 3. Nabung */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickAddOpen(false);
+                  setEditingSaving(null);
+                  if (!savingCardId && data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                  setSavingAmount('');
+                  setSavingNote('');
+                  setSavingOwner(OwnerType.PERSONAL);
+                  setSavingTargetMonth(new Date().getMonth());
+                  setSavingTargetYear(new Date().getFullYear());
+                  pushView('FORM_SAVING');
+                }}
+                className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/70 dark:border-blue-800/40 hover:bg-blue-100/70 dark:hover:bg-blue-900/40 transition flex flex-col items-start gap-2.5 text-left active:scale-95 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm shadow-primary/30">
+                  <Vault size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Nabung
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                    Sisihkan dana personal / bisnis
+                  </p>
+                </div>
+              </button>
+
+              {/* 4. Piutang */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickAddOpen(false);
+                  setEditingPiutang(null);
+                  if (!piutangCardId && data.cards.length > 0) setPiutangCardId(data.cards[0].id);
+                  setPiutangAmount('');
+                  setPiutangDebtor('');
+                  setPiutangNote('');
+                  setPiutangIsInstallment(false);
+                  setPiutangTargetMonth(new Date().getMonth());
+                  setPiutangTargetYear(new Date().getFullYear());
+                  pushView('FORM_PIUTANG');
+                }}
+                className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/25 border border-indigo-200/70 dark:border-indigo-800/40 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40 transition flex flex-col items-start gap-2.5 text-left active:scale-95 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shadow-indigo-600/30">
+                  <HandCoins size={22} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Piutang
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                    Catat titipan / tagihan teman
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI ADVICE MODAL */}
       {aiAdviceModalOpen && (
