@@ -138,24 +138,31 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
         className={`fixed top-0 left-0 right-0 z-[60] bg-transparent border-none pointer-events-none ${className}`}
         style={{ paddingTop: 'calc(var(--sat, 0px) + 6px)' }}
       >
-        <div className="px-4 h-12 flex justify-between items-center max-w-7xl mx-auto w-full">
+        <div className="px-4 h-13 flex justify-between items-center max-w-7xl mx-auto w-full">
           <div
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9.5 rounded-full bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)]"
-            style={{ WebkitBackdropFilter: 'blur(24px) saturate(180%)' }}
+            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-6 h-11 rounded-full bg-white/50 dark:bg-slate-900/45 border border-white/75 dark:border-white/28 shadow-[0_10px_28px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(255,255,255,0.35)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.55),inset_0_2px_3px_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(148,163,184,0.35),inset_3px_0_8px_rgba(255,255,255,0.22),inset_-3px_0_8px_rgba(255,255,255,0.22)]"
+            style={{
+              WebkitBackdropFilter: 'blur(26px) saturate(190%)',
+              backdropFilter: 'blur(26px) saturate(190%)'
+            }}
           >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(120%_90%_at_50%_0%,rgba(255,255,255,0.28)_0%,transparent_55%),radial-gradient(80%_80%_at_12%_100%,rgba(147,197,253,0.28)_0%,transparent_55%),radial-gradient(80%_80%_at_88%_100%,rgba(147,197,253,0.28)_0%,transparent_55%)]"
+            />
             {onBack && (
               <button
                 onClick={onBack}
-                className="-ml-1.5 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full"
+                className="relative z-10 -ml-2 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full"
               >
                 <ChevronLeft size={19} strokeWidth={2.5} />
               </button>
             )}
-            <h2 className="text-sm font-black text-slate-900 dark:text-white leading-none truncate max-w-[200px] tracking-tight">
+            <h2 className="relative z-10 text-[15px] font-black text-slate-900 dark:text-white leading-none truncate max-w-[200px] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               {title}
             </h2>
           </div>
-          <div className="pointer-events-auto flex items-center gap-2">
+          <div className="pointer-events-auto flex items-center gap-3">
             {rightElement}
           </div>
         </div>
@@ -5122,29 +5129,28 @@ const App: React.FC = () => {
               } 
               onBack={viewStack.length > 1 ? popView : undefined}
               rightElement={
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={toggleTheme}
                     className={
                       isIOSDevice
-                        ? 'w-9.5 h-9.5 rounded-full bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-90 cursor-pointer'
+                        ? 'w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 transition active:scale-90 cursor-pointer'
                         : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
                     }
-                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(180%)' } : undefined}
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
-                    {data.theme === 'dark' ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
+                    {data.theme === 'dark' ? <Sun size={isIOSDevice ? 22 : 17} className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.45)]" /> : <Moon size={isIOSDevice ? 20 : 17} />}
                   </button>
                   {isMobileDevice && currentView === 'DASHBOARD' && (
                     <button
                       onClick={() => pushView('VIEW_PROFILE')}
                       className={
                         isIOSDevice
-                          ? 'w-9.5 h-9.5 rounded-full p-0.5 bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          ? 'relative w-11 h-11 rounded-full p-[3px] bg-gradient-to-b from-white/55 via-white/25 to-white/40 dark:from-white/[0.24] dark:via-slate-900/50 dark:to-white/[0.12] backdrop-blur-2xl border border-white/80 dark:border-white/30 shadow-[0_8px_24px_rgba(0,0,0,0.12),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-1.5px_3px_rgba(255,255,255,0.45)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.6),inset_0_1.5px_2px_rgba(255,255,255,0.55),inset_0_-2px_4px_rgba(255,255,255,0.22),inset_2px_0_4px_rgba(255,255,255,0.18),inset_-2px_0_4px_rgba(255,255,255,0.18)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
                           : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
                       }
-                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(180%)' } : undefined}
+                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(190%)' } : undefined}
                     >
                       {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-500 dark:text-slate-300"/>}
                     </button>
@@ -5155,80 +5161,180 @@ const App: React.FC = () => {
           )}
 
           <main
-            className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}
-            style={isIOSDevice ? { paddingTop: 'calc(var(--sat, 0px) + 52px)' } : undefined}
+            className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : isIOSDevice ? 'pb-28' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}
+            style={isIOSDevice ? { paddingTop: 'calc(var(--sat, 0px) + 58px)' } : undefined}
           >
             {renderCurrentView()}
           </main>
 
           {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
-            <nav 
-              className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" 
-              style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
-            >
-              <div className="h-[60px] px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
-                <button
-                  type="button"
-                  onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                    currentView === 'DASHBOARD' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  <Home size={20} />
-                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                    currentView === 'SAVINGS' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  <Vault size={20} />
-                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span>
-                </button>
-
-                {/* CENTER UNIVERSAL + BUTTON */}
-                <div className="flex flex-col items-center justify-center -mt-5">
+            isIOSDevice ? (
+              <nav
+                className="fixed left-3 right-3 z-[70] rounded-full bg-gradient-to-b from-white/60 via-white/35 to-white/50 dark:from-white/[0.15] dark:via-slate-950/65 dark:to-slate-900/80 backdrop-blur-2xl border border-white/80 dark:border-white/[0.26] shadow-[0_14px_36px_rgba(0,0,0,0.14),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(255,255,255,0.5)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.75),inset_0_1.5px_2.5px_rgba(255,255,255,0.52),inset_0_-2px_5px_rgba(255,255,255,0.22),inset_3px_0_8px_rgba(255,255,255,0.14),inset_-3px_0_8px_rgba(255,255,255,0.14)] overflow-hidden"
+                style={{
+                  bottom: 'max(14px, calc(var(--sab, 0px) * 0.65))',
+                  height: '68px',
+                  WebkitBackdropFilter: 'blur(28px) saturate(195%)',
+                }}
+              >
+                {/* Specular 3D Liquid Glass Top & Side Glare Overlay */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(110%_90%_at_12%_10%,rgba(255,255,255,0.34)_0%,transparent_45%),radial-gradient(110%_90%_at_88%_10%,rgba(255,255,255,0.28)_0%,transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.24)_0%,transparent_42%,rgba(255,255,255,0.10)_100%)] dark:bg-[radial-gradient(110%_90%_at_12%_10%,rgba(255,255,255,0.24)_0%,transparent_42%),radial-gradient(110%_90%_at_88%_10%,rgba(255,255,255,0.20)_0%,transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.18)_0%,transparent_38%,rgba(255,255,255,0.08)_100%)]"
+                />
+                <div className="relative z-10 h-full px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
                   <button
                     type="button"
-                    onClick={() => setQuickAddOpen(prev => !prev)}
-                    aria-label="Menu Input Cepat"
-                    className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 active:scale-90 cursor-pointer border-4 border-white dark:border-slate-900 ${
-                      quickAddOpen
-                        ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-slate-900/30'
-                        : 'bg-gradient-to-tr from-primary to-blue-500 shadow-primary/40'
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
+                      currentView === 'DASHBOARD' && !quickAddOpen
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
                     }`}
                   >
-                    <Plus size={26} strokeWidth={2.75} />
+                    {currentView === 'DASHBOARD' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <Home size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Beranda</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
+                      currentView === 'SAVINGS' && !quickAddOpen
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
+                    }`}
+                  >
+                    {currentView === 'SAVINGS' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <Vault size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Tabung</span>
+                  </button>
+
+                  {/* CENTER UNIVERSAL + BUTTON (Nested inside Liquid Glass Capsule with Concentric Glass Halo) */}
+                  <div className="flex items-center justify-center">
+                    <div className="p-1 rounded-full bg-white/15 dark:bg-white/[0.06] border border-white/40 dark:border-white/20 shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_0_16px_rgba(59,130,246,0.35)]">
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddOpen(prev => !prev)}
+                        aria-label="Menu Input Cepat"
+                        className={`w-11.5 h-11.5 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 cursor-pointer border border-white/45 dark:border-white/30 ${
+                          quickAddOpen
+                            ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-lg'
+                            : 'bg-gradient-to-b from-blue-400 via-blue-500 to-blue-600 shadow-[0_4px_16px_rgba(37,99,235,0.65),inset_0_1.5px_2px_rgba(255,255,255,0.65)]'
+                        }`}
+                      >
+                        <Plus size={25} strokeWidth={2.75} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
+                      currentView === 'YEARLY' && !quickAddOpen
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
+                    }`}
+                  >
+                    {currentView === 'YEARLY' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <CalendarRange size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Tahun</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
+                      currentView === 'OWNER_BILLS' && !quickAddOpen
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
+                    }`}
+                  >
+                    {currentView === 'OWNER_BILLS' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <PieChart size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Bisnis</span>
                   </button>
                 </div>
+              </nav>
+            ) : (
+              <nav 
+                className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" 
+                style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
+              >
+                <div className="h-[60px] px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
+                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                      currentView === 'DASHBOARD' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    <Home size={20} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                    currentView === 'YEARLY' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  <CalendarRange size={20} />
-                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
+                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                      currentView === 'SAVINGS' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    <Vault size={20} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                    currentView === 'OWNER_BILLS' && !quickAddOpen ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  <PieChart size={20} />
-                  <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Bisnis</span>
-                </button>
-              </div>
-            </nav>
+                  {/* CENTER UNIVERSAL + BUTTON */}
+                  <div className="flex flex-col items-center justify-center -mt-5">
+                    <button
+                      type="button"
+                      onClick={() => setQuickAddOpen(prev => !prev)}
+                      aria-label="Menu Input Cepat"
+                      className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 active:scale-90 cursor-pointer border-4 border-white dark:border-slate-900 ${
+                        quickAddOpen
+                          ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-slate-900/30'
+                          : 'bg-gradient-to-tr from-primary to-blue-500 shadow-primary/40'
+                      }`}
+                    >
+                      <Plus size={26} strokeWidth={2.75} />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
+                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                      currentView === 'YEARLY' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    <CalendarRange size={20} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
+                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
+                      currentView === 'OWNER_BILLS' && !quickAddOpen ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    <PieChart size={20} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Bisnis</span>
+                  </button>
+                </div>
+              </nav>
+            )
           )}
         </div>
       </div>
