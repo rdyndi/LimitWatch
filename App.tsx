@@ -596,6 +596,63 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCollectPiutangToSaving = (piutang: PiutangType, fromForm?: boolean) => {
+    const cardObj = data.cards.find(c => c.id === piutang.cardId);
+    const cardName = cardObj?.name || 'Kartu';
+    const periodMonth = piutang.targetPeriod?.month ?? new Date().getMonth();
+    const periodYear = piutang.targetPeriod?.year ?? new Date().getFullYear();
+    const periodLabel = `${monthNames[periodMonth]} ${periodYear}`;
+
+    if (!window.confirm(`Terima pembayaran piutang dari "${piutang.debtorName}" sebesar ${formatIDR(piutang.amount)}?\n\nDana ini akan otomatis masuk menjadi Saldo Tabungan untuk ${cardName} (${periodLabel}).`)) {
+      return;
+    }
+
+    const updatedPiutangs = (data.piutangs || []).map(p =>
+      p.id === piutang.id ? { ...p, isCollected: true } : p
+    );
+
+    const cleanNote = piutang.note && piutang.note !== 'Piutang'
+      ? `Pelunasan Piutang ${piutang.debtorName} (${piutang.note})`
+      : `Pelunasan Piutang ${piutang.debtorName}`;
+
+    const newSaving: Saving = {
+      id: generateId(),
+      cardId: piutang.cardId,
+      amount: Math.ceil(piutang.amount),
+      date: new Date().toISOString(),
+      note: cleanNote,
+      owner: OwnerType.PERSONAL,
+      targetPeriod: {
+        month: periodMonth,
+        year: periodYear
+      },
+      isTransferred: false
+    };
+
+    saveData({
+      ...data,
+      piutangs: updatedPiutangs,
+      savings: [newSaving, ...data.savings]
+    });
+
+    if (piutangHistoryModal) {
+      const remaining = piutangHistoryModal.items.filter(item => item.id !== piutang.id);
+      if (remaining.length === 0) {
+        setPiutangHistoryModal(null);
+      } else {
+        setPiutangHistoryModal({
+          ...piutangHistoryModal,
+          items: remaining
+        });
+      }
+    }
+
+    if (fromForm) {
+      popView();
+      setEditingPiutang(null);
+    }
+  };
+
   const availableSavingsForPeriod = useMemo(() => {
     if (!txCardId) return 0;
     return data.savings
@@ -2538,61 +2595,521 @@ const App: React.FC = () => {
             )}
           </div>
         );
-      case 'PIUTANGS':
+      case 'PIUTANGS': {
+        const allYearPiutangs = (data.piutangs || []).filter(p => p.targetPeriod?.year === piutangsSelectedYear);
+        const activeYearPiutangs = allYearPiutangs.filter(p => !p.isCollected);
+        const collectedYearPiutangs = allYearPiutangs.filter(p => p.isCollected);
+        const totalYearCollectedPiutangs = collectedYearPiutangs.reduce((sum, p) => sum + p.amount, 0);
+        const totalYearAllPiutangs = totalYearPiutangs + totalYearCollectedPiutangs;
+        const piutangCollectionPct = totalYearAllPiutangs > 0
+          ? Math.min(100, Math.round((totalYearCollectedPiutangs / totalYearAllPiutangs) * 100))
+          : 0;
+
+        const debtorMap = new Map<string, { name: string; totalAmount: number; count: number; items: PiutangType[] }>();
+        activeYearPiutangs.forEach(p => {
+          const cleanName = (p.debtorName || 'Tanpa Nama').trim();
+          const key = cleanName.toLowerCase();
+          const existing = debtorMap.get(key);
+          if (existing) {
+            existing.totalAmount += p.amount;
+            existing.count += 1;
+            existing.items.push(p);
+          } else {
+            debtorMap.set(key, { name: cleanName, totalAmount: p.amount, count: 1, items: [p] });
+          }
+        });
+        const debtorsBreakdown = Array.from(debtorMap.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+
+        const activeMonthsList = piutangsYearlyData.filter(m => m.totalMonth > 0);
+
         return (
-          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[32px] p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between">
-               <div className="space-y-2">
-                 <p className="text-indigo-100 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Piutang Tahun {piutangsSelectedYear}</p>
-                 <h3 className="text-3xl md:text-5xl font-black">{showAmounts ? formatIDR(totalYearPiutangs) : '••••••••'}</h3>
-               </div>
-               <div className="flex items-center gap-6 mt-6 md:mt-0 bg-white/10 p-4 rounded-2xl">
-                 <div className="flex items-center gap-3"><Calendar size={20} className="text-indigo-200"/><span className="text-xl font-black">{piutangsSelectedYear}</span></div>
-                 <div className="flex gap-2">
-                   <button onClick={() => setPiutangsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
-                   <button onClick={() => setPiutangsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
-                 </div>
-               </div>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {piutangsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
-                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-6 space-y-4">
-                   <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-indigo-600">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
-                   <div className="space-y-2.5">
-                     {m.cardGroups.map((group, i) => (
-                       <button key={i} onClick={() => setPiutangHistoryModal({ title: `${group.cardName} - ${m.monthName} ${piutangsSelectedYear}`, items: group.items, cardId: group.cardId, month: m.monthIdx, year: piutangsSelectedYear })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
-                         <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
-                         <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
-                       </button>
-                     ))}
-                   </div>
+          <div className="space-y-5 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4 md:py-7">
+            {/* 1. 2026 EXECUTIVE FINTECH BENTO HERO — PORTFOLIO PIUTANG */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Main Piutang Command Card */}
+              <div className="lg:col-span-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 dark:from-slate-900 dark:via-indigo-950/90 dark:to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-white/10 relative overflow-hidden flex flex-col justify-between gap-5">
+                <div className="absolute -right-12 -top-12 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-12 -bottom-12 w-56 h-56 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Top Status, Year Switcher & Privacy Bar */}
+                <div className="relative z-10 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/10 text-cyan-200 border border-white/10 backdrop-blur-md">
+                      <span className={`w-1.5 h-1.5 rounded-full ${totalYearPiutangs === 0 ? 'bg-emerald-400' : 'bg-cyan-400 animate-pulse'}`} />
+                      Portfolio Piutang
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-300/80 hidden sm:inline">
+                      • {activeYearPiutangs.length} Tagihan Aktif
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Year Switcher */}
+                    <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setPiutangsSelectedYear(y => y - 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/15 transition text-blue-100 cursor-pointer"
+                        title="Tahun Sebelumnya"
+                      >
+                        <ChevronLeft size={15} />
+                      </button>
+                      <span className="px-2.5 text-xs font-black tabular-nums text-white flex items-center gap-1">
+                        <Calendar size={12} className="text-cyan-300" />
+                        {piutangsSelectedYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPiutangsSelectedYear(y => y + 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/15 transition text-blue-100 cursor-pointer"
+                        title="Tahun Berikutnya"
+                      >
+                        <ChevronRight size={15} />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAmounts(!showAmounts)}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-blue-100 transition cursor-pointer border border-white/10"
+                      title={showAmounts ? 'Sembunyikan Nominal' : 'Tampilkan Nominal'}
+                    >
+                      {showAmounts ? <Eye size={17} /> : <EyeOff size={17} />}
+                    </button>
+                  </div>
                 </div>
-              ))}
+
+                {/* Primary Figures: Total Piutang Aktif & Sudah Dibayar Masuk Tabungan */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-end">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-200/75">
+                      Total Piutang Aktif ({piutangsSelectedYear})
+                    </p>
+                    <h3 className="text-2xl sm:text-4xl font-black tracking-tight tabular-nums mt-1">
+                      {showAmounts ? formatIDR(totalYearPiutangs) : '••••••••'}
+                    </h3>
+                  </div>
+
+                  <div className="sm:text-right bg-white/5 sm:bg-transparent p-3 sm:p-0 rounded-2xl border border-white/10 sm:border-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-300/90">
+                      Dibayar → Saldo Tabungan ({piutangsSelectedYear})
+                    </p>
+                    <p className="text-xl sm:text-2xl font-black tracking-tight tabular-nums text-emerald-300 mt-0.5">
+                      {showAmounts ? formatIDR(totalYearCollectedPiutangs) : '••••••••'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Collection Progress Bar */}
+                <div className="relative z-10 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-extrabold">
+                    <span className="text-blue-200/80 uppercase tracking-wider">
+                      Rasio Pelunasan Piutang ({piutangsSelectedYear})
+                    </span>
+                    <span className="text-emerald-300 tabular-nums">
+                      {piutangCollectionPct}% Tertagih ({showAmounts ? formatIDR(totalYearCollectedPiutangs) : '••••'})
+                    </span>
+                  </div>
+                  <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-400 transition-all duration-700"
+                      style={{ width: `${piutangCollectionPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 3 Sub-Pillars (Untruncated, same layout as Beranda) */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-2 border-t border-white/10">
+                  <div className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left">
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-cyan-400/15 text-cyan-300 flex items-center justify-center shrink-0">
+                        <HandCoins size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Total Semua Piutang
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Total Semua Piutang
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••••••'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => pushView('SAVINGS')}
+                    className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left transition group cursor-pointer"
+                  >
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-emerald-400/15 text-emerald-300 flex items-center justify-center shrink-0">
+                        <Vault size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Saldo Tabungan
+                      </span>
+                      <ChevronRight size={13} className="hidden sm:block text-blue-200/60 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Saldo Tabungan
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}
+                      </p>
+                      <ChevronRight size={14} className="sm:hidden text-blue-200/60 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </div>
+                  </button>
+
+                  <div className="px-3.5 py-2.5 sm:p-3.5 rounded-2xl bg-white/8 border border-white/10 flex sm:flex-col items-center sm:items-start justify-between gap-2 text-left">
+                    <div className="flex items-center sm:justify-between gap-2.5 sm:w-full">
+                      <div className="w-7 h-7 rounded-xl bg-indigo-400/15 text-indigo-300 flex items-center justify-center shrink-0">
+                        <UserIcon size={14} />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100/85 sm:hidden">
+                        Peminjam ({piutangsSelectedYear})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:block sm:w-full sm:mt-1">
+                      <p className="hidden sm:block text-[9px] font-bold uppercase tracking-wider text-blue-200/75">
+                        Peminjam ({piutangsSelectedYear})
+                      </p>
+                      <p className="text-sm sm:text-base font-black tabular-nums text-white whitespace-nowrap sm:mt-0.5">
+                        {debtorsBreakdown.length} Orang
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Side Bento Card: Ringkasan Per Peminjam & Tombol Tambah Piutang */}
+              <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                        Rekapitulasi Debitur
+                      </span>
+                      <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
+                        Daftar Peminjam ({piutangsSelectedYear})
+                      </h4>
+                    </div>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                      {debtorsBreakdown.length} Orang
+                    </span>
+                  </div>
+
+                  {debtorsBreakdown.length > 0 ? (
+                    <div className="space-y-2 max-h-[210px] overflow-y-auto no-scrollbar pr-0.5">
+                      {debtorsBreakdown.map((debtor, dIdx) => (
+                        <div
+                          key={dIdx}
+                          className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs shrink-0 uppercase">
+                              {debtor.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-800 dark:text-slate-100 truncate">
+                                {debtor.name}
+                              </p>
+                              <p className="text-[10px] font-bold text-slate-400">
+                                {debtor.count} tagihan aktif
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 tabular-nums whitespace-nowrap">
+                            {showAmounts ? formatIDR(debtor.totalAmount) : '••••••'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1.5">
+                      <HandCoins size={26} className="mx-auto text-slate-300 dark:text-slate-600" />
+                      <p className="text-xs font-bold text-slate-400">
+                        Tidak ada peminjam aktif di tahun {piutangsSelectedYear}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingPiutang(null);
+                    setPiutangAmount('');
+                    setPiutangDebtor('');
+                    setPiutangNote('');
+                    setPiutangCardId(data.cards[0]?.id || '');
+                    setPiutangTargetMonth(new Date().getMonth());
+                    setPiutangTargetYear(piutangsSelectedYear);
+                    pushView('FORM_PIUTANG');
+                  }}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-primary to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  <span>Catat Piutang Baru</span>
+                </button>
+              </div>
             </div>
-            {(data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.year === piutangsSelectedYear).length === 0 && (
-              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
-                <HandCoins size={48} className="mx-auto text-slate-200 mb-4" />
-                <p className="text-slate-400 font-bold">Belum ada catatan piutang untuk tahun ini.</p>
+
+            {/* 2. JADWAL & RINCIAN PIUTANG BULANAN (KLIK DIBAYAR -> MASUK SALDO TABUNGAN) */}
+            <div className="space-y-5 bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-7 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                      Tagihan Piutang ({piutangsSelectedYear})
+                    </h3>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                      {activeYearPiutangs.length} Aktif
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Klik tombol <strong className="text-emerald-600 dark:text-emerald-400">Dibayar</strong> saat piutang dilunasi agar otomatis masuk menjadi <strong className="text-slate-700 dark:text-slate-200">Saldo Tabungan</strong> kartu terkait
+                  </p>
+                </div>
+              </div>
+
+              {activeMonthsList.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeMonthsList.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4"
+                    >
+                      {/* Month Header */}
+                      <div className="flex justify-between items-center border-b border-slate-200/70 dark:border-slate-700/70 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs">
+                            <Calendar size={15} />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm sm:text-base text-slate-900 dark:text-slate-100 leading-tight">
+                              {m.monthName} {piutangsSelectedYear}
+                            </h4>
+                            <p className="text-[10px] font-bold text-slate-400">
+                              {m.cardGroups.reduce((acc, g) => acc + g.items.length, 0)} catatan piutang
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Bulan Ini</span>
+                          <span className="text-sm sm:text-base font-black text-indigo-600 dark:text-indigo-400 tabular-nums whitespace-nowrap">
+                            {showAmounts ? formatIDR(m.totalMonth) : '••••••'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Card Groups & Direct Items inside the Month */}
+                      <div className="space-y-3">
+                        {m.cardGroups.map((group, i) => (
+                          <div
+                            key={i}
+                            className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800 space-y-2.5 shadow-2xs"
+                          >
+                            {/* Card Group Header */}
+                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                              <button
+                                type="button"
+                                onClick={() => setPiutangHistoryModal({
+                                  title: `${group.cardName} - ${m.monthName} ${piutangsSelectedYear}`,
+                                  items: group.items,
+                                  cardId: group.cardId,
+                                  month: m.monthIdx,
+                                  year: piutangsSelectedYear
+                                })}
+                                className="flex items-center gap-2 min-w-0 group cursor-pointer text-left"
+                              >
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${group.cardColor}`} />
+                                <span className="text-xs font-black text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition">
+                                  {group.cardName}
+                                </span>
+                              </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">
+                                  {showAmounts ? formatIDR(group.amount) : '••••'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPiutang(null);
+                                    setPiutangAmount('');
+                                    setPiutangDebtor('');
+                                    setPiutangNote('');
+                                    setPiutangCardId(group.cardId);
+                                    setPiutangTargetMonth(m.monthIdx);
+                                    setPiutangTargetYear(piutangsSelectedYear);
+                                    pushView('FORM_PIUTANG');
+                                  }}
+                                  className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500 hover:text-white text-slate-500 flex items-center justify-center transition cursor-pointer"
+                                  title="Tambah Piutang di Kartu & Bulan Ini"
+                                >
+                                  <Plus size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Individual Piutang Items */}
+                            <div className="space-y-2">
+                              {group.items.map(item => (
+                                <div
+                                  key={item.id}
+                                  onClick={() => openEditPiutang(item)}
+                                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-2.5 cursor-pointer transition"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                                        {item.debtorName}
+                                      </p>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+                                      {item.note || 'Piutang'}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums whitespace-nowrap">
+                                      {showAmounts ? formatIDR(item.amount) : '••••'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCollectPiutangToSaving(item);
+                                      }}
+                                      title="Tandai Dibayar & Masukkan ke Saldo Tabungan"
+                                      className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white border border-emerald-500/25 text-[10px] font-black uppercase tracking-tight flex items-center gap-1 transition active:scale-95 cursor-pointer shrink-0"
+                                    >
+                                      <CheckCircle2 size={12} />
+                                      <span>Dibayar</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-14 bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 space-y-2">
+                  <HandCoins size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+                  <p className="text-sm font-black text-slate-600 dark:text-slate-300">
+                    Tidak Ada Piutang Aktif di Tahun {piutangsSelectedYear}
+                  </p>
+                  <p className="text-xs text-slate-400 font-medium max-w-md mx-auto">
+                    Semua piutang pada tahun ini sudah lunas atau belum ada catatan piutang baru.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 3. RIWAYAT PIUTANG LUNAS (SUDAH MASUK SALDO TABUNGAN) */}
+            {collectedYearPiutangs.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <Vault size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                        Riwayat Piutang Lunas ({piutangsSelectedYear})
+                      </h3>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        Otomatis telah masuk ke Saldo Tabungan kartu masing-masing
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
+                    +{showAmounts ? formatIDR(totalYearCollectedPiutangs) : '••••••'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {collectedYearPiutangs.map(item => {
+                    const card = data.cards.find(c => c.id === item.cardId);
+                    const periodMonthName = item.targetPeriod ? monthNames[item.targetPeriod.month] : '';
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2.5"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                            <CheckCircle2 size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                                {item.debtorName}
+                              </p>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase shrink-0">
+                                Masuk Tabungan
+                              </span>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+                              {card?.name || 'Kartu'} • {periodMonthName} {item.targetPeriod?.year} • {item.note}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
+                            +{showAmounts ? formatIDR(item.amount) : '••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePiutang(item.id)}
+                            className="p-1.5 text-slate-300 hover:text-rose-500 transition cursor-pointer"
+                            title="Hapus Riwayat Piutang"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
+            {/* Modal Rincian Per Kartu/Bulan */}
             {piutangHistoryModal && (
               <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
-                  <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="p-5 sm:p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                     <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-tight">{piutangHistoryModal.title}</h3>
                     <button onClick={() => setPiutangHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
                   </div>
-                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
+                  <div className="p-5 sm:p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
                     {piutangHistoryModal.items.map(item => (
-                      <div key={item.id} onClick={() => { setPiutangHistoryModal(null); openEditPiutang(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-indigo-500/30">
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.debtorName}</p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.note}</p>
+                      <div key={item.id} onClick={() => { setPiutangHistoryModal(null); openEditPiutang(item); }} className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-indigo-500/30">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{item.debtorName}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{item.note}</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-indigo-600">{formatIDR(item.amount)}</span>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tabular-nums whitespace-nowrap">{formatIDR(item.amount)}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCollectPiutangToSaving(item);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white border border-emerald-500/25 text-[10px] font-black uppercase flex items-center gap-1 transition cursor-pointer"
+                          >
+                            <CheckCircle2 size={12} />
+                            <span>Dibayar</span>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2614,14 +3131,15 @@ const App: React.FC = () => {
                       <Plus size={18} /> Tambah Data Piutang
                     </button>
                   </div>
-                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
+                  <div className="p-4 bg-slate-50/50 dark:bg-slate-800/30 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah • Klik Dibayar untuk masuk ke Tabungan</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
         );
+      }
       case 'YEARLY':
         return (
           <div className="space-y-8 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
@@ -3765,14 +4283,77 @@ const App: React.FC = () => {
              </form>
           </div>
         );
-      case 'FORM_PIUTANG':
+      case 'FORM_PIUTANG': {
+        const existingDebtorNames = Array.from(
+          new Set(
+            (data.piutangs || [])
+              .map(p => (p.debtorName || '').trim())
+              .filter(Boolean)
+          )
+        ).slice(0, 6);
+
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
-             <form onSubmit={handleSavePiutang} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none font-bold text-xs sm:text-sm" /></div>
-               <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Nominal Piutang</label><input type="text" inputMode="numeric" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+             <form onSubmit={handleSavePiutang} className="space-y-3.5 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-200/80 dark:border-slate-800">
+               <div className="flex items-center gap-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                 <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                   <HandCoins size={20} />
+                 </div>
+                 <div>
+                   <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                     {editingPiutang ? 'Ubah Catatan Piutang' : 'Catat Piutang Baru'}
+                   </h2>
+                   <p className="text-[11px] text-slate-400 font-medium">
+                     Saat dibayar, piutang otomatis masuk menjadi Saldo Tabungan
+                   </p>
+                 </div>
+               </div>
+
+               <div className="space-y-1.5">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Piutang Dari Siapa?</label>
+                 <input
+                   type="text"
+                   value={piutangDebtor}
+                   onChange={(e)=>setPiutangDebtor(e.target.value)}
+                   required
+                   placeholder="Contoh: Andi"
+                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none font-bold text-xs sm:text-sm border border-slate-200/70 dark:border-slate-700 focus:border-indigo-500"
+                 />
+                 {existingDebtorNames.length > 0 && (
+                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                     {existingDebtorNames.map(name => (
+                       <button
+                         key={name}
+                         type="button"
+                         onClick={() => setPiutangDebtor(name)}
+                         className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition cursor-pointer ${
+                           piutangDebtor === name
+                             ? 'bg-indigo-600 text-white border-indigo-600'
+                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                         }`}
+                       >
+                         {name}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+               </div>
+
+               <div className="space-y-1 text-center py-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase block">Nominal Piutang</label>
+                 <input
+                   type="text"
+                   inputMode="numeric"
+                   value={piutangAmount}
+                   onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)}
+                   required
+                   placeholder="Rp 0"
+                   className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center"
+                 />
+               </div>
+
                <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk Hutang</label>
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk Kartu / Hutang</label>
                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                    {data.cards.map(c => {
                      const isSelected = c.id === piutangCardId;
@@ -3795,9 +4376,21 @@ const App: React.FC = () => {
                    })}
                  </div>
                </div>
+
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Catatan / Keterangan (Opsional)</label>
+                 <input
+                   type="text"
+                   value={piutangNote}
+                   onChange={(e) => setPiutangNote(e.target.value)}
+                   placeholder="Misal: Titip beli barang / Pinjaman sementara"
+                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none font-bold text-xs sm:text-sm border border-slate-200/70 dark:border-slate-700 focus:border-indigo-500"
+                 />
+               </div>
+
                {!editingPiutang && (
                  <div className="space-y-2">
-                   <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 rounded-xl cursor-pointer" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
+                   <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 rounded-xl cursor-pointer border border-slate-200/60 dark:border-slate-700/60" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
                      <div className={`w-5 h-5 rounded-md flex items-center justify-center ${piutangIsInstallment ? 'bg-indigo-600' : 'border-2 border-slate-300 dark:border-slate-600'}`}>
                        {piutangIsInstallment && <Check size={13} className="text-white" />}
                      </div>
@@ -3806,7 +4399,7 @@ const App: React.FC = () => {
                    {piutangIsInstallment && (
                      <div className="space-y-1 animate-in slide-in-from-top duration-200">
                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Berapa Bulan (Tenor)?</label>
-                       <input type="number" min="2" max="60" value={piutangInstallmentMonths} onChange={(e)=>setPiutangInstallmentMonths(parseInt(e.target.value))} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none focus:border-indigo-600 border border-transparent" />
+                       <input type="number" min="2" max="60" value={piutangInstallmentMonths} onChange={(e)=>setPiutangInstallmentMonths(parseInt(e.target.value))} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none focus:border-indigo-600 border border-slate-200/70 dark:border-slate-700" />
                        {piutangInstallmentMonths > 1 && getNumericValue(piutangAmount) > 0 && (
                           <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 pl-1">Tagihan per bulan: {formatIDR(getNumericValue(piutangAmount) / piutangInstallmentMonths)}</p>
                        )}
@@ -3814,11 +4407,43 @@ const App: React.FC = () => {
                    )}
                  </div>
                )}
-               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan {piutangIsInstallment ? 'Pertama' : ''}</label><div className="grid grid-cols-2 gap-2.5"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold"/></div></div>
-               <div className="pt-2"><button type="submit" className="w-full py-3 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">Simpan Catatan Piutang</button>{editingPiutang && (<button type="button" onClick={() => handleDeletePiutang(editingPiutang.id)} className="w-full mt-2 py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition">Hapus Piutang</button>)}</div>
+
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan {piutangIsInstallment ? 'Pertama' : ''}</label>
+                 <div className="grid grid-cols-2 gap-2.5">
+                   <select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold border border-slate-200/70 dark:border-slate-700">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+                   <input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold border border-slate-200/70 dark:border-slate-700"/>
+                 </div>
+               </div>
+
+               <div className="pt-2 space-y-2">
+                 <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer">
+                   Simpan Catatan Piutang
+                 </button>
+                 {editingPiutang && !editingPiutang.isCollected && (
+                   <button
+                     type="button"
+                     onClick={() => handleCollectPiutangToSaving(editingPiutang, true)}
+                     className="w-full py-3 bg-emerald-500/15 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-white border border-emerald-500/30 text-xs font-black uppercase tracking-wider rounded-2xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                   >
+                     <CheckCircle2 size={15} />
+                     <span>Tandai Sudah Dibayar → Masuk Saldo Tabungan</span>
+                   </button>
+                 )}
+                 {editingPiutang && (
+                   <button
+                     type="button"
+                     onClick={() => handleDeletePiutang(editingPiutang.id)}
+                     className="w-full py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition cursor-pointer"
+                   >
+                     Hapus Piutang
+                   </button>
+                 )}
+               </div>
              </form>
           </div>
         );
+      }
       case 'VIEW_PROFILE':
         return (
           <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
