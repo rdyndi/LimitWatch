@@ -265,6 +265,7 @@ const App: React.FC = () => {
   const [savingCardId, setSavingCardId] = useState('');
   const [savingTargetMonth, setSavingTargetMonth] = useState(new Date().getMonth());
   const [savingTargetYear, setSavingTargetYear] = useState(new Date().getFullYear());
+  const [savingOwner, setSavingOwner] = useState<OwnerType>(OwnerType.PERSONAL);
 
   const [transferAmount, setTransferAmount] = useState('');
   const [transferNote, setTransferNote] = useState('');
@@ -641,11 +642,32 @@ const App: React.FC = () => {
     setSavingCardId(s.cardId);
     setSavingAmount(formatIDR(s.amount));
     setSavingNote(s.note);
+    setSavingOwner(s.owner === OwnerType.BUSINESS ? OwnerType.BUSINESS : OwnerType.PERSONAL);
     if (s.targetPeriod) {
       setSavingTargetMonth(s.targetPeriod.month);
       setSavingTargetYear(s.targetPeriod.year);
     }
     pushView('FORM_SAVING');
+  };
+
+  const toggleSavingOwner = (savingId: string) => {
+    const updatedSavings = data.savings.map(s => {
+      if (s.id === savingId) {
+        const nextOwner = s.owner === OwnerType.BUSINESS ? OwnerType.PERSONAL : OwnerType.BUSINESS;
+        return { ...s, owner: nextOwner };
+      }
+      return s;
+    });
+    saveData({ ...data, savings: updatedSavings });
+    if (savingHistoryModal) {
+      setSavingHistoryModal(prev => prev ? {
+        ...prev,
+        items: prev.items.map(item => item.id === savingId
+          ? { ...item, owner: item.owner === OwnerType.BUSINESS ? OwnerType.PERSONAL : OwnerType.BUSINESS }
+          : item
+        )
+      } : null);
+    }
   };
 
   const openEditPiutang = (p: PiutangType) => {
@@ -1168,20 +1190,44 @@ const App: React.FC = () => {
     const monthlyList = monthNames.map((monthName, monthIdx) => {
       const cardsData = data.cards.map(card => {
         const ownerBill = getMonthlyGrossBillByOwner(card.id, monthIdx, ownerBillsYear);
+        const cardMonthSavings = data.savings.filter(
+          s => !s.isTransferred && s.cardId === card.id && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === ownerBillsYear
+        );
+        const savingBusiness = Math.max(0, cardMonthSavings
+          .filter(s => s.owner === OwnerType.BUSINESS)
+          .reduce((acc, s) => acc + s.amount, 0));
+        const savingPersonal = Math.max(0, cardMonthSavings
+          .filter(s => s.owner !== OwnerType.BUSINESS)
+          .reduce((acc, s) => acc + s.amount, 0));
+
+        const grossBusiness = ownerBill.business;
+        const grossPersonal = ownerBill.personal;
+        const business = Math.max(0, Math.ceil(grossBusiness - savingBusiness));
+        const personal = Math.max(0, Math.ceil(grossPersonal - savingPersonal));
+
         return {
           cardId: card.id,
           cardName: card.name,
           cardColor: card.color || 'bg-slate-500',
           cardObj: card,
-          business: ownerBill.business,
-          personal: ownerBill.personal,
-          totalCardBill: ownerBill.business + ownerBill.personal
+          grossBusiness,
+          grossPersonal,
+          savingBusiness,
+          savingPersonal,
+          business,
+          personal,
+          totalCardBill: business + personal
         };
       });
 
       const totalBusiness = cardsData.reduce((sum, c) => sum + c.business, 0);
       const totalPersonal = cardsData.reduce((sum, c) => sum + c.personal, 0);
+      const totalGrossBusiness = cardsData.reduce((sum, c) => sum + c.grossBusiness, 0);
+      const totalGrossPersonal = cardsData.reduce((sum, c) => sum + c.grossPersonal, 0);
+      const totalSavingBusiness = cardsData.reduce((sum, c) => sum + c.savingBusiness, 0);
+      const totalSavingPersonal = cardsData.reduce((sum, c) => sum + c.savingPersonal, 0);
       const totalMonth = totalBusiness + totalPersonal;
+      const totalGrossMonth = totalGrossBusiness + totalGrossPersonal;
 
       return {
         monthIdx,
@@ -1190,18 +1236,27 @@ const App: React.FC = () => {
         cardsData,
         totalBusiness,
         totalPersonal,
-        totalMonth
+        totalGrossBusiness,
+        totalGrossPersonal,
+        totalSavingBusiness,
+        totalSavingPersonal,
+        totalMonth,
+        totalGrossMonth
       };
     });
 
     const yearTotalBusiness = monthlyList.reduce((sum, m) => sum + m.totalBusiness, 0);
     const yearTotalPersonal = monthlyList.reduce((sum, m) => sum + m.totalPersonal, 0);
+    const yearTotalSavingBusiness = monthlyList.reduce((sum, m) => sum + m.totalSavingBusiness, 0);
+    const yearTotalSavingPersonal = monthlyList.reduce((sum, m) => sum + m.totalSavingPersonal, 0);
     const yearTotalAll = yearTotalBusiness + yearTotalPersonal;
 
     return {
       monthlyList,
       yearTotalBusiness,
       yearTotalPersonal,
+      yearTotalSavingBusiness,
+      yearTotalSavingPersonal,
       yearTotalAll
     };
   }, [data, ownerBillsYear]);
@@ -1448,12 +1503,13 @@ const App: React.FC = () => {
 
   const handleSaveSaving = (e: React.FormEvent) => {
     e.preventDefault(); const amountVal = getNumericValue(savingAmount); if (!savingCardId || amountVal === 0) return;
+    const defaultNote = savingOwner === OwnerType.BUSINESS ? 'Tabungan Bisnis' : 'Tabungan Personal';
     if (editingSaving) {
-      const updatedSavings = data.savings.map(s => s.id === editingSaving.id ? { ...s, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : s);
+      const updatedSavings = data.savings.map(s => s.id === editingSaving.id ? { ...s, cardId: savingCardId, amount: Math.ceil(amountVal), note: savingNote || defaultNote, owner: savingOwner, targetPeriod: { month: savingTargetMonth, year: savingTargetYear } } : s);
       saveData({ ...data, savings: updatedSavings });
       setEditingSaving(null);
     } else {
-      const newSaving: Saving = { id: generateId(), cardId: savingCardId, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: savingNote || 'Tabungan Rutin', targetPeriod: { month: savingTargetMonth, year: savingTargetYear }, isTransferred: false };
+      const newSaving: Saving = { id: generateId(), cardId: savingCardId, amount: Math.ceil(amountVal), date: new Date().toISOString(), note: savingNote || defaultNote, owner: savingOwner, targetPeriod: { month: savingTargetMonth, year: savingTargetYear }, isTransferred: false };
       saveData({ ...data, savings: [newSaving, ...data.savings] });
     }
     popView(); setSavingAmount(''); setSavingNote('');
@@ -1586,7 +1642,7 @@ const App: React.FC = () => {
 
               <button 
                 type="button"
-                onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} 
+                onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); setSavingOwner(OwnerType.PERSONAL); pushView('FORM_SAVING'); }} 
                 className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
                 <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
@@ -2133,24 +2189,45 @@ const App: React.FC = () => {
                     <button onClick={() => setSavingHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
                   </div>
                   <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
-                    {savingHistoryModal.items.map(item => (
-                      <div key={item.id} onClick={() => { setSavingHistoryModal(null); openEditSaving(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-success/30">
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.note}</p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    {savingHistoryModal.items.map(item => {
+                      const isBiz = item.owner === OwnerType.BUSINESS;
+                      return (
+                        <div key={item.id} onClick={() => { setSavingHistoryModal(null); openEditSaving(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-success/30">
+                          <div className="space-y-1 min-w-0 pr-2">
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{item.note}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSavingOwner(item.id);
+                                }}
+                                title="Klik untuk ubah Personal / Bisnis"
+                                className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider border transition active:scale-95 ${
+                                  isBiz
+                                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/25'
+                                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25'
+                                }`}
+                              >
+                                {isBiz ? 'UANG BISNIS' : 'UANG PERSONAL'}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={`text-sm font-black ${item.amount < 0 ? 'text-danger' : 'text-success'}`}>{formatIDR(item.amount)}</span>
+                            <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-sm font-black ${item.amount < 0 ? 'text-danger' : 'text-success'}`}>{formatIDR(item.amount)}</span>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     
                     <button 
                       onClick={() => {
                         setEditingSaving(null);
                         setSavingAmount('');
                         setSavingNote('');
+                        setSavingOwner(OwnerType.PERSONAL);
                         setSavingCardId(savingHistoryModal.cardId);
                         setSavingTargetMonth(savingHistoryModal.month);
                         setSavingTargetYear(savingHistoryModal.year);
@@ -2701,11 +2778,16 @@ const App: React.FC = () => {
                 <div className="bg-purple-50/70 dark:bg-purple-950/25 border border-purple-200/70 dark:border-purple-800/40 rounded-2xl p-3.5 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
-                      Total Bisnis ({ownerBillsYear})
+                      Sisa Tagihan Bisnis ({ownerBillsYear})
                     </span>
                     <p className="text-base sm:text-lg font-black text-purple-700 dark:text-purple-300 tabular-nums mt-0.5">
                       {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalBusiness) : '••••••••'}
                     </p>
+                    {ownerBillsAnalysis.yearTotalSavingBusiness > 0 && showAmounts && (
+                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        Tabungan Bisnis: -{formatIDR(ownerBillsAnalysis.yearTotalSavingBusiness)}
+                      </p>
+                    )}
                   </div>
                   <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <Briefcase size={18} />
@@ -2715,11 +2797,16 @@ const App: React.FC = () => {
                 <div className="bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/70 dark:border-blue-800/40 rounded-2xl p-3.5 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-                      Total Personal ({ownerBillsYear})
+                      Sisa Tagihan Personal ({ownerBillsYear})
                     </span>
                     <p className="text-base sm:text-lg font-black text-blue-700 dark:text-blue-300 tabular-nums mt-0.5">
                       {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalPersonal) : '••••••••'}
                     </p>
+                    {ownerBillsAnalysis.yearTotalSavingPersonal > 0 && showAmounts && (
+                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        Tabungan Personal: -{formatIDR(ownerBillsAnalysis.yearTotalSavingPersonal)}
+                      </p>
+                    )}
                   </div>
                   <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                     <UserIcon size={18} />
@@ -2729,7 +2816,7 @@ const App: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl p-3.5 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                      Total Gabungan ({ownerBillsYear})
+                      Total Sisa Gabungan ({ownerBillsYear})
                     </span>
                     <p className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums mt-0.5">
                       {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalAll) : '••••••••'}
@@ -2745,7 +2832,7 @@ const App: React.FC = () => {
             {/* 2. GRID BULANAN: SETIAP BULAN MEMUAT SEKSI BISNIS & PERSONAL */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {ownerBillsAnalysis.monthlyList
-                .filter(m => ownerBillsFilter === 'ALL' ? true : m.totalMonth > 0)
+                .filter(m => ownerBillsFilter === 'ALL' ? true : (m.totalMonth > 0 || m.totalGrossMonth > 0))
                 .map(m => (
                   <div
                     key={m.monthIdx}
@@ -2765,7 +2852,7 @@ const App: React.FC = () => {
                             {m.monthName} {m.year}
                           </h4>
                           <p className="text-[10px] font-bold text-slate-400">
-                            Total Bulan Ini: {showAmounts ? formatIDR(m.totalMonth) : '••••'}
+                            Sisa Bulan Ini: {showAmounts ? formatIDR(m.totalMonth) : '••••'}
                           </p>
                         </div>
                       </div>
@@ -2778,6 +2865,22 @@ const App: React.FC = () => {
                           <Briefcase size={13} />
                           BISNIS
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSaving(null);
+                            setSavingAmount('');
+                            setSavingNote('Tabungan Bisnis');
+                            setSavingOwner(OwnerType.BUSINESS);
+                            if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                            setSavingTargetMonth(m.monthIdx);
+                            setSavingTargetYear(m.year);
+                            pushView('FORM_SAVING');
+                          }}
+                          className="text-[9px] font-black text-purple-600 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <Plus size={10} /> Tabungan Bisnis
+                        </button>
                       </div>
 
                       <div className="space-y-1.5 text-xs">
@@ -2785,13 +2888,20 @@ const App: React.FC = () => {
                           <div
                             key={`biz_${c.cardId}`}
                             onClick={() => openStatement(c.cardObj, m.monthIdx, m.year)}
-                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-purple-100/50 dark:hover:bg-purple-900/30 transition cursor-pointer"
+                            className="flex items-start justify-between py-1 px-1.5 rounded-lg hover:bg-purple-100/50 dark:hover:bg-purple-900/30 transition cursor-pointer gap-2"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
-                              <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {c.cardName}
-                              </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
+                                <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                  {c.cardName}
+                                </span>
+                              </div>
+                              {c.savingBusiness > 0 && showAmounts && (
+                                <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 pl-4 mt-0.5">
+                                  Tagihan {formatIDR(c.grossBusiness)} − Tabungan {formatIDR(c.savingBusiness)}
+                                </p>
+                              )}
                             </div>
                             <span className={`font-extrabold tabular-nums whitespace-nowrap ${
                               c.business > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
@@ -2805,13 +2915,21 @@ const App: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-purple-200/60 dark:border-purple-800/50 flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-purple-800 dark:text-purple-300">
-                          Total
-                        </span>
-                        <span className="text-sm font-black text-purple-700 dark:text-purple-300 tabular-nums">
-                          {showAmounts ? formatIDR(m.totalBusiness) : '••••'}
-                        </span>
+                      <div className="pt-2 border-t border-purple-200/60 dark:border-purple-800/50 space-y-1">
+                        {m.totalSavingBusiness > 0 && showAmounts && (
+                          <div className="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <span>Pengurang Tabungan Bisnis</span>
+                            <span className="tabular-nums">−{formatIDR(m.totalSavingBusiness)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-purple-800 dark:text-purple-300">
+                            Total
+                          </span>
+                          <span className="text-sm font-black text-purple-700 dark:text-purple-300 tabular-nums">
+                            {showAmounts ? formatIDR(m.totalBusiness) : '••••'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -2822,6 +2940,22 @@ const App: React.FC = () => {
                           <UserIcon size={13} />
                           PERSONAL
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSaving(null);
+                            setSavingAmount('');
+                            setSavingNote('Tabungan Personal');
+                            setSavingOwner(OwnerType.PERSONAL);
+                            if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                            setSavingTargetMonth(m.monthIdx);
+                            setSavingTargetYear(m.year);
+                            pushView('FORM_SAVING');
+                          }}
+                          className="text-[9px] font-black text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <Plus size={10} /> Tabungan Personal
+                        </button>
                       </div>
 
                       <div className="space-y-1.5 text-xs">
@@ -2829,13 +2963,20 @@ const App: React.FC = () => {
                           <div
                             key={`per_${c.cardId}`}
                             onClick={() => openStatement(c.cardObj, m.monthIdx, m.year)}
-                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition cursor-pointer"
+                            className="flex items-start justify-between py-1 px-1.5 rounded-lg hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition cursor-pointer gap-2"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
-                              <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {c.cardName}
-                              </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
+                                <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                  {c.cardName}
+                                </span>
+                              </div>
+                              {c.savingPersonal > 0 && showAmounts && (
+                                <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 pl-4 mt-0.5">
+                                  Tagihan {formatIDR(c.grossPersonal)} − Tabungan {formatIDR(c.savingPersonal)}
+                                </p>
+                              )}
                             </div>
                             <span className={`font-extrabold tabular-nums whitespace-nowrap ${
                               c.personal > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
@@ -2849,13 +2990,21 @@ const App: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-blue-200/60 dark:border-blue-800/50 flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">
-                          Total
-                        </span>
-                        <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
-                          {showAmounts ? formatIDR(m.totalPersonal) : '••••'}
-                        </span>
+                      <div className="pt-2 border-t border-blue-200/60 dark:border-blue-800/50 space-y-1">
+                        {m.totalSavingPersonal > 0 && showAmounts && (
+                          <div className="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <span>Pengurang Tabungan Personal</span>
+                            <span className="tabular-nums">−{formatIDR(m.totalSavingPersonal)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                            Total
+                          </span>
+                          <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
+                            {showAmounts ? formatIDR(m.totalPersonal) : '••••'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3231,8 +3380,50 @@ const App: React.FC = () => {
                    })}
                  </div>
                </div>
+
+               {/* PILIHAN UANG PERSONAL ATAU UANG BISNIS */}
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Jenis Dana Tabungan (Pengurang Menu Bisnis)</label>
+                 <div className="grid grid-cols-2 gap-1.5 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                   <button
+                     type="button"
+                     onClick={() => setSavingOwner(OwnerType.PERSONAL)}
+                     className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                       savingOwner === OwnerType.PERSONAL
+                         ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                         : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                     }`}
+                   >
+                     <UserIcon size={13} />
+                     <span>Uang Personal</span>
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setSavingOwner(OwnerType.BUSINESS)}
+                     className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                       savingOwner === OwnerType.BUSINESS
+                         ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-xs'
+                         : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                     }`}
+                   >
+                     <Briefcase size={13} />
+                     <span>Uang Bisnis</span>
+                   </button>
+                 </div>
+               </div>
+
                <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Dana Disisihkan</label><input type="text" inputMode="numeric" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-2.5"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold"/></div></div>
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Catatan Tabungan (Opsional)</label>
+                 <input
+                   type="text"
+                   value={savingNote}
+                   onChange={(e) => setSavingNote(e.target.value)}
+                   placeholder={savingOwner === OwnerType.BUSINESS ? 'Misal: Tabungan Bisnis' : 'Misal: Tabungan Personal'}
+                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none border border-slate-200/70 dark:border-slate-700"
+                 />
+               </div>
                <div className="pt-2"><button type="submit" className="w-full py-3 bg-success text-white font-black text-sm rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">Amankan Dana Pelunasan</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full mt-2 py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition">Hapus Tabungan</button>)}</div>
              </form>
           </div>
@@ -3626,6 +3817,7 @@ const App: React.FC = () => {
                     setEditingSaving(null);
                     setSavingAmount('');
                     setSavingNote('');
+                    setSavingOwner(OwnerType.PERSONAL);
                     setSavingCardId(activeStatementCard.id);
                     setSavingTargetMonth(statementMonth);
                     setSavingTargetYear(statementYear);

@@ -70,6 +70,7 @@ export interface Saving {
   usedAmount?: number; // Jumlah yang dipakai (default = amount)
   usedByTransactionId?: string; // ID transaksi pembayaran yang memakai tabungan ini
   splitFromSavingId?: string; // ID tabungan asal jika record ini merupakan sisa dari pemakaian sebagian
+  owner?: OwnerType; // Kategori dana tabungan: PERSONAL atau BUSINESS
 }
 
 export interface Piutang {
