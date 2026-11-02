@@ -127,15 +127,18 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 // --- Sub-components ---
 
 const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
-  <header className={`flex-none bg-white dark:bg-slate-900 border-b dark:border-slate-800 z-[60] sticky top-0 ${className}`} style={{ paddingTop: 'var(--sat, 0px)' }}>
-    <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
+  <header
+    className={`flex-none bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80 z-[60] relative ${className}`}
+    style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), var(--sat, 0px))' }}
+  >
+    <div className="px-4 md:px-8 h-13 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
       <div className="flex items-center gap-2.5">
         {onBack && (
           <button onClick={onBack} className="p-1.5 -ml-1.5 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
             <ChevronLeft size={22} />
           </button>
         )}
-        <h2 className="text-base md:text-xl font-black text-slate-800 dark:text-slate-100 leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
+        <h2 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
       </div>
       <div className="flex items-center gap-2">
         {rightElement}
@@ -353,10 +356,10 @@ const App: React.FC = () => {
     try {
       localStorage.setItem('limitwatch_theme', isDark ? 'dark' : 'light');
     } catch {}
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-      metaTheme.setAttribute('content', isDark ? '#020617' : '#ffffff');
-    }
+    const metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+    metaThemes.forEach((meta) => {
+      meta.setAttribute('content', isDark ? '#020617' : '#ffffff');
+    });
   }, [data.theme]);
 
   useEffect(() => {
@@ -1859,7 +1862,7 @@ const App: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm uppercase tracking-wider">
-                        Radar Jatuh Tempo Terdekat
+                        Jatuh Tempo
                       </h3>
                     </div>
                   </div>
@@ -1925,8 +1928,8 @@ const App: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                      MONITORING TAGIHAN BULANAN
+                    <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                      Tagihan Bulan Ini
                     </h3>
                     <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
                       dashboardMonthlyData.status === 'LUNAS'
@@ -2258,136 +2261,80 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. BOTTOM ANALYTICS & RECENT TRANSACTIONS BENTO GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left: Top Spending Categories This Month */}
-              <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary dark:text-blue-400 flex items-center justify-center">
-                      <PieChart size={16} />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
-                        Top Pengeluaran Bulan Ini
-                      </h3>
-                      <p className="text-[10px] font-bold text-slate-400">
-                        Total Non-Cicilan: {showAmounts ? formatIDR(categoryGrouping.totalAll) : '••••'}
-                      </p>
-                    </div>
+            {/* 4. RECENT TRANSACTIONS */}
+            <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <History size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                      Aktivitas Terakhir
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400">
+                      5 transaksi & pembayaran terbaru
+                    </p>
                   </div>
                 </div>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {categoryGrouping.items.slice(0, 6).map(([cat, val], idx) => (
-                    <div key={idx} className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{cat}</span>
-                        <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums shrink-0">
-                          {showAmounts ? formatIDR(val.total) : '••••'}
-                        </span>
-                      </div>
-
-                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                        {val.personal > 0 && <div className="h-full bg-blue-500" style={{ width: `${(val.personal / val.total) * 100}%` }} />}
-                        {val.business > 0 && <div className="h-full bg-purple-500" style={{ width: `${(val.business / val.total) * 100}%` }} />}
-                      </div>
-
-                      <div className="flex items-center justify-between text-[9px] font-extrabold">
-                        {val.personal > 0 ? (
-                          <span className="text-blue-600 dark:text-blue-400">Pribadi: {showAmounts ? formatIDR(val.personal) : '••'}</span>
-                        ) : <span />}
-                        {val.business > 0 ? (
-                          <span className="text-purple-600 dark:text-purple-400">Bisnis: {showAmounts ? formatIDR(val.business) : '••'}</span>
-                        ) : <span />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {categoryGrouping.items.length === 0 && (
-                  <p className="text-center py-8 text-xs text-slate-400 font-bold">
-                    Belum ada pengeluaran non-cicilan bulan ini.
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={() => pushView('TRANSACTIONS')}
+                  className="text-[10px] font-black text-primary dark:text-blue-400 hover:underline uppercase cursor-pointer"
+                >
+                  Semua
+                </button>
               </div>
 
-              {/* Right: Aktivitas Transaksi Terakhir */}
-              <div className="lg:col-span-5 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                        <History size={16} />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
-                          Aktivitas Terakhir
-                        </h3>
-                        <p className="text-[10px] font-bold text-slate-400">
-                          5 transaksi & pembayaran terbaru
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => pushView('TRANSACTIONS')}
-                      className="text-[10px] font-black text-primary dark:text-blue-400 hover:underline uppercase cursor-pointer"
+              <div className="space-y-2">
+                {recentDashboardTransactions.map(t => {
+                  const card = data.cards.find(c => c.id === t.cardId);
+                  const isExpense = t.type === TransactionType.EXPENSE;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => openEditTransaction(t)}
+                      className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2.5 cursor-pointer transition"
                     >
-                      Semua
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {recentDashboardTransactions.map(t => {
-                      const card = data.cards.find(c => c.id === t.cardId);
-                      const isExpense = t.type === TransactionType.EXPENSE;
-                      return (
-                        <div
-                          key={t.id}
-                          onClick={() => openEditTransaction(t)}
-                          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2.5 cursor-pointer transition"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                              isExpense ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
-                            }`}>
-                              {isExpense ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
-                                {t.description}
-                              </p>
-                              <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
-                                <span>{card?.name || 'Kartu'}</span>
-                                <span>•</span>
-                                <span>{new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>
-                                {t.owner && (
-                                  <span className={`px-1.5 py-0.2 rounded uppercase font-black ${
-                                    t.owner === OwnerType.BUSINESS
-                                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                  }`}>
-                                    {t.owner === OwnerType.BUSINESS ? 'BISNIS' : t.owner === OwnerType.PERSONAL ? 'PERSONAL' : 'SPLIT'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`text-xs font-black tabular-nums whitespace-nowrap ${
-                            isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
-                          }`}>
-                            {isExpense ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••'}
-                          </span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          isExpense ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
+                        }`}>
+                          {isExpense ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
                         </div>
-                      );
-                    })}
-                    {recentDashboardTransactions.length === 0 && (
-                      <p className="text-center py-8 text-xs text-slate-400 font-bold">
-                        Belum ada riwayat transaksi.
-                      </p>
-                    )}
-                  </div>
-                </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                            {t.description}
+                          </p>
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                            <span>{card?.name || 'Kartu'}</span>
+                            <span>•</span>
+                            <span>{new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>
+                            {t.owner && (
+                              <span className={`px-1.5 py-0.2 rounded uppercase font-black ${
+                                t.owner === OwnerType.BUSINESS
+                                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                              }`}>
+                                {t.owner === OwnerType.BUSINESS ? 'BISNIS' : t.owner === OwnerType.PERSONAL ? 'PERSONAL' : 'SPLIT'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`text-xs font-black tabular-nums whitespace-nowrap ${
+                        isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {isExpense ? '-' : '+'}{showAmounts ? formatIDR(t.amount) : '••••'}
+                      </span>
+                    </div>
+                  );
+                })}
+                {recentDashboardTransactions.length === 0 && (
+                  <p className="text-center py-8 text-xs text-slate-400 font-bold">
+                    Belum ada riwayat transaksi.
+                  </p>
+                )}
               </div>
             </div>
           </div>
