@@ -226,6 +226,8 @@ const App: React.FC = () => {
   const [historyYearFilter, setHistoryYearFilter] = useState<number>(new Date().getFullYear());
   const [yearlySelectedYear, setYearlySelectedYear] = useState<number>(new Date().getFullYear());
   const [yearlyMonthFilter, setYearlyMonthFilter] = useState<'ALL' | 'HAS_BILL' | 'UNPAID'>('ALL');
+  const [ownerBillsYear, setOwnerBillsYear] = useState<number>(new Date().getFullYear());
+  const [ownerBillsFilter, setOwnerBillsFilter] = useState<'ALL' | 'HAS_BILL'>('ALL');
   const [savingsSelectedYear, setSavingsSelectedYear] = useState<number>(new Date().getFullYear());
   const [piutangsSelectedYear, setPiutangsSelectedYear] = useState<number>(new Date().getFullYear());
   const [dashMonth, setDashMonth] = useState<number>(new Date().getMonth());
@@ -689,8 +691,57 @@ const App: React.FC = () => {
   const getOwnerSplit = (item: { owner?: OwnerType, splitAmounts?: { personal: number, business: number } }, amount: number) => {
     if (item.owner === OwnerType.PERSONAL) return { personal: amount, business: 0, unclassified: 0 };
     if (item.owner === OwnerType.BUSINESS) return { personal: 0, business: amount, unclassified: 0 };
-    if (item.owner === OwnerType.SPLIT && item.splitAmounts) return { personal: item.splitAmounts.personal, business: item.splitAmounts.business, unclassified: 0 };
-    return { personal: 0, business: 0, unclassified: amount };
+    if (item.owner === OwnerType.SPLIT && item.splitAmounts) {
+      const splitTotal = (item.splitAmounts.personal || 0) + (item.splitAmounts.business || 0);
+      if (splitTotal > 0 && splitTotal !== amount) {
+        return {
+          personal: amount * (item.splitAmounts.personal / splitTotal),
+          business: amount * (item.splitAmounts.business / splitTotal),
+          unclassified: 0
+        };
+      }
+      return { personal: item.splitAmounts.personal, business: item.splitAmounts.business, unclassified: 0 };
+    }
+    return { personal: amount, business: 0, unclassified: 0 };
+  };
+
+  const getMonthlyGrossBillByOwner = (cardId: string, targetMonth: number, targetYear: number) => {
+     const card = data.cards.find(c => c.id === cardId);
+     if (!card) return { personal: 0, business: 0, unclassified: 0 };
+     let personal = 0; let business = 0; let unclassified = 0;
+     let totalBase = 0;
+     
+     data.transactions.filter(t => {
+          if (t.cardId !== cardId || t.type !== TransactionType.EXPENSE || t.isInstallment) return false;
+          const billing = getBillingPeriod(t.date, card?.dueDay);
+          return billing.month === targetMonth && billing.year === targetYear;
+     }).forEach(t => {
+        const split = getOwnerSplit(t, t.amount);
+        personal += split.personal; business += split.business; unclassified += split.unclassified; totalBase += t.amount;
+     });
+
+     data.installments.filter(i => i.cardId === cardId).forEach(i => {
+          const billingTenor1 = getBillingPeriod(i.startDate, card?.dueDay);
+          const monthDiff = (targetYear - billingTenor1.year) * 12 + (targetMonth - billingTenor1.month);
+          if (monthDiff >= 0 && monthDiff < i.totalMonths) { 
+             const split = getOwnerSplit(i, i.monthlyAmount);
+             personal += split.personal; business += split.business; unclassified += split.unclassified; totalBase += i.monthlyAmount;
+          }
+     });
+
+     let fees = 0;
+     if (totalBase > 0) {
+       if (card.eStatementFee) fees += card.eStatementFee;
+       if ((totalBase + fees) >= 5000000) fees += 10000;
+     }
+     
+     if (fees > 0 && totalBase > 0) {
+        personal += fees * (personal / totalBase);
+        business += fees * (business / totalBase);
+        unclassified += fees * (unclassified / totalBase);
+     }
+
+     return { personal: Math.ceil(personal), business: Math.ceil(business), unclassified: Math.ceil(unclassified) };
   };
 
   const getMonthlyBillByOwner = (cardId: string, targetMonth: number, targetYear: number) => {
@@ -1113,6 +1164,48 @@ const App: React.FC = () => {
     };
   }, [data, yearlySelectedYear]);
 
+  const ownerBillsAnalysis = useMemo(() => {
+    const monthlyList = monthNames.map((monthName, monthIdx) => {
+      const cardsData = data.cards.map(card => {
+        const ownerBill = getMonthlyGrossBillByOwner(card.id, monthIdx, ownerBillsYear);
+        return {
+          cardId: card.id,
+          cardName: card.name,
+          cardColor: card.color || 'bg-slate-500',
+          cardObj: card,
+          business: ownerBill.business,
+          personal: ownerBill.personal,
+          totalCardBill: ownerBill.business + ownerBill.personal
+        };
+      });
+
+      const totalBusiness = cardsData.reduce((sum, c) => sum + c.business, 0);
+      const totalPersonal = cardsData.reduce((sum, c) => sum + c.personal, 0);
+      const totalMonth = totalBusiness + totalPersonal;
+
+      return {
+        monthIdx,
+        monthName,
+        year: ownerBillsYear,
+        cardsData,
+        totalBusiness,
+        totalPersonal,
+        totalMonth
+      };
+    });
+
+    const yearTotalBusiness = monthlyList.reduce((sum, m) => sum + m.totalBusiness, 0);
+    const yearTotalPersonal = monthlyList.reduce((sum, m) => sum + m.totalPersonal, 0);
+    const yearTotalAll = yearTotalBusiness + yearTotalPersonal;
+
+    return {
+      monthlyList,
+      yearTotalBusiness,
+      yearTotalPersonal,
+      yearTotalAll
+    };
+  }, [data, ownerBillsYear]);
+
   const dashboardMonthlyData = useMemo(() => {
     const cardsInMonth = data.cards.map(card => {
       const stmt = getStatementData(card.id, dashMonth, dashYear);
@@ -1479,60 +1572,71 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 sm:gap-4 md:gap-8">
+            <div className="grid grid-cols-6 gap-1.5 sm:gap-4 md:gap-6">
               <button 
                 type="button"
                 onClick={() => { setEditingTransaction(null); setTxAmount(''); setTxDesc(''); setTxType(TransactionType.EXPENSE); setTxIsInstallment(false); setTxOwner(OwnerType.PERSONAL); setTxSplitPersonal(''); setTxSplitBusiness(''); pushView('FORM_TRANSACTION'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
-                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
-                  <PlusCircle size={26} className="md:w-7 md:h-7" />
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
+                  <PlusCircle size={22} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Catat</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => { setEditingSaving(null); setSavingAmount(''); setSavingNote(''); pushView('FORM_SAVING'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
-                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
-                  <Vault size={26} className="md:w-7 md:h-7" />
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 text-success dark:text-emerald-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all">
+                  <Vault size={22} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Nabung</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
-                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
-                  <HandCoins size={26} className="md:w-7 md:h-7" />
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
+                  <HandCoins size={22} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Piutang</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => pushView('CARDS')} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
-                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                  <Briefcase size={26} className="md:w-7 md:h-7" />
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                  <Briefcase size={22} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Hutang</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => pushView('TRANSACTIONS')} 
-                className="flex flex-col items-center gap-2 group cursor-pointer"
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
               >
-                <div className="w-full aspect-square max-w-[72px] md:w-20 md:h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
-                  <History size={26} className="md:w-7 md:h-7" />
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all">
+                  <History size={22} className="md:w-7 md:h-7" />
                 </div>
-                <span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Riwayat</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => pushView('OWNER_BILLS')} 
+                className="flex flex-col items-center gap-1.5 group cursor-pointer"
+              >
+                <div className="w-full aspect-square max-w-[64px] md:w-20 md:h-20 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all">
+                  <PieChart size={22} className="md:w-7 md:h-7" />
+                </div>
+                <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase text-center truncate w-full">Bisnis</span>
               </button>
             </div>
 
@@ -2529,6 +2633,233 @@ const App: React.FC = () => {
                     );
                   })}
               </div>
+            </div>
+          </div>
+        );
+      case 'OWNER_BILLS':
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-5">
+            {/* 1. HEADER RINGKASAN BISNIS & PERSONAL */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 text-slate-800 dark:text-white shadow-sm dark:shadow-xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">
+                      Tagihan Bisnis & Personal {ownerBillsYear}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setShowAmounts(!showAmounts)}
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-white transition p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                      title={showAmounts ? "Sembunyikan Nominal" : "Tampilkan Nominal"}
+                    >
+                      {showAmounts ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                    Rincian pemisahan tagihan Bisnis dan Personal per kartu setiap bulannya
+                  </p>
+                </div>
+
+                {/* Year Switcher & Filter */}
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <select
+                    value={ownerBillsFilter}
+                    onChange={(e) => setOwnerBillsFilter(e.target.value as 'ALL' | 'HAS_BILL')}
+                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl px-3 py-2 outline-none cursor-pointer"
+                  >
+                    <option value="ALL">Semua 12 Bulan</option>
+                    <option value="HAS_BILL">Hanya Ada Tagihan</option>
+                  </select>
+
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setOwnerBillsYear(y => y - 1)}
+                      className="px-2 py-1 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition text-slate-600 dark:text-slate-300 flex items-center gap-0.5 text-xs font-extrabold cursor-pointer"
+                    >
+                      <ChevronLeft size={15} />
+                      <span>{ownerBillsYear - 1}</span>
+                    </button>
+                    <span className="text-xs font-black px-3 py-1 bg-primary rounded-xl text-white shadow-xs">
+                      {ownerBillsYear}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setOwnerBillsYear(y => y + 1)}
+                      className="px-2 py-1 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition text-slate-600 dark:text-slate-300 flex items-center gap-0.5 text-xs font-extrabold cursor-pointer"
+                    >
+                      <span>{ownerBillsYear + 1}</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 Ringkasan Tahunan: Total Bisnis, Total Personal, Total Gabungan */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-purple-50/70 dark:bg-purple-950/25 border border-purple-200/70 dark:border-purple-800/40 rounded-2xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
+                      Total Bisnis ({ownerBillsYear})
+                    </span>
+                    <p className="text-base sm:text-lg font-black text-purple-700 dark:text-purple-300 tabular-nums mt-0.5">
+                      {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalBusiness) : '••••••••'}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Briefcase size={18} />
+                  </div>
+                </div>
+
+                <div className="bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/70 dark:border-blue-800/40 rounded-2xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                      Total Personal ({ownerBillsYear})
+                    </span>
+                    <p className="text-base sm:text-lg font-black text-blue-700 dark:text-blue-300 tabular-nums mt-0.5">
+                      {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalPersonal) : '••••••••'}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <UserIcon size={18} />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      Total Gabungan ({ownerBillsYear})
+                    </span>
+                    <p className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums mt-0.5">
+                      {showAmounts ? formatIDR(ownerBillsAnalysis.yearTotalAll) : '••••••••'}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-slate-500/15 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                    <CreditCard size={18} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. GRID BULANAN: SETIAP BULAN MEMUAT SEKSI BISNIS & PERSONAL */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {ownerBillsAnalysis.monthlyList
+                .filter(m => ownerBillsFilter === 'ALL' ? true : m.totalMonth > 0)
+                .map(m => (
+                  <div
+                    key={m.monthIdx}
+                    className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between space-y-4"
+                  >
+                    {/* Month Title Header (e.g., Juli 2026) */}
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 bg-slate-100 dark:bg-slate-800 rounded-xl flex flex-col items-center justify-center border border-slate-200/80 dark:border-slate-700 shrink-0">
+                          <span className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-200 leading-none">
+                            {m.monthName.substring(0, 3)}
+                          </span>
+                          <span className="text-[8px] font-bold text-slate-400 mt-0.5">{m.year}</span>
+                        </div>
+                        <div>
+                          <h4 className="font-black text-base text-slate-900 dark:text-slate-100 tracking-tight">
+                            {m.monthName} {m.year}
+                          </h4>
+                          <p className="text-[10px] font-bold text-slate-400">
+                            Total Bulan Ini: {showAmounts ? formatIDR(m.totalMonth) : '••••'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SEKSI 1: BISNIS */}
+                    <div className="rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between border-b border-purple-200/50 dark:border-purple-800/40 pb-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                          <Briefcase size={13} />
+                          BISNIS
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs">
+                        {m.cardsData.map(c => (
+                          <div
+                            key={`biz_${c.cardId}`}
+                            onClick={() => openStatement(c.cardObj, m.monthIdx, m.year)}
+                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-purple-100/50 dark:hover:bg-purple-900/30 transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
+                              <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {c.cardName}
+                              </span>
+                            </div>
+                            <span className={`font-extrabold tabular-nums whitespace-nowrap ${
+                              c.business > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
+                            }`}>
+                              {showAmounts ? formatIDR(c.business) : '••••'}
+                            </span>
+                          </div>
+                        ))}
+                        {m.cardsData.length === 0 && (
+                          <p className="text-[11px] text-slate-400 italic">Belum ada kartu</p>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-purple-200/60 dark:border-purple-800/50 flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-purple-800 dark:text-purple-300">
+                          Total
+                        </span>
+                        <span className="text-sm font-black text-purple-700 dark:text-purple-300 tabular-nums">
+                          {showAmounts ? formatIDR(m.totalBusiness) : '••••'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* SEKSI 2: PERSONAL */}
+                    <div className="rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between border-b border-blue-200/50 dark:border-blue-800/40 pb-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                          <UserIcon size={13} />
+                          PERSONAL
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs">
+                        {m.cardsData.map(c => (
+                          <div
+                            key={`per_${c.cardId}`}
+                            onClick={() => openStatement(c.cardObj, m.monthIdx, m.year)}
+                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${c.cardColor}`} />
+                              <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {c.cardName}
+                              </span>
+                            </div>
+                            <span className={`font-extrabold tabular-nums whitespace-nowrap ${
+                              c.personal > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
+                            }`}>
+                              {showAmounts ? formatIDR(c.personal) : '••••'}
+                            </span>
+                          </div>
+                        ))}
+                        {m.cardsData.length === 0 && (
+                          <p className="text-[11px] text-slate-400 italic">Belum ada kartu</p>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-blue-200/60 dark:border-blue-800/50 flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                          Total
+                        </span>
+                        <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
+                          {showAmounts ? formatIDR(m.totalPersonal) : '••••'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         );
@@ -3587,6 +3918,7 @@ const App: React.FC = () => {
               <DesktopNavItem icon={<Vault size={22}/>} label="Tabungan" active={currentView === 'SAVINGS'} onClick={() => navigateToRoot('SAVINGS')} />
               <DesktopNavItem icon={<HandCoins size={22}/>} label="Piutang" active={currentView === 'PIUTANGS'} onClick={() => navigateToRoot('PIUTANGS')} />
               <DesktopNavItem icon={<CalendarRange size={22}/>} label="Anggaran Tahunan" active={currentView === 'YEARLY'} onClick={() => navigateToRoot('YEARLY')} />
+              <DesktopNavItem icon={<PieChart size={22}/>} label="Bisnis & Personal" active={currentView === 'OWNER_BILLS'} onClick={() => navigateToRoot('OWNER_BILLS')} />
               <DesktopNavItem icon={<History size={22}/>} label="Riwayat Aktivitas" active={currentView === 'TRANSACTIONS'} onClick={() => navigateToRoot('TRANSACTIONS')} />
            </nav>
            <div className="p-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
@@ -3616,6 +3948,7 @@ const App: React.FC = () => {
                 currentView === 'SAVINGS' ? 'Tabungan' :
                 currentView === 'PIUTANGS' ? 'Piutang' :
                 currentView === 'YEARLY' ? 'Anggaran Tahunan' :
+                currentView === 'OWNER_BILLS' ? 'Tagihan Bisnis & Personal' :
                 currentView === 'FORM_TRANSACTION' ? 'Input Transaksi' :
                 currentView === 'FORM_SAVING' ? 'Input Tabungan' :
                 currentView === 'FORM_PIUTANG' ? 'Input Piutang' :

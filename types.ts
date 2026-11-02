@@ -105,6 +105,7 @@ export type ViewMode =
   | 'CARDS' 
   | 'INSTALLMENTS' 
   | 'YEARLY' 
+  | 'OWNER_BILLS'
   | 'ACCOUNT'
   | 'FORM_TRANSACTION'
   | 'FORM_CARD'
