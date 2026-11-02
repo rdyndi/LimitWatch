@@ -28,6 +28,7 @@ export interface SaveTransactionPayload {
   owner?: OwnerType;
   splitPersonal?: number;
   splitBusiness?: number;
+  isValidated?: boolean;
 }
 
 export function revertSavingsForTransaction(savings: Saving[], txId: string): Saving[] {
@@ -298,7 +299,8 @@ export function executeSaveTransaction(
             isInstallment: !!isInstallment,
             targetPeriod: type === TransactionType.PAYMENT ? { month: targetMonth, year: targetYear } : undefined,
             owner: finalOwner,
-            splitAmounts: finalSplitAmounts
+            splitAmounts: finalSplitAmounts,
+            isValidated: payload.isValidated !== undefined ? payload.isValidated : t.isValidated
           }
         : t
     );
@@ -314,7 +316,8 @@ export function executeSaveTransaction(
       isInstallment: !!isInstallment,
       targetPeriod: type === TransactionType.PAYMENT ? { month: targetMonth, year: targetYear } : undefined,
       owner: finalOwner,
-      splitAmounts: finalSplitAmounts
+      splitAmounts: finalSplitAmounts,
+      isValidated: payload.isValidated ?? false
     };
     updatedTransactions = [newTransaction, ...data.transactions];
   }

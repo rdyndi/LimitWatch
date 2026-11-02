@@ -54,6 +54,10 @@ export interface QuickRecordSheetProps {
   editingTransaction?: Transaction | null;
   editingSaving?: Saving | null;
   editingPiutang?: PiutangType | null;
+  prefillCardId?: string;
+  prefillMonth?: number;
+  prefillYear?: number;
+  prefillValidated?: boolean;
   cards: CreditCardType[];
   lastUsedCardId?: string;
   descriptionHistory?: string[];
@@ -83,6 +87,10 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
   editingTransaction,
   editingSaving,
   editingPiutang,
+  prefillCardId,
+  prefillMonth,
+  prefillYear,
+  prefillValidated,
   cards,
   lastUsedCardId,
   descriptionHistory = [],
@@ -95,7 +103,7 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
   onSavePiutang,
   onDeletePiutang
 }) => {
-  const defaultCard = lastUsedCardId || cards[0]?.id || '';
+  const defaultCard = prefillCardId || lastUsedCardId || cards[0]?.id || '';
 
   const [activeTab, setActiveTab] = useState<QuickRecordTab>(initialTab);
   const [isCardPickerOpen, setIsCardPickerOpen] = useState(false);
@@ -144,15 +152,43 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
       setCustomSavingsAmount(null);
     } else {
       setActiveTab(initialTab);
-      txForm.dispatch({ type: 'RESET', defaultCardId: defaultCard });
+      txForm.dispatch({
+        type: 'RESET',
+        defaultCardId: defaultCard,
+        initialValidated: prefillValidated ?? false
+      });
       if (initialTab === 'PAYMENT') {
         txForm.dispatch({ type: 'SET_TYPE', value: TransactionType.PAYMENT });
       }
       savingForm.dispatch({ type: 'RESET', defaultCardId: defaultCard });
       piutangForm.dispatch({ type: 'RESET', defaultCardId: defaultCard });
+
+      if (prefillMonth !== undefined && prefillYear !== undefined) {
+        txForm.dispatch({ type: 'SET_FIELD', field: 'targetMonth', value: prefillMonth });
+        txForm.dispatch({ type: 'SET_FIELD', field: 'targetYear', value: prefillYear });
+        savingForm.dispatch({ type: 'SET_FIELD', field: 'targetMonth', value: prefillMonth });
+        savingForm.dispatch({ type: 'SET_FIELD', field: 'targetYear', value: prefillYear });
+        piutangForm.dispatch({ type: 'SET_FIELD', field: 'targetMonth', value: prefillMonth });
+        piutangForm.dispatch({ type: 'SET_FIELD', field: 'targetYear', value: prefillYear });
+
+        // Set date to day 15 of requested period for clean billing matching
+        const formattedDate = `${prefillYear}-${String(prefillMonth + 1).padStart(2, '0')}-15`;
+        txForm.dispatch({ type: 'SET_FIELD', field: 'date', value: formattedDate });
+      }
+
       setCustomSavingsAmount(null);
     }
-  }, [isOpen, editingTransaction, editingSaving, editingPiutang, initialTab, defaultCard]);
+  }, [
+    isOpen,
+    editingTransaction,
+    editingSaving,
+    editingPiutang,
+    initialTab,
+    defaultCard,
+    prefillMonth,
+    prefillYear,
+    prefillValidated
+  ]);
 
   // Ensure cardId is valid if current cardId is empty
   useEffect(() => {
@@ -318,7 +354,8 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
       installmentMonths: txForm.state.installmentMonths,
       owner: txForm.state.owner,
       splitPersonal: txForm.state.splitPersonal,
-      splitBusiness: txForm.state.splitBusiness
+      splitBusiness: txForm.state.splitBusiness,
+      isValidated: txForm.state.isValidated
     });
     onClose();
   };
@@ -606,7 +643,7 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
         {/* TAB 1: PAKAI (PENGELUARAN)                           */}
         {/* ==================================================== */}
         {activeTab === 'EXPENSE' && (
-          <form id="form-expense" onSubmit={handleSubmitExpense} className="space-y-3">
+          <form id="form-expense" onSubmit={handleSubmitExpense} noValidate className="space-y-3">
             {/* 1. Nominal Pemakaian Card */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1 block">
@@ -620,7 +657,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   value={txForm.state.amount > 0 ? formatNumberIDR(txForm.state.amount) : ''}
                   onChange={(e) => txForm.dispatch({ type: 'SET_AMOUNT', value: parseIDR(e.target.value) })}
                   placeholder="0"
@@ -851,6 +887,35 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* 6. Status Pencocokan Transaksi (Match dengan e-Statement) */}
+            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-2xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                    txForm.state.isValidated
+                      ? 'bg-sky-500 text-white shadow-xs'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Check size={16} strokeWidth={3} />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                    Pencocokan Transaksi (Match)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {txForm.state.isValidated
+                      ? 'Sudah dicocokkan dengan tagihan bank'
+                      : 'Tandai transaksi langsung cocok'}
+                  </span>
+                </div>
+              </div>
+              <Toggle
+                checked={txForm.state.isValidated}
+                onChange={(val) => txForm.dispatch({ type: 'SET_FIELD', field: 'isValidated', value: val })}
+              />
+            </div>
           </form>
         )}
 
@@ -858,7 +923,7 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
         {/* TAB 2: BAYAR (PELUNASAN TAGIHAN)                     */}
         {/* ==================================================== */}
         {activeTab === 'PAYMENT' && (
-          <form id="form-payment" onSubmit={handleSubmitPayment} className="space-y-3">
+          <form id="form-payment" onSubmit={handleSubmitPayment} noValidate className="space-y-3">
             {/* 1. Nominal Pembayaran Card */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1 block">
@@ -872,7 +937,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   value={txForm.state.amount > 0 ? formatNumberIDR(txForm.state.amount) : ''}
                   onChange={(e) => txForm.dispatch({ type: 'SET_AMOUNT', value: parseIDR(e.target.value) })}
                   placeholder="0"
@@ -1023,7 +1087,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                     <input
                       type="text"
                       inputMode="numeric"
-                      pattern="[0-9]*"
                       value={effectiveSavingsUsed > 0 ? formatNumberIDR(effectiveSavingsUsed) : ''}
                       onChange={(e) => setCustomSavingsAmount(parseIDR(e.target.value))}
                       placeholder={formatNumberIDR(defaultSavingsUsage)}
@@ -1093,7 +1156,7 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
         {/* TAB 3: NABUNG (TABUNGAN)                             */}
         {/* ==================================================== */}
         {activeTab === 'SAVING' && (
-          <form id="form-saving" onSubmit={handleSubmitSaving} className="space-y-3">
+          <form id="form-saving" onSubmit={handleSubmitSaving} noValidate className="space-y-3">
             {/* 1. Nominal Tabungan Card */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1 block">
@@ -1107,7 +1170,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   value={savingForm.state.amount > 0 ? formatNumberIDR(savingForm.state.amount) : ''}
                   onChange={(e) => savingForm.dispatch({ type: 'SET_FIELD', field: 'amount', value: parseIDR(e.target.value) })}
                   placeholder="0"
@@ -1236,7 +1298,7 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
         {/* TAB 4: PIUTANG                                       */}
         {/* ==================================================== */}
         {activeTab === 'PIUTANG' && (
-          <form id="form-piutang" onSubmit={handleSubmitPiutang} className="space-y-3">
+          <form id="form-piutang" onSubmit={handleSubmitPiutang} noValidate className="space-y-3">
             {/* 1. Nominal Piutang Card */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1 block">
@@ -1250,7 +1312,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   value={piutangForm.state.amount > 0 ? formatNumberIDR(piutangForm.state.amount) : ''}
                   onChange={(e) => piutangForm.dispatch({ type: 'SET_FIELD', field: 'amount', value: parseIDR(e.target.value) })}
                   placeholder="0"
@@ -1703,7 +1764,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                           <input
                             type="text"
                             inputMode="numeric"
-                            pattern="[0-9]*"
                             value={draftSplitPersonal > 0 ? formatNumberIDR(draftSplitPersonal) : ''}
                             onChange={(e) => handlePersonalSplitChange(parseIDR(e.target.value))}
                             placeholder="0"
@@ -1721,7 +1781,6 @@ export const QuickRecordSheet: React.FC<QuickRecordSheetProps> = ({
                           <input
                             type="text"
                             inputMode="numeric"
-                            pattern="[0-9]*"
                             value={draftSplitBusiness > 0 ? formatNumberIDR(draftSplitBusiness) : ''}
                             onChange={(e) => handleBusinessSplitChange(parseIDR(e.target.value))}
                             placeholder="0"

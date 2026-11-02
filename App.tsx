@@ -145,6 +145,12 @@ const MainAppShell: React.FC = () => {
   // QuickRecord Sheet State
   const [isQuickRecordOpen, setIsQuickRecordOpen] = useState(false);
   const [quickRecordTab, setQuickRecordTab] = useState<QuickRecordTab>('EXPENSE');
+  const [quickRecordPrefill, setQuickRecordPrefill] = useState<{
+    cardId?: string;
+    month?: number;
+    year?: number;
+    validated?: boolean;
+  } | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [editingPiutang, setEditingPiutang] = useState<PiutangType | null>(null);
@@ -159,11 +165,15 @@ const MainAppShell: React.FC = () => {
   const descriptionHistory = data.transactions.map((t) => t.description);
 
   // Open QuickRecord Sheet Helpers
-  const openQuickRecord = (tab: QuickRecordTab = 'EXPENSE') => {
+  const openQuickRecord = (
+    tab: QuickRecordTab = 'EXPENSE',
+    prefill?: { cardId?: string; month?: number; year?: number; validated?: boolean }
+  ) => {
     setEditingTransaction(null);
     setEditingSaving(null);
     setEditingPiutang(null);
     setQuickRecordTab(tab);
+    setQuickRecordPrefill(prefill || null);
     setIsQuickRecordOpen(true);
   };
 
@@ -713,15 +723,57 @@ const MainAppShell: React.FC = () => {
 
               <Route
                 path="/yearly"
-                element={<YearlyView data={data} showAmounts={showAmounts} />}
+                element={
+                  <YearlyView
+                    data={data}
+                    showAmounts={showAmounts}
+                    onToggleTransactionValidation={toggleTransactionValidation}
+                    onToggleInstallmentValidation={toggleInstallmentValidation}
+                    onEditTransaction={openEditTransaction}
+                    onOpenQuickRecord={openQuickRecord}
+                    saveData={saveData}
+                    onOpenStatement={(card) => {
+                      setActiveCard(card);
+                      navigate('/statement');
+                    }}
+                  />
+                }
               />
               <Route
                 path="/yearly/:year/:month"
-                element={<YearlyView data={data} showAmounts={showAmounts} />}
+                element={
+                  <YearlyView
+                    data={data}
+                    showAmounts={showAmounts}
+                    onToggleTransactionValidation={toggleTransactionValidation}
+                    onToggleInstallmentValidation={toggleInstallmentValidation}
+                    onEditTransaction={openEditTransaction}
+                    onOpenQuickRecord={openQuickRecord}
+                    saveData={saveData}
+                    onOpenStatement={(card) => {
+                      setActiveCard(card);
+                      navigate('/statement');
+                    }}
+                  />
+                }
               />
               <Route
                 path="/yearly/:year/:month/:cardId"
-                element={<YearlyView data={data} showAmounts={showAmounts} />}
+                element={
+                  <YearlyView
+                    data={data}
+                    showAmounts={showAmounts}
+                    onToggleTransactionValidation={toggleTransactionValidation}
+                    onToggleInstallmentValidation={toggleInstallmentValidation}
+                    onEditTransaction={openEditTransaction}
+                    onOpenQuickRecord={openQuickRecord}
+                    saveData={saveData}
+                    onOpenStatement={(card) => {
+                      setActiveCard(card);
+                      navigate('/statement');
+                    }}
+                  />
+                }
               />
 
               <Route
@@ -830,11 +882,16 @@ const MainAppShell: React.FC = () => {
           setEditingTransaction(null);
           setEditingSaving(null);
           setEditingPiutang(null);
+          setQuickRecordPrefill(null);
         }}
         initialTab={quickRecordTab}
         editingTransaction={editingTransaction}
         editingSaving={editingSaving}
         editingPiutang={editingPiutang}
+        prefillCardId={quickRecordPrefill?.cardId}
+        prefillMonth={quickRecordPrefill?.month}
+        prefillYear={quickRecordPrefill?.year}
+        prefillValidated={quickRecordPrefill?.validated}
         cards={data.cards}
         lastUsedCardId={lastUsedCardId}
         descriptionHistory={descriptionHistory}

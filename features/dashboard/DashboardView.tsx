@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppState, CreditCard, TransactionType, OwnerType } from '../../types';
 import { formatIDR } from '../../lib/format';
 import { getUpcomingBills } from '../../lib/billing';
@@ -11,7 +12,8 @@ import {
   Briefcase,
   AlertCircle,
   ArrowDownRight,
-  PieChart
+  PieChart,
+  ChevronRight
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -31,6 +33,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCardForm,
   onOpenStatement
 }) => {
+  const navigate = useNavigate();
+
   const upcomingBills = useMemo(() => {
     return getUpcomingBills(data);
   }, [data]);
@@ -161,17 +165,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </h3>
 
         <div className="space-y-3 pt-5 border-t border-white/15 relative z-10 grid sm:grid-cols-3 sm:gap-6">
-          <div className="flex justify-between sm:flex-col items-center sm:items-start">
-            <p className="text-blue-200 text-[10px] sm:text-xs uppercase font-bold tracking-widest">Tabungan</p>
+          <div
+            onClick={() => navigate('/savings')}
+            className="flex justify-between sm:flex-col items-center sm:items-start cursor-pointer hover:bg-white/10 p-2 rounded-2xl transition"
+            title="Buka Menu Tabungan"
+          >
+            <p className="text-blue-200 text-[10px] sm:text-xs uppercase font-bold tracking-widest flex items-center gap-1">
+              Tabungan <span className="opacity-75">›</span>
+            </p>
             <p className="font-bold text-base sm:text-lg">{showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••'}</p>
           </div>
 
-          <div className="flex justify-between sm:flex-col items-center sm:items-start">
-            <p className="text-blue-200 text-[10px] sm:text-xs uppercase font-bold tracking-widest">Piutang</p>
-            <p className="font-bold text-base sm:text-lg">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p>
+          <div
+            onClick={() => navigate('/piutangs')}
+            className="flex justify-between sm:flex-col items-center sm:items-start cursor-pointer hover:bg-white/10 p-2 rounded-2xl transition ring-1 ring-white/25 shadow-sm"
+            title="Buka Menu Piutang"
+          >
+            <p className="text-blue-200 text-[10px] sm:text-xs uppercase font-bold tracking-widest flex items-center gap-1">
+              Piutang <span className="text-amber-300 font-extrabold">Menu ›</span>
+            </p>
+            <p className="font-bold text-base sm:text-lg text-white">{showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}</p>
           </div>
 
-          <div className="flex justify-between sm:flex-col items-center sm:items-start">
+          <div className="flex justify-between sm:flex-col items-center sm:items-start p-2">
             <p className="text-white text-[10px] sm:text-xs uppercase font-black tracking-widest">Sisa Hutang</p>
             <p className="font-black text-lg sm:text-2xl text-amber-300">{showAmounts ? formatIDR(currentDebtGap) : '••••'}</p>
           </div>
@@ -204,13 +220,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <button
           type="button"
-          onClick={() => onOpenQuickRecord('PIUTANG')}
+          onClick={() => navigate('/piutangs')}
           className="flex flex-col items-center gap-2 group cursor-pointer"
+          title="Buka Menu Piutang"
         >
-          <div className="w-full aspect-square max-w-[80px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all">
+          <div className="w-full aspect-square max-w-[80px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xs active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all border-2 border-indigo-200 dark:border-indigo-800/60">
             <HandCoins size={28} />
           </div>
-          <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Piutang</span>
+          <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">Menu Piutang</span>
         </button>
 
         <button
@@ -223,6 +240,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <span className="text-[10px] sm:text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Hutang</span>
         </button>
+      </div>
+
+      {/* Prominent Menu Piutang Banner Shortcut */}
+      <div
+        onClick={() => navigate('/piutangs')}
+        className="p-4 rounded-3xl bg-indigo-500/10 dark:bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between hover:bg-indigo-500/15 transition cursor-pointer group shadow-xs"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/30 shrink-0 group-hover:scale-105 transition-transform">
+            <HandCoins size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 group-hover:text-indigo-400 transition">
+                Menu Piutang
+              </h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+                {(data.piutangs || []).filter(p => !p.isCollected).length} aktif
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Kelola daftar piutang & alokasi ke kartu • Total {showAmounts ? formatIDR(totalPiutangsAcrossYears) : '••••'}
+            </p>
+          </div>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-indigo-600/10 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
+          <ChevronRight size={18} />
+        </div>
       </div>
 
       {/* Upcoming Bills Horizontal Carousel */}

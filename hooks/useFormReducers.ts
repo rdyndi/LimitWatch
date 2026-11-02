@@ -27,6 +27,7 @@ export interface TransactionFormState {
   owner: OwnerType;
   splitPersonal: number;
   splitBusiness: number;
+  isValidated: boolean;
   showMoreOptions: boolean;
 }
 
@@ -36,10 +37,10 @@ export type TransactionFormAction =
   | { type: 'SET_AMOUNT'; value: number }
   | { type: 'SET_SPLIT_PERSONAL'; value: number }
   | { type: 'SET_SPLIT_BUSINESS'; value: number }
-  | { type: 'RESET'; defaultCardId?: string }
+  | { type: 'RESET'; defaultCardId?: string; initialValidated?: boolean }
   | { type: 'LOAD_ITEM'; item: Transaction };
 
-const getInitialTxState = (defaultCardId: string = ''): TransactionFormState => {
+const getInitialTxState = (defaultCardId: string = '', initialValidated: boolean = false): TransactionFormState => {
   const now = new Date();
   return {
     type: TransactionType.EXPENSE,
@@ -56,6 +57,7 @@ const getInitialTxState = (defaultCardId: string = ''): TransactionFormState => 
     owner: OwnerType.PERSONAL,
     splitPersonal: 0,
     splitBusiness: 0,
+    isValidated: initialValidated,
     showMoreOptions: false
   };
 };
@@ -99,7 +101,7 @@ function transactionReducer(
       return { ...state, splitPersonal, splitBusiness };
     }
     case 'RESET':
-      return getInitialTxState(action.defaultCardId);
+      return getInitialTxState(action.defaultCardId, action.initialValidated);
     case 'LOAD_ITEM': {
       const t = action.item;
       const d = new Date(t.date);
@@ -119,6 +121,7 @@ function transactionReducer(
         owner: t.owner ?? OwnerType.PERSONAL,
         splitPersonal: t.splitAmounts?.personal ?? 0,
         splitBusiness: t.splitAmounts?.business ?? 0,
+        isValidated: !!t.isValidated,
         showMoreOptions: !!t.isInstallment || t.owner === OwnerType.SPLIT || t.type === TransactionType.PAYMENT
       };
     }

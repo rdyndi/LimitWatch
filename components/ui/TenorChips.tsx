@@ -110,7 +110,6 @@ export const TenorChips: React.FC<TenorChipsProps> = ({
               <input
                 type="number"
                 inputMode="numeric"
-                pattern="[0-9]*"
                 min={2}
                 max={60}
                 value={customInput}

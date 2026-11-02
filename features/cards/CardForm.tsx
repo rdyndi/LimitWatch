@@ -64,7 +64,7 @@ export const CardForm: React.FC<CardFormProps> = ({
 
   return (
     <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-4 py-4 sm:px-6 sm:py-8">
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6 bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
         <div className="flex justify-between items-center pb-2 border-b dark:border-slate-800">
           <h3 className="font-black text-lg text-slate-800 dark:text-slate-100">
             {editingCard ? 'Edit Kartu / Hutang' : 'Tambah Kartu Baru'}
@@ -111,7 +111,6 @@ export const CardForm: React.FC<CardFormProps> = ({
             <input
               type="number"
               inputMode="numeric"
-              pattern="[0-9]*"
               min="1"
               max="31"
               value={cardForm.state.dueDay}

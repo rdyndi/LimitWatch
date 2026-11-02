@@ -14,6 +14,7 @@ export interface CreditCard {
   dueDay?: number; // Tanggal jatuh tempo (1-31)
   eStatementFee?: number; // Biaya E-Statement bulanan
   logoUrl?: string; // Base64 image URL for custom logo
+  statementBills?: Record<string, number>; // key: "YYYY-MM", value: Tagihan Bank e-Statement
 }
 
 export enum TransactionType {

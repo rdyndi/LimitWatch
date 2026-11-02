@@ -12,11 +12,22 @@ interface YearlyViewProps {
   data: AppState;
   showAmounts: boolean;
   onOpenStatement?: (card: CreditCard, month: number, year: number) => void;
+  onToggleTransactionValidation?: (id: string) => void;
+  onToggleInstallmentValidation?: (instId: string, monthKey: string) => void;
+  onEditTransaction?: (t: any) => void;
+  onOpenQuickRecord?: (tab?: any, prefill?: any) => void;
+  saveData?: (data: AppState) => void;
 }
 
 export const YearlyView: React.FC<YearlyViewProps> = ({
   data,
-  showAmounts
+  showAmounts,
+  onOpenStatement,
+  onToggleTransactionValidation,
+  onToggleInstallmentValidation,
+  onEditTransaction,
+  onOpenQuickRecord,
+  saveData
 }) => {
   const navigate = useNavigate();
   const { year: routeYear, month: routeMonth, cardId: routeCardId } = useParams<{
@@ -126,6 +137,12 @@ export const YearlyView: React.FC<YearlyViewProps> = ({
           cardReport={cardReport}
           showAmounts={showAmounts}
           onBackToMonth={() => navigate(`/yearly/${activeYear}/${parsedRouteMonth}`)}
+          onToggleTransactionValidation={onToggleTransactionValidation}
+          onToggleInstallmentValidation={onToggleInstallmentValidation}
+          onEditTransaction={onEditTransaction}
+          onOpenStatement={onOpenStatement}
+          onOpenQuickRecord={onOpenQuickRecord}
+          saveData={saveData}
         />
       </div>
     );
