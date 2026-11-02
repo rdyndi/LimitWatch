@@ -129,14 +129,14 @@ const getBillingPeriod = (dateStr: string, dueDay?: number): { month: number, ye
 
 const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
   <header className={`flex-none bg-white dark:bg-slate-900 border-b dark:border-slate-800 z-[60] sticky top-0 ${className}`} style={{ paddingTop: 'var(--sat, 0px)' }}>
-    <div className="px-5 md:px-8 h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
-      <div className="flex items-center gap-3">
+    <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
+      <div className="flex items-center gap-2.5">
         {onBack && (
-          <button onClick={onBack} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-            <ChevronLeft size={24} />
+          <button onClick={onBack} className="p-1.5 -ml-1.5 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+            <ChevronLeft size={22} />
           </button>
         )}
-        <h2 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 leading-none truncate max-w-[200px] md:max-w-md">{title}</h2>
+        <h2 className="text-base md:text-xl font-black text-slate-800 dark:text-slate-100 leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
       </div>
       <div className="flex items-center gap-2">
         {rightElement}
@@ -2514,34 +2514,34 @@ const App: React.FC = () => {
         );
       case 'FORM_CARD':
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
-             <form onSubmit={handleSaveCard} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-3.5 text-xs font-black rounded-xl transition-all ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-md text-primary dark:text-blue-400 scale-[1.02]' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Label Identitas</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Platinum Card" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-primary transition font-bold text-lg" /></div>
-               <div className="grid md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Limit/Plafon</label><input type="text" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-black text-lg" /></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tgl Jatuh Tempo</label><input type="number" min="1" max="31" value={cardDue} onChange={(e)=>setCardDue(e.target.value)} placeholder="Misal: 15" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl font-bold text-lg" /></div></div>
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1">Logo Kartu / Merchant (Opsional)</label>
-                 <div className="flex items-center gap-4 p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
+             <form onSubmit={handleSaveCard} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl"><button type="button" onClick={()=>setCardType(DebtType.CREDIT_CARD)} className={`py-2 text-xs font-black rounded-lg transition-all ${cardType === DebtType.CREDIT_CARD ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500'}`}>KARTU KREDIT</button><button type="button" onClick={()=>setCardType(DebtType.OTHER_DEBT)} className={`py-2 text-xs font-black rounded-lg transition-all ${cardType === DebtType.OTHER_DEBT ? 'bg-white dark:bg-slate-700 shadow-sm text-primary dark:text-blue-400' : 'text-slate-500'}`}>HUTANG LAIN</button></div>
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1 block">Label Identitas</label><input type="text" value={cardName} onChange={(e)=>setCardName(e.target.value)} required placeholder="Contoh: Platinum Card" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none border border-transparent focus:border-primary transition font-bold text-sm" /></div>
+               <div className="grid grid-cols-2 gap-2.5"><div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Limit / Plafon</label><input type="text" inputMode="numeric" value={cardLimit} onChange={(e)=>handleCurrencyInput(e.target.value, setCardLimit)} required placeholder="Rp 0" className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl font-black text-xs sm:text-sm outline-none border border-transparent focus:border-primary" /></div><div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Tgl Jatuh Tempo</label><input type="number" min="1" max="31" value={cardDue} onChange={(e)=>setCardDue(e.target.value)} placeholder="Misal: 15" className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl font-bold text-xs sm:text-sm outline-none border border-transparent focus:border-primary" /></div></div>
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase ml-1 block">Logo Kartu / Merchant (Opsional)</label>
+                 <div className="flex items-center gap-3 p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl">
                    {cardLogoUrl ? (
                      <div className="relative">
-                       <img src={cardLogoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover bg-white p-1 shadow-sm" />
-                       <button type="button" onClick={() => setCardLogoUrl('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"><X size={12}/></button>
+                       <img src={cardLogoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover bg-white p-1 shadow-sm" />
+                       <button type="button" onClick={() => setCardLogoUrl('')} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors"><X size={10}/></button>
                      </div>
                    ) : (
-                     <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 shadow-inner">
-                       <Image size={20} />
+                     <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-lg flex items-center justify-center text-slate-400 shadow-inner">
+                       <Image size={16} />
                      </div>
                    )}
                    <div className="flex-1">
-                     <label className="cursor-pointer bg-white dark:bg-slate-700 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors inline-block">
+                     <label className="cursor-pointer bg-white dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors inline-block">
                        Pilih Gambar...
                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                      </label>
                    </div>
                  </div>
                </div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warna Kartu</label><div className="flex gap-4 flex-wrap pt-2">{CARD_COLORS.map(c => (<button key={c.value} type="button" onClick={() => setCardColor(c.value)} className={`w-12 h-12 rounded-full ${c.value} ${cardColor === c.value ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-slate-900' : 'hover:scale-110'} transition-all`}></button>))}</div></div>
-               <div className="pt-4"><button type="submit" className="w-full py-6 bg-primary text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-blue-700 active:scale-95 transition-all">Simpan Konfigurasi</button></div>
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Warna Kartu</label><div className="flex gap-2.5 flex-wrap pt-1">{CARD_COLORS.map(c => (<button key={c.value} type="button" onClick={() => setCardColor(c.value)} className={`w-8 h-8 rounded-full ${c.value} ${cardColor === c.value ? 'ring-2 ring-offset-2 ring-primary dark:ring-offset-slate-900' : 'hover:scale-110'} transition-all`}></button>))}</div></div>
+               <div className="pt-2"><button type="submit" className="w-full py-3 bg-primary text-white font-black text-sm rounded-2xl shadow-lg hover:bg-blue-700 active:scale-95 transition-all">Simpan Konfigurasi</button></div>
              </form>
           </div>
         );
@@ -2550,54 +2550,54 @@ const App: React.FC = () => {
         const totalImpact = Math.ceil(getNumericValue(txAmount) + (txUseSavings ? availableSavingsForPeriod : 0));
         
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
-             <form onSubmit={handleSaveTransaction} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2 md:px-5 md:py-5">
+             <form onSubmit={handleSaveTransaction} className="space-y-2.5 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
                {/* TYPE TOGGLE */}
-               <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[24px]">
-                 <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowUpCircle size={18}/> PAKAI</button>
-                 <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-4 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-lg scale-[1.02]' : 'text-slate-500'}`}><ArrowDownCircle size={18}/> BAYAR</button>
+               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                 <button type="button" onClick={()=>setTxType(TransactionType.EXPENSE)} className={`flex-1 py-2 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.EXPENSE ? 'bg-white dark:bg-slate-700 text-danger shadow-sm' : 'text-slate-500'}`}><ArrowUpCircle size={15}/> PAKAI</button>
+                 <button type="button" onClick={()=>setTxType(TransactionType.PAYMENT)} className={`flex-1 py-2 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-all ${txType === TransactionType.PAYMENT ? 'bg-white dark:bg-slate-700 text-success shadow-sm' : 'text-slate-500'}`}><ArrowDownCircle size={15}/> BAYAR</button>
                </div>
 
                {/* CARD SELECT */}
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Sumber Dana / Kartu</label>
-                 <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none border-2 border-transparent focus:border-primary transition">
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Sumber Dana / Kartu</label>
+                 <select value={txCardId} onChange={(e)=>setTxCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none border border-transparent focus:border-primary transition">
                    {data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                  </select>
                </div>
 
                {/* PAYMENT SPECIFIC FIELDS */}
                {txType === TransactionType.PAYMENT && (
-                 <div className="space-y-6 animate-in slide-in-from-top duration-300">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Bulan Tagihan</label>
-                        <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-success outline-none">
+                 <div className="space-y-2.5 animate-in slide-in-from-top duration-200">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Bulan Tagihan</label>
+                        <select value={txTargetMonth} onChange={(e)=>setTxTargetMonth(parseInt(e.target.value))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none">
                           {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
                         </select>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tahun</label>
-                        <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-success outline-none"/>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Tahun</label>
+                        <input type="number" value={txTargetYear} onChange={(e)=>setTxTargetYear(parseInt(e.target.value))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold border border-transparent focus:border-success outline-none"/>
                       </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 space-y-4">
-                       <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2"><Info size={16} className="text-slate-400"/><span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
-                          <span className="text-sm font-black text-slate-800 dark:text-slate-100">{formatIDR(currentBillEstimate)}</span>
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                       <div className="flex justify-between items-center px-1">
+                          <div className="flex items-center gap-1.5"><Info size={13} className="text-slate-400"/><span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Status Tagihan</span></div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-100">{formatIDR(currentBillEstimate)}</span>
                        </div>
                        
-                       <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border-2' : 'bg-white dark:bg-slate-800 border-2 border-transparent'}`}>
-                          <div className="flex items-center gap-3">
-                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={20}/></div>
+                       <div onClick={() => setTxUseSavings(!txUseSavings)} className={`flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${txUseSavings ? 'bg-success/10 border-success/30 border' : 'bg-white dark:bg-slate-800 border border-transparent'}`}>
+                          <div className="flex items-center gap-2.5">
+                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${txUseSavings ? 'bg-success text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}><Vault size={15}/></div>
                              <div className="flex flex-col">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tabungan Tersedia</span>
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{formatIDR(availableSavingsForPeriod)}</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tabungan Tersedia</span>
+                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{formatIDR(availableSavingsForPeriod)}</span>
                              </div>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${txUseSavings ? 'bg-success border-success' : 'border-slate-200'}`}>
-                             {txUseSavings && <CheckCircle2 size={16} className="text-white"/>}
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${txUseSavings ? 'bg-success border-success' : 'border-slate-300'}`}>
+                             {txUseSavings && <CheckCircle2 size={13} className="text-white"/>}
                           </div>
                        </div>
                     </div>
@@ -2606,28 +2606,28 @@ const App: React.FC = () => {
 
                {/* EXPENSE SPECIFIC: INSTALLMENT OPTION */}
                {txType === TransactionType.EXPENSE && (
-                 <div className="space-y-4 animate-in slide-in-from-top duration-300">
-                    <div onClick={() => setTxIsInstallment(!txIsInstallment)} className={`flex items-center justify-between p-5 rounded-3xl cursor-pointer transition-all border-2 ${txIsInstallment ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${txIsInstallment ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
-                          <Zap size={24} />
+                 <div className="space-y-2 animate-in slide-in-from-top duration-200">
+                    <div onClick={() => setTxIsInstallment(!txIsInstallment)} className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all border ${txIsInstallment ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${txIsInstallment ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                          <Zap size={16} />
                         </div>
                         <div>
-                          <p className={`text-sm font-black uppercase tracking-tight ${txIsInstallment ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Konversi ke Cicilan</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Pecah Tagihan Jadi Ringan</p>
+                          <p className={`text-xs font-black uppercase tracking-tight leading-tight ${txIsInstallment ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Konversi ke Cicilan</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">Pecah Tagihan Jadi Ringan</p>
                         </div>
                       </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${txIsInstallment ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
-                        {txIsInstallment && <CheckCircle2 size={16} className="text-white"/>}
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 ${txIsInstallment ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                        {txIsInstallment && <CheckCircle2 size={13} className="text-white"/>}
                       </div>
                     </div>
 
                     {txIsInstallment && (
-                      <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-6 rounded-[32px] border border-indigo-100 dark:border-indigo-900/30 space-y-6 animate-in zoom-in-95 duration-200">
-                        <div className="space-y-3">
+                      <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 space-y-2.5 animate-in zoom-in-95 duration-200">
+                        <div className="space-y-1.5">
                            <div className="flex justify-between items-center px-1">
-                             <label className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Durasi Cicilan (Bulan)</label>
-                             <span className="text-xl font-black text-indigo-700 dark:text-indigo-300">{txInstallmentMonths}x</span>
+                             <label className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Durasi Cicilan (Bulan)</label>
+                             <span className="text-sm font-black text-indigo-700 dark:text-indigo-300">{txInstallmentMonths}x</span>
                            </div>
                            <input 
                             type="range" 
@@ -2635,26 +2635,26 @@ const App: React.FC = () => {
                             max="60" 
                             value={txInstallmentMonths} 
                             onChange={(e) => setTxInstallmentMonths(parseInt(e.target.value))}
-                            className="w-full h-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                            className="w-full h-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                            />
-                           <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase px-1">
-                             <span>2 Bln</span>
-                             <span>12 Bln</span>
-                             <span>24 Bln</span>
-                             <span>36 Bln</span>
-                             <span>48 Bln</span>
-                             <span>60 Bln</span>
+                           <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase px-1">
+                             <span>2x</span>
+                             <span>12x</span>
+                             <span>24x</span>
+                             <span>36x</span>
+                             <span>48x</span>
+                             <span>60x</span>
                            </div>
                         </div>
                         
-                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm flex justify-between items-center border border-indigo-50 dark:border-indigo-800">
+                        <div className="bg-white dark:bg-slate-900 px-3 py-2 rounded-xl shadow-xs flex justify-between items-center border border-indigo-50 dark:border-indigo-800">
                           <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Angsuran Estimasi</span>
-                            <span className="text-lg font-black text-indigo-600">{formatIDR(Math.ceil(getNumericValue(txAmount) / (txInstallmentMonths || 1)))}</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Angsuran / Bln</span>
+                            <span className="text-xs font-black text-indigo-600">{formatIDR(Math.ceil(getNumericValue(txAmount) / (txInstallmentMonths || 1)))}</span>
                           </div>
                           <div className="text-right">
-                             <span className="text-[9px] font-black text-slate-400 uppercase block">Periode</span>
-                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Mulai {monthNames[new Date(txDate).getMonth()]} {new Date(txDate).getFullYear()}</span>
+                             <span className="text-[8px] font-black text-slate-400 uppercase block">Periode</span>
+                             <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Mulai {monthNames[new Date(txDate).getMonth()]} {new Date(txDate).getFullYear()}</span>
                           </div>
                         </div>
                       </div>
@@ -2663,72 +2663,80 @@ const App: React.FC = () => {
                )}
 
                {/* MAIN AMOUNT INPUT */}
-               <div className="space-y-2 text-center">
-                 <label className="text-[10px] font-black text-slate-400 uppercase">
+               <div className="space-y-1 text-center py-0.5">
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
                     {txType === TransactionType.EXPENSE ? 'Nominal Pemakaian' : 'Nominal Bayar Tunai'}
                  </label>
-                 <input type="text" value={txAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} required placeholder="Rp 0" className={`w-full text-5xl font-black p-4 border-b-4 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-100 focus:border-danger' : 'border-green-100 focus:border-success'}`} />
+                 <input 
+                   type="text" 
+                   inputMode="numeric"
+                   value={txAmount} 
+                   onChange={(e)=>handleCurrencyInput(e.target.value, setTxAmount)} 
+                   required 
+                   placeholder="Rp 0" 
+                   className={`w-full ${txAmount.length > 14 ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black py-1.5 px-2 border-b-2 outline-none bg-transparent text-slate-800 dark:text-slate-100 text-center transition-colors ${txType === TransactionType.EXPENSE ? 'border-red-200 dark:border-red-900/50 focus:border-danger' : 'border-green-200 dark:border-green-900/50 focus:border-success'}`} 
+                 />
                  
                  {txType === TransactionType.PAYMENT && txUseSavings && availableSavingsForPeriod > 0 && (
-                   <div className="mt-4 flex flex-col items-center gap-1 animate-in zoom-in duration-300">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pengurangan Hutang</span>
-                      <span className="text-2xl font-black text-success">{formatIDR(totalImpact)}</span>
+                   <div className="pt-1 flex items-center justify-center gap-2 animate-in zoom-in duration-200">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Total Pengurangan:</span>
+                      <span className="text-xs font-black text-success">{formatIDR(totalImpact)}</span>
                    </div>
                  )}
                </div>
 
                {txType === TransactionType.EXPENSE && (
-                 <div className="space-y-4 pt-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center block">Kepemilikan Transaksi</label>
-                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl max-w-sm mx-auto">
-                     <button type="button" onClick={() => setTxOwner(OwnerType.PERSONAL)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.PERSONAL ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Pribadi</button>
-                     <button type="button" onClick={() => setTxOwner(OwnerType.BUSINESS)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.BUSINESS ? 'bg-white dark:bg-slate-700 shadow-sm text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Bisnis</button>
-                     <button type="button" onClick={() => setTxOwner(OwnerType.SPLIT)} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${txOwner === OwnerType.SPLIT ? 'bg-white dark:bg-slate-700 shadow-sm text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Split</button>
+                 <div className="space-y-1.5">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider text-center block">Kepemilikan Transaksi</label>
+                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                     <button type="button" onClick={() => setTxOwner(OwnerType.PERSONAL)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.PERSONAL ? 'bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Pribadi</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.BUSINESS)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.BUSINESS ? 'bg-white dark:bg-slate-700 shadow-xs text-purple-600 dark:text-purple-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Bisnis</button>
+                     <button type="button" onClick={() => setTxOwner(OwnerType.SPLIT)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${txOwner === OwnerType.SPLIT ? 'bg-white dark:bg-slate-700 shadow-xs text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Split</button>
                    </div>
                    {txOwner === OwnerType.SPLIT && (
-                     <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto pt-2 animate-in slide-in-from-top-2">
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-blue-500 uppercase ml-1">Pribadi</label>
-                         <input type="text" value={txSplitPersonal} onChange={(e) => {
+                     <div className="grid grid-cols-2 gap-2 pt-1 animate-in slide-in-from-top-1">
+                       <div className="space-y-1">
+                         <label className="text-[9px] font-black text-blue-500 uppercase ml-1 block">Pribadi</label>
+                         <input type="text" inputMode="numeric" value={txSplitPersonal} onChange={(e) => {
                              handleCurrencyInput(e.target.value, setTxSplitPersonal);
                              const personalVal = getNumericValue(e.target.value);
                              const amountVal = getNumericValue(txAmount);
                              setTxSplitBusiness(formatIDR(Math.max(0, amountVal - personalVal)));
-                           }} required placeholder="Rp 0" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-blue-400 outline-none transition font-bold text-center" />
+                           }} required placeholder="Rp 0" className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-blue-400 outline-none transition font-bold text-xs text-center" />
                        </div>
-                       <div className="space-y-2">
-                         <label className="text-[10px] font-black text-purple-500 uppercase ml-1">Bisnis</label>
-                         <input type="text" value={txSplitBusiness} onChange={(e) => {
+                       <div className="space-y-1">
+                         <label className="text-[9px] font-black text-purple-500 uppercase ml-1 block">Bisnis</label>
+                         <input type="text" inputMode="numeric" value={txSplitBusiness} onChange={(e) => {
                              handleCurrencyInput(e.target.value, setTxSplitBusiness);
                              const businessVal = getNumericValue(e.target.value);
                              const amountVal = getNumericValue(txAmount);
                              setTxSplitPersonal(formatIDR(Math.max(0, amountVal - businessVal)));
-                           }} required placeholder="Rp 0" className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-purple-400 outline-none transition font-bold text-center" />
+                           }} required placeholder="Rp 0" className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-purple-400 outline-none transition font-bold text-xs text-center" />
                        </div>
                      </div>
                    )}
                  </div>
                )}
 
-               {/* DESCRIPTION & DATE */}
-               <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Keterangan</label>
-                    <input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar lewat mana?"} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold" />
+               {/* DESCRIPTION & DATE (Side by side for compact seamless mobile view) */}
+               <div className="grid grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Keterangan</label>
+                    <input type="text" value={txDesc} onChange={(e)=>setTxDesc(e.target.value)} placeholder={txType === TransactionType.EXPENSE ? "Beli apa?" : "Bayar via apa?"} className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tanggal Transaksi</label>
-                    <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl border-2 border-transparent focus:border-primary outline-none transition font-bold"/>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Tanggal Transaksi</label>
+                    <input type="date" value={txDate} onChange={(e)=>setTxDate(e.target.value)} className="w-full px-2.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl border border-transparent focus:border-primary outline-none transition font-bold text-xs sm:text-sm"/>
                   </div>
                </div>
 
                {/* ACTION BUTTONS */}
-               <div className="space-y-4 pt-4">
-                 <button type="submit" className={`w-full py-6 text-white font-black text-lg rounded-[28px] shadow-xl active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
+               <div className="space-y-2 pt-1.5">
+                 <button type="submit" className={`w-full py-3 text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all ${txType === TransactionType.EXPENSE ? 'bg-danger hover:bg-red-600' : 'bg-success hover:bg-emerald-600'}`}>
                     {editingTransaction ? 'Simpan Perubahan' : (txType === TransactionType.EXPENSE ? (txIsInstallment ? 'Proses Cicilan Baru' : 'Catat Pengeluaran') : 'Konfirmasi Pembayaran')}
                  </button>
                  {editingTransaction && (
-                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] hover:bg-red-100 transition">Hapus Transaksi Ini</button>
+                   <button type="button" onClick={() => handleDeleteTransaction(editingTransaction.id)} className="w-full py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl hover:bg-red-100 transition">Hapus Transaksi Ini</button>
                  )}
                </div>
              </form>
@@ -2736,89 +2744,89 @@ const App: React.FC = () => {
         );
       case 'FORM_SAVING':
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
-             <form onSubmit={handleSaveSaving} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Alokasi Untuk</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dana Disisihkan</label><input type="text" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-5xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-4"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
-               <div className="pt-4"><button type="submit" className="w-full py-6 bg-success text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-emerald-600 active:scale-95 transition-all">Amankan Dana Pelunasan</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full mt-4 py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] transition">Hapus Tabungan</button>)}</div>
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
+             <form onSubmit={handleSaveSaving} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk</label><select value={savingCardId} onChange={(e)=>setSavingCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Dana Disisihkan</label><input type="text" inputMode="numeric" value={savingAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setSavingAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan</label><div className="grid grid-cols-2 gap-2.5"><select value={savingTargetMonth} onChange={(e)=>setSavingTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={savingTargetYear} onChange={(e)=>setSavingTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold"/></div></div>
+               <div className="pt-2"><button type="submit" className="w-full py-3 bg-success text-white font-black text-sm rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">Amankan Dana Pelunasan</button>{editingSaving && (<button type="button" onClick={() => handleDeleteSaving(editingSaving.id)} className="w-full mt-2 py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition">Hapus Tabungan</button>)}</div>
              </form>
           </div>
         );
       case 'FORM_TRANSFER_SAVING':
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
-             <form onSubmit={handleSaveTransfer} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="text-center space-y-2">
-                 <div className="w-16 h-16 bg-success/10 text-success rounded-full flex items-center justify-center mx-auto mb-4">
-                   <ArrowRightLeft size={32} />
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
+             <form onSubmit={handleSaveTransfer} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="text-center space-y-1">
+                 <div className="w-10 h-10 bg-success/10 text-success rounded-full flex items-center justify-center mx-auto mb-1">
+                   <ArrowRightLeft size={20} />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Transfer Dana Tabungan</h2>
-                 <p className="text-sm text-slate-500 font-medium">Pindahkan dana antar tabungan</p>
+                 <h2 className="text-base font-black text-slate-800 dark:text-slate-100">Transfer Dana Tabungan</h2>
+                 <p className="text-[11px] text-slate-500 font-medium">Pindahkan dana antar tabungan</p>
                </div>
                
-               <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] border border-slate-100 dark:border-slate-800">
-                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Sumber Dana</h4>
-                 <div className="space-y-3">
-                   <select value={transferSourceCardId} onChange={(e)=>setTransferSourceCardId(e.target.value)} className="w-full p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{data.cards.map(c => <option key={`src_${c.id}`} value={c.id}>{c.name}</option>)}</select>
-                   <div className="grid grid-cols-2 gap-3">
-                     <select value={transferSourceMonth} onChange={(e)=>setTransferSourceMonth(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{monthNames.map((m, i) => <option key={`src_m_${i}`} value={i}>{m}</option>)}</select>
-                     <input type="number" value={transferSourceYear} onChange={(e)=>setTransferSourceYear(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm"/>
+               <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                 <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sumber Dana</h4>
+                 <div className="space-y-2">
+                   <select value={transferSourceCardId} onChange={(e)=>setTransferSourceCardId(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700">{data.cards.map(c => <option key={`src_${c.id}`} value={c.id}>{c.name}</option>)}</select>
+                   <div className="grid grid-cols-2 gap-2">
+                     <select value={transferSourceMonth} onChange={(e)=>setTransferSourceMonth(parseInt(e.target.value))} className="px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700">{monthNames.map((m, i) => <option key={`src_m_${i}`} value={i}>{m}</option>)}</select>
+                     <input type="number" value={transferSourceYear} onChange={(e)=>setTransferSourceYear(parseInt(e.target.value))} className="px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700"/>
                    </div>
                  </div>
                </div>
 
-               <div className="flex justify-center -my-8 relative z-10">
-                 <div className="w-12 h-12 bg-white dark:bg-slate-900 border-4 border-slate-50 dark:border-slate-800 rounded-full flex items-center justify-center text-slate-400 shadow-sm">
-                   <ArrowDown size={20} />
+               <div className="flex justify-center -my-4 relative z-10">
+                 <div className="w-8 h-8 bg-white dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-800 rounded-full flex items-center justify-center text-slate-400 shadow-xs">
+                   <ArrowDown size={14} />
                  </div>
                </div>
 
-               <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] border border-slate-100 dark:border-slate-800">
-                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Tujuan Transfer</h4>
-                 <div className="space-y-3">
-                   <select value={transferTargetCardId} onChange={(e)=>setTransferTargetCardId(e.target.value)} className="w-full p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{data.cards.map(c => <option key={`tgt_${c.id}`} value={c.id}>{c.name}</option>)}</select>
-                   <div className="grid grid-cols-2 gap-3">
-                     <select value={transferTargetMonth} onChange={(e)=>setTransferTargetMonth(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm">{monthNames.map((m, i) => <option key={`tgt_m_${i}`} value={i}>{m}</option>)}</select>
-                     <input type="number" value={transferTargetYear} onChange={(e)=>setTransferTargetYear(parseInt(e.target.value))} className="p-4 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 shadow-sm"/>
+               <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                 <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tujuan Transfer</h4>
+                 <div className="space-y-2">
+                   <select value={transferTargetCardId} onChange={(e)=>setTransferTargetCardId(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700">{data.cards.map(c => <option key={`tgt_${c.id}`} value={c.id}>{c.name}</option>)}</select>
+                   <div className="grid grid-cols-2 gap-2">
+                     <select value={transferTargetMonth} onChange={(e)=>setTransferTargetMonth(parseInt(e.target.value))} className="px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700">{monthNames.map((m, i) => <option key={`tgt_m_${i}`} value={i}>{m}</option>)}</select>
+                     <input type="number" value={transferTargetYear} onChange={(e)=>setTransferTargetYear(parseInt(e.target.value))} className="px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs font-bold outline-none border border-slate-200 dark:border-slate-700"/>
                    </div>
                  </div>
                </div>
 
-               <div className="space-y-2 pt-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal Transfer</label><input type="text" value={transferAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTransferAmount)} required placeholder="Rp 0" className="w-full text-4xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               <div className="space-y-1 text-center pt-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Nominal Transfer</label><input type="text" inputMode="numeric" value={transferAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setTransferAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-success bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
                
-               <div className="pt-4"><button type="submit" className="w-full py-6 bg-success text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-emerald-600 active:scale-95 transition-all">Proses Transfer</button></div>
+               <div className="pt-2"><button type="submit" className="w-full py-3 bg-success text-white font-black text-sm rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">Proses Transfer</button></div>
              </form>
           </div>
         );
       case 'FORM_PIUTANG':
         return (
-          <div className="animate-in slide-in-from-right duration-300 max-w-2xl mx-auto w-full px-5 py-8">
-             <form onSubmit={handleSavePiutang} className="space-y-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] shadow-xl border border-slate-50 dark:border-slate-800">
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl outline-none font-bold text-lg" /></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nominal Piutang</label><input type="text" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-5xl font-black p-4 border-b-4 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Alokasi Untuk Hutang</label><select value={piutangCardId} onChange={(e)=>setPiutangCardId(e.target.value)} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="animate-in slide-in-from-right duration-300 max-w-xl mx-auto w-full px-3 py-2.5 md:px-5 md:py-6">
+             <form onSubmit={handleSavePiutang} className="space-y-3 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-3xl shadow-xl border border-slate-50 dark:border-slate-800">
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Piutang Dari Siapa?</label><input type="text" value={piutangDebtor} onChange={(e)=>setPiutangDebtor(e.target.value)} required placeholder="Contoh: Andi" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl outline-none font-bold text-xs sm:text-sm" /></div>
+               <div className="space-y-1 text-center py-1"><label className="text-[9px] font-black text-slate-400 uppercase block">Nominal Piutang</label><input type="text" inputMode="numeric" value={piutangAmount} onChange={(e)=>handleCurrencyInput(e.target.value, setPiutangAmount)} required placeholder="Rp 0" className="w-full text-xl sm:text-2xl font-black py-1.5 px-2 border-b-2 border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-600 bg-transparent text-slate-800 dark:text-slate-100 text-center" /></div>
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Alokasi Untuk Hutang</label><select value={piutangCardId} onChange={(e)=>setPiutangCardId(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none">{data.cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                {!editingPiutang && (
-                 <div className="space-y-4">
-                   <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl cursor-pointer" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
-                     <div className={`w-6 h-6 rounded-md flex items-center justify-center ${piutangIsInstallment ? 'bg-indigo-600' : 'border-2 border-slate-300 dark:border-slate-600'}`}>
-                       {piutangIsInstallment && <Check size={16} className="text-white" />}
+                 <div className="space-y-2">
+                   <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 rounded-xl cursor-pointer" onClick={() => setPiutangIsInstallment(!piutangIsInstallment)}>
+                     <div className={`w-5 h-5 rounded-md flex items-center justify-center ${piutangIsInstallment ? 'bg-indigo-600' : 'border-2 border-slate-300 dark:border-slate-600'}`}>
+                       {piutangIsInstallment && <Check size={13} className="text-white" />}
                      </div>
-                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Jadikan Cicilan Bulanan</span>
+                     <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Jadikan Cicilan Bulanan</span>
                    </div>
                    {piutangIsInstallment && (
-                     <div className="space-y-2 animate-in slide-in-from-top duration-300">
-                       <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Berapa Bulan (Tenor)?</label>
-                       <input type="number" min="2" max="60" value={piutangInstallmentMonths} onChange={(e)=>setPiutangInstallmentMonths(parseInt(e.target.value))} className="w-full p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-base font-bold outline-none focus:border-indigo-600 border-2 border-transparent" />
+                     <div className="space-y-1 animate-in slide-in-from-top duration-200">
+                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Berapa Bulan (Tenor)?</label>
+                       <input type="number" min="2" max="60" value={piutangInstallmentMonths} onChange={(e)=>setPiutangInstallmentMonths(parseInt(e.target.value))} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold outline-none focus:border-indigo-600 border border-transparent" />
                        {piutangInstallmentMonths > 1 && getNumericValue(piutangAmount) > 0 && (
-                          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pl-2">Setiap bulan akan ditagih sebesar: {formatIDR(getNumericValue(piutangAmount) / piutangInstallmentMonths)}</p>
+                          <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 pl-1">Tagihan per bulan: {formatIDR(getNumericValue(piutangAmount) / piutangInstallmentMonths)}</p>
                        )}
                      </div>
                    )}
                  </div>
                )}
-               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Periode Tagihan {piutangIsInstallment ? 'Pertama' : ''}</label><div className="grid grid-cols-2 gap-4"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="p-5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-2xl text-sm font-bold"/></div></div>
-               <div className="pt-4"><button type="submit" className="w-full py-6 bg-indigo-600 text-white font-black text-lg rounded-[28px] shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">Simpan Catatan Piutang</button>{editingPiutang && (<button type="button" onClick={() => handleDeletePiutang(editingPiutang.id)} className="w-full mt-4 py-4 bg-red-50 dark:bg-red-900/10 text-danger font-bold rounded-[24px] transition">Hapus Piutang</button>)}</div>
+               <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block">Target Periode Tagihan {piutangIsInstallment ? 'Pertama' : ''}</label><div className="grid grid-cols-2 gap-2.5"><select value={piutangTargetMonth} onChange={(e)=>setPiutangTargetMonth(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={piutangTargetYear} onChange={(e)=>setPiutangTargetYear(parseInt(e.target.value))} className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 dark:text-slate-100 rounded-xl text-xs sm:text-sm font-bold"/></div></div>
+               <div className="pt-2"><button type="submit" className="w-full py-3 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">Simpan Catatan Piutang</button>{editingPiutang && (<button type="button" onClick={() => handleDeletePiutang(editingPiutang.id)} className="w-full mt-2 py-2.5 bg-red-50 dark:bg-red-900/10 text-danger text-xs font-bold rounded-xl transition">Hapus Piutang</button>)}</div>
              </form>
           </div>
         );
@@ -3189,6 +3197,11 @@ const App: React.FC = () => {
                 currentView === 'SAVINGS' ? 'Tabungan' :
                 currentView === 'PIUTANGS' ? 'Piutang' :
                 currentView === 'YEARLY' ? 'Anggaran Tahunan' :
+                currentView === 'FORM_TRANSACTION' ? 'Input Transaksi' :
+                currentView === 'FORM_SAVING' ? 'Input Tabungan' :
+                currentView === 'FORM_PIUTANG' ? 'Input Piutang' :
+                currentView === 'FORM_CARD' ? 'Input Kartu / Hutang' :
+                currentView === 'FORM_TRANSFER_SAVING' ? 'Transfer Tabungan' :
                 currentView.replace('FORM_', 'Input ').replace('VIEW_', 'Rincian ').replace('_', ' ')
               } 
               onBack={viewStack.length > 1 ? popView : undefined}
@@ -3202,7 +3215,7 @@ const App: React.FC = () => {
             />
           )}
 
-          <main className="flex-1 overflow-y-auto no-scrollbar pb-24 md:pb-10 bg-slate-50 dark:bg-slate-950">
+          <main className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}>
             {renderCurrentView()}
           </main>
 
