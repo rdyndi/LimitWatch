@@ -131,33 +131,22 @@ const isIOSDevice = typeof navigator !== 'undefined' && (
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 );
 
-const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => (
-  <>
-    <div
-      aria-hidden="true"
-      className={`flex-none w-full pointer-events-none select-none ${
-        isIOSDevice ? 'bg-transparent' : 'bg-white dark:bg-slate-950'
-      }`}
-      style={{
-        height: isIOSDevice
-          ? 'calc(var(--sat, 0px) + 6px)'
-          : 'var(--sat, 0px)'
-      }}
-    />
-    <header
-      className={`flex-none z-[60] relative ${
-        isIOSDevice
-          ? 'bg-transparent border-none pt-1 pb-0.5'
-          : 'bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80'
-      } ${className}`}
-    >
-      <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
-        {isIOSDevice ? (
-          <div className="inline-flex items-center gap-1.5 px-4 h-9.5 rounded-full bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)]">
+const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: string, onBack?: () => void, rightElement?: React.ReactNode, className?: string }) => {
+  if (isIOSDevice) {
+    return (
+      <header
+        className={`fixed top-0 left-0 right-0 z-[60] bg-transparent border-none pointer-events-none ${className}`}
+        style={{ paddingTop: 'calc(var(--sat, 0px) + 6px)' }}
+      >
+        <div className="px-4 h-12 flex justify-between items-center max-w-7xl mx-auto w-full">
+          <div
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9.5 rounded-full bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)]"
+            style={{ WebkitBackdropFilter: 'blur(24px) saturate(180%)' }}
+          >
             {onBack && (
               <button
                 onClick={onBack}
-                className="-ml-1.5 p-1 text-slate-700 dark:text-white active:scale-90 transition rounded-full"
+                className="-ml-1.5 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full"
               >
                 <ChevronLeft size={19} strokeWidth={2.5} />
               </button>
@@ -166,7 +155,25 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
               {title}
             </h2>
           </div>
-        ) : (
+          <div className="pointer-events-auto flex items-center gap-2">
+            {rightElement}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="flex-none w-full bg-white dark:bg-slate-950 pointer-events-none select-none"
+        style={{ height: 'var(--sat, 0px)' }}
+      />
+      <header
+        className={`flex-none bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80 z-[60] relative ${className}`}
+      >
+        <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-2.5">
             {onBack && (
               <button onClick={onBack} className="p-1.5 -ml-1.5 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
@@ -175,14 +182,14 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
             )}
             <h2 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          {rightElement}
+          <div className="flex items-center gap-2">
+            {rightElement}
+          </div>
         </div>
-      </div>
-    </header>
-  </>
-);
+      </header>
+    </>
+  );
+};
 
 const DesktopNavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
   <button type="button" onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 translate-x-1' : 'text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
@@ -5121,9 +5128,10 @@ const App: React.FC = () => {
                     onClick={toggleTheme}
                     className={
                       isIOSDevice
-                        ? 'w-9.5 h-9.5 rounded-full bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-90 cursor-pointer'
+                        ? 'w-9.5 h-9.5 rounded-full bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-90 cursor-pointer'
                         : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
                     }
+                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(180%)' } : undefined}
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
                     {data.theme === 'dark' ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
@@ -5133,9 +5141,10 @@ const App: React.FC = () => {
                       onClick={() => pushView('VIEW_PROFILE')}
                       className={
                         isIOSDevice
-                          ? 'w-9.5 h-9.5 rounded-full p-0.5 bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          ? 'w-9.5 h-9.5 rounded-full p-0.5 bg-white/55 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/[0.18] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.55)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.24)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
                           : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
                       }
+                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(180%)' } : undefined}
                     >
                       {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-500 dark:text-slate-300"/>}
                     </button>
@@ -5145,7 +5154,10 @@ const App: React.FC = () => {
             />
           )}
 
-          <main className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}>
+          <main
+            className={`flex-1 overflow-y-auto no-scrollbar ${isFormOrDetailView ? 'pb-4' : 'pb-24'} md:pb-10 bg-slate-50 dark:bg-slate-950`}
+            style={isIOSDevice ? { paddingTop: 'calc(var(--sat, 0px) + 52px)' } : undefined}
+          >
             {renderCurrentView()}
           </main>
 
