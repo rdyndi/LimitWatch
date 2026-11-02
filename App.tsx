@@ -136,30 +136,38 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
   if (isIOSDevice) {
     return (
       <header
-        className={`fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl border-b border-black/[0.05] dark:border-white/[0.08] ${className}`}
+        className={`fixed top-0 left-0 right-0 z-[60] bg-transparent border-none pointer-events-none ${className}`}
         style={{
-          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)',
           paddingLeft: 'env(safe-area-inset-left, 0px)',
           paddingRight: 'env(safe-area-inset-right, 0px)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          backdropFilter: 'blur(20px) saturate(180%)',
         }}
       >
-        <div className="px-4 h-12 flex justify-between items-center max-w-7xl mx-auto w-full">
-          <div className="flex items-center gap-1.5">
+        <div className="px-4 h-13 flex justify-between items-center max-w-7xl mx-auto w-full">
+          <div
+            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-6 h-11 rounded-full bg-white/60 dark:bg-slate-900/45 border border-slate-300/80 dark:border-white/28 shadow-[0_10px_28px_rgba(0,0,0,0.10),inset_0_2px_4px_rgba(255,255,255,0.8),inset_0_-2px_4px_rgba(255,255,255,0.35)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.55),inset_0_2px_3px_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(148,163,184,0.35),inset_3px_0_8px_rgba(255,255,255,0.22),inset_-3px_0_8px_rgba(255,255,255,0.22)]"
+            style={{
+              WebkitBackdropFilter: 'blur(26px) saturate(190%)',
+              backdropFilter: 'blur(26px) saturate(190%)'
+            }}
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(120%_90%_at_50%_0%,rgba(255,255,255,0.28)_0%,transparent_55%),radial-gradient(80%_80%_at_12%_100%,rgba(147,197,253,0.28)_0%,transparent_55%),radial-gradient(80%_80%_at_88%_100%,rgba(147,197,253,0.28)_0%,transparent_55%)]"
+            />
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-1 -ml-1 text-primary dark:text-blue-400 active:scale-90 transition rounded-full cursor-pointer flex items-center"
+                className="relative z-10 -ml-2 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full cursor-pointer"
               >
-                <ChevronLeft size={22} strokeWidth={2.5} />
+                <ChevronLeft size={19} strokeWidth={2.5} />
               </button>
             )}
-            <h2 className="text-[17px] font-bold text-slate-900 dark:text-white leading-none truncate max-w-[240px] tracking-tight">
+            <h2 className="relative z-10 text-[15px] font-black text-slate-900 dark:text-white leading-none truncate max-w-[200px] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               {title}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="pointer-events-auto flex items-center gap-3">
             {rightElement}
           </div>
         </div>
@@ -1719,36 +1727,7 @@ const App: React.FC = () => {
           .slice(0, 5);
 
         return (
-          <div className="space-y-4 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 pb-4 md:py-7">
-            {/* Native iOS Top User Bar (matches reference Image 1) */}
-            {isMobileDevice && (
-              <div className="flex items-center justify-between pt-1 pb-1">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Selamat datang,</p>
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {user?.displayName || 'Pengguna'} 👋
-                  </h1>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleTheme}
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-200/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-200 backdrop-blur-md active:scale-95 transition cursor-pointer"
-                    title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
-                  >
-                    {data.theme === 'dark' ? <Sun size={19} className="text-amber-400" /> : <Moon size={18} />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => pushView('VIEW_PROFILE')}
-                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-200 dark:border-slate-700 active:scale-95 transition cursor-pointer"
-                  >
-                    {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={18} className="text-slate-500 m-auto"/>}
-                  </button>
-                </div>
-              </div>
-            )}
-
+          <div className="space-y-5 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4 md:py-7">
             {/* 1. 2026 EXECUTIVE FINTECH BENTO HERO */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               {/* Main Net Liability & Coverage Command Card */}
@@ -5135,8 +5114,8 @@ const App: React.FC = () => {
 
         {/* CONTENT AREA (DYNAMIC) */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* HEADER (Only for sub-views or non-iOS dashboard) */}
-          {(currentView !== 'DASHBOARD' || (!isIOSDevice && isMobileDevice)) && (
+          {/* HEADER (Only for certain views or small screens) */}
+          {(currentView !== 'DASHBOARD' || isMobileDevice) && (
              <PageHeader 
               title={
                 currentView === 'DASHBOARD' ? 'Beranda' :
@@ -5157,21 +5136,30 @@ const App: React.FC = () => {
               } 
               onBack={viewStack.length > 1 ? popView : undefined}
               rightElement={
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-slate-200/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 backdrop-blur-md active:scale-95 transition cursor-pointer"
+                    className={
+                      isIOSDevice
+                        ? 'w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 transition active:scale-90 cursor-pointer'
+                        : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
+                    }
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
-                    {data.theme === 'dark' ? <Sun size={18} className="text-amber-400" /> : <Moon size={17} />}
+                    {data.theme === 'dark' ? <Sun size={isIOSDevice ? 22 : 17} className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.45)]" /> : <Moon size={isIOSDevice ? 20 : 17} />}
                   </button>
                   {isMobileDevice && currentView === 'DASHBOARD' && (
                     <button
                       onClick={() => pushView('VIEW_PROFILE')}
-                      className="w-9 h-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 active:scale-95 transition cursor-pointer"
+                      className={
+                        isIOSDevice
+                          ? 'relative w-11 h-11 rounded-full p-[3px] bg-gradient-to-b from-white/55 via-white/25 to-white/40 dark:from-white/[0.24] dark:via-slate-900/50 dark:to-white/[0.12] backdrop-blur-2xl border border-white/80 dark:border-white/30 shadow-[0_8px_24px_rgba(0,0,0,0.12),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-1.5px_3px_rgba(255,255,255,0.45)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.6),inset_0_1.5px_2px_rgba(255,255,255,0.55),inset_0_-2px_4px_rgba(255,255,255,0.22),inset_2px_0_4px_rgba(255,255,255,0.18),inset_-2px_0_4px_rgba(255,255,255,0.18)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
+                      }
+                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(190%)' } : undefined}
                     >
-                      {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={17} className="text-slate-500 dark:text-slate-300 m-auto"/>}
+                      {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-500 dark:text-slate-300"/>}
                     </button>
                   )}
                 </div>
@@ -5184,9 +5172,7 @@ const App: React.FC = () => {
             style={
               isIOSDevice
                 ? {
-                    paddingTop: currentView === 'DASHBOARD'
-                      ? 'calc(env(safe-area-inset-top, 0px) + 8px)'
-                      : 'calc(env(safe-area-inset-top, 0px) + 52px)',
+                    paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
                     paddingLeft: 'env(safe-area-inset-left, 0px)',
                     paddingRight: 'env(safe-area-inset-right, 0px)',
                     WebkitOverflowScrolling: 'touch',
@@ -5197,91 +5183,106 @@ const App: React.FC = () => {
             {renderCurrentView()}
           </main>
 
-          {/* MOBILE BOTTOM NAV (Native iOS Frosted Glass Dock) */}
+          {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
             isIOSDevice ? (
               <nav
-                className="fixed z-50 rounded-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-black/[0.06] dark:border-white/[0.12] shadow-[0_10px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+                className="fixed z-[70] rounded-full bg-gradient-to-b from-white/70 via-white/45 to-white/60 dark:from-white/[0.15] dark:via-slate-950/65 dark:to-slate-900/80 backdrop-blur-2xl border border-slate-300/80 dark:border-white/[0.26] shadow-[0_14px_36px_rgba(0,0,0,0.14),inset_0_1.5px_2px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(255,255,255,0.5)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.75),inset_0_1.5px_2.5px_rgba(255,255,255,0.52),inset_0_-2px_5px_rgba(255,255,255,0.22),inset_3px_0_8px_rgba(255,255,255,0.14),inset_-3px_0_8px_rgba(255,255,255,0.14)] overflow-hidden"
                 style={{
-                  left: 'calc(env(safe-area-inset-left, 0px) + 16px)',
-                  right: 'calc(env(safe-area-inset-right, 0px) + 16px)',
-                  bottom: 'max(16px, calc(env(safe-area-inset-bottom, 0px) + 6px))',
-                  height: '64px',
-                  WebkitBackdropFilter: 'blur(25px) saturate(190%)',
-                  backdropFilter: 'blur(25px) saturate(190%)',
+                  left: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+                  right: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+                  bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
+                  height: '68px',
+                  WebkitBackdropFilter: 'blur(28px) saturate(195%)',
+                  backdropFilter: 'blur(28px) saturate(195%)',
                 }}
               >
-                <div className="h-full px-2 grid grid-cols-5 items-center max-w-md mx-auto">
-                  {/* Tab 1: Beranda */}
+                {/* Specular 3D Liquid Glass Top & Side Glare Overlay */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(110%_90%_at_12%_10%,rgba(255,255,255,0.34)_0%,transparent_45%),radial-gradient(110%_90%_at_88%_10%,rgba(255,255,255,0.28)_0%,transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.24)_0%,transparent_42%,rgba(255,255,255,0.10)_100%)] dark:bg-[radial-gradient(110%_90%_at_12%_10%,rgba(255,255,255,0.24)_0%,transparent_42%),radial-gradient(110%_90%_at_88%_10%,rgba(255,255,255,0.20)_0%,transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.18)_0%,transparent_38%,rgba(255,255,255,0.08)_100%)]"
+                />
+                <div className="relative z-10 h-full px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
                   <button
                     type="button"
                     onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
-                    className={`flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-colors ${
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
                       currentView === 'DASHBOARD' && !quickAddOpen
-                        ? 'text-primary dark:text-blue-400 font-bold'
-                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 font-medium'
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
                     }`}
                   >
-                    <Home size={21} strokeWidth={currentView === 'DASHBOARD' && !quickAddOpen ? 2.5 : 2} />
-                    <span className="text-[10px] tracking-tight leading-none">Beranda</span>
+                    {currentView === 'DASHBOARD' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <Home size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Beranda</span>
                   </button>
 
-                  {/* Tab 2: Tabung */}
                   <button
                     type="button"
                     onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
-                    className={`flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-colors ${
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
                       currentView === 'SAVINGS' && !quickAddOpen
-                        ? 'text-primary dark:text-blue-400 font-bold'
-                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 font-medium'
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
                     }`}
                   >
-                    <Vault size={21} strokeWidth={currentView === 'SAVINGS' && !quickAddOpen ? 2.5 : 2} />
-                    <span className="text-[10px] tracking-tight leading-none">Tabung</span>
+                    {currentView === 'SAVINGS' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <Vault size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Tabung</span>
                   </button>
 
-                  {/* Tab 3: Center Universal Action (+) Button */}
+                  {/* CENTER UNIVERSAL + BUTTON (Nested inside Liquid Glass Capsule with Concentric Glass Halo) */}
                   <div className="flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setQuickAddOpen(prev => !prev)}
-                      aria-label="Menu Input Cepat"
-                      className={`w-11.5 h-11.5 rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-all duration-200 cursor-pointer ${
-                        quickAddOpen
-                          ? 'bg-slate-800 dark:bg-slate-700 rotate-45'
-                          : 'bg-primary hover:bg-blue-600 shadow-primary/30'
-                      }`}
-                    >
-                      <Plus size={24} strokeWidth={2.75} />
-                    </button>
+                    <div className="p-1 rounded-full bg-white/15 dark:bg-white/[0.06] border border-white/40 dark:border-white/20 shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_0_16px_rgba(59,130,246,0.35)]">
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddOpen(prev => !prev)}
+                        aria-label="Menu Input Cepat"
+                        className={`w-11.5 h-11.5 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 cursor-pointer border border-white/45 dark:border-white/30 ${
+                          quickAddOpen
+                            ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-lg'
+                            : 'bg-gradient-to-b from-blue-400 via-blue-500 to-blue-600 shadow-[0_4px_16px_rgba(37,99,235,0.65),inset_0_1.5px_2px_rgba(255,255,255,0.65)]'
+                        }`}
+                      >
+                        <Plus size={25} strokeWidth={2.75} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Tab 4: Tahun */}
                   <button
                     type="button"
                     onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
-                    className={`flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-colors ${
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
                       currentView === 'YEARLY' && !quickAddOpen
-                        ? 'text-primary dark:text-blue-400 font-bold'
-                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 font-medium'
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
                     }`}
                   >
-                    <CalendarRange size={21} strokeWidth={currentView === 'YEARLY' && !quickAddOpen ? 2.5 : 2} />
-                    <span className="text-[10px] tracking-tight leading-none">Tahun</span>
+                    {currentView === 'YEARLY' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <CalendarRange size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Tahun</span>
                   </button>
 
-                  {/* Tab 5: Bisnis */}
                   <button
                     type="button"
                     onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
-                    className={`flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-colors ${
+                    className={`relative flex flex-col items-center justify-center gap-1 transition-all py-1.5 cursor-pointer ${
                       currentView === 'OWNER_BILLS' && !quickAddOpen
-                        ? 'text-primary dark:text-blue-400 font-bold'
-                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 font-medium'
+                        ? 'text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.65)]'
+                        : 'text-slate-500 dark:text-slate-300/75'
                     }`}
                   >
-                    <PieChart size={21} strokeWidth={currentView === 'OWNER_BILLS' && !quickAddOpen ? 2.5 : 2} />
-                    <span className="text-[10px] tracking-tight leading-none">Bisnis</span>
+                    {currentView === 'OWNER_BILLS' && !quickAddOpen && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-sky-400/15 blur-md" />
+                    )}
+                    <PieChart size={20} strokeWidth={2.25} className="relative z-10" />
+                    <span className="relative z-10 text-[9.5px] font-black uppercase tracking-tight leading-none">Bisnis</span>
                   </button>
                 </div>
               </nav>
