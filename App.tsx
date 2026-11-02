@@ -225,6 +225,8 @@ const App: React.FC = () => {
   const [yearlyMonthFilter, setYearlyMonthFilter] = useState<'ALL' | 'HAS_BILL' | 'UNPAID'>('ALL');
   const [savingsSelectedYear, setSavingsSelectedYear] = useState<number>(new Date().getFullYear());
   const [piutangsSelectedYear, setPiutangsSelectedYear] = useState<number>(new Date().getFullYear());
+  const [dashMonth, setDashMonth] = useState<number>(new Date().getMonth());
+  const [dashYear, setDashYear] = useState<number>(new Date().getFullYear());
 
   const [cardName, setCardName] = useState('');
   const [cardLimit, setCardLimit] = useState('');
@@ -804,9 +806,29 @@ const App: React.FC = () => {
       const totalValidated = Math.ceil(validatedBase + adminFee + materai);
 
       const totalPaid = Math.ceil(cardPayments.reduce((s, p) => s + p.amount, 0));
-      const totalSaved = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0) + cardPiutangs.reduce((s, v) => s + v.amount, 0));
+      const totalSavingsAmount = Math.ceil(cardSavings.reduce((s, v) => s + v.amount, 0));
+      const totalPiutangsAmount = Math.ceil(cardPiutangs.reduce((s, v) => s + v.amount, 0));
+      const totalSaved = totalSavingsAmount + totalPiutangsAmount;
+      const totalKurang = Math.max(0, totalBill - totalPaid - totalSavingsAmount - totalPiutangsAmount);
+      const totalUnpaid = Math.max(0, totalBill - totalPaid);
       
-      return { transactions: cardTransactions, installments: activeInstallments, payments: cardPayments, savings: cardSavings, piutangs: cardPiutangs, totalBill, totalPaid, totalSaved, totalValidated, adminFee, materai };
+      return { 
+        transactions: cardTransactions, 
+        installments: activeInstallments, 
+        payments: cardPayments, 
+        savings: cardSavings, 
+        piutangs: cardPiutangs, 
+        totalBill, 
+        totalPaid, 
+        totalSavingsAmount,
+        totalPiutangsAmount,
+        totalSaved, 
+        totalKurang,
+        totalUnpaid,
+        totalValidated, 
+        adminFee, 
+        materai 
+      };
   };
 
   const filteredTransactions = useMemo(() => {
@@ -880,8 +902,10 @@ const App: React.FC = () => {
       cardObj: CreditCardType;
       totalBill: number;
       totalPaid: number;
+      totalSavings: number;
+      totalPiutangs: number;
+      totalKurang: number;
       totalGap: number;
-      totalSaved: number;
       totalPersonal: number;
       totalBusiness: number;
       totalUnclassified: number;
@@ -896,8 +920,10 @@ const App: React.FC = () => {
         cardObj: card,
         totalBill: 0,
         totalPaid: 0,
+        totalSavings: 0,
+        totalPiutangs: 0,
+        totalKurang: 0,
         totalGap: 0,
-        totalSaved: 0,
         totalPersonal: 0,
         totalBusiness: 0,
         totalUnclassified: 0,
@@ -912,7 +938,11 @@ const App: React.FC = () => {
 
         const bill = stmt.totalBill;
         const paid = stmt.totalPaid;
-        const gap = Math.max(0, bill - paid);
+        const savings = stmt.totalSavingsAmount;
+        const piutangs = stmt.totalPiutangsAmount;
+        const kurang = stmt.totalKurang;
+        const unpaid = stmt.totalUnpaid;
+        const gap = unpaid;
         const saved = stmt.totalSaved;
 
         const personal = ownerBreakdown.personal;
@@ -922,12 +952,14 @@ const App: React.FC = () => {
         if (cardAggregatesMap[card.id]) {
           cardAggregatesMap[card.id].totalBill += bill;
           cardAggregatesMap[card.id].totalPaid += paid;
+          cardAggregatesMap[card.id].totalSavings += savings;
+          cardAggregatesMap[card.id].totalPiutangs += piutangs;
+          cardAggregatesMap[card.id].totalKurang += kurang;
           cardAggregatesMap[card.id].totalGap += gap;
-          cardAggregatesMap[card.id].totalSaved += saved;
           cardAggregatesMap[card.id].totalPersonal += personal;
           cardAggregatesMap[card.id].totalBusiness += business;
           cardAggregatesMap[card.id].totalUnclassified += unclassified;
-          if (bill > 0 || paid > 0) {
+          if (bill > 0 || paid > 0 || savings > 0 || piutangs > 0) {
             cardAggregatesMap[card.id].monthsWithBillsCount += 1;
           }
         }
@@ -938,35 +970,35 @@ const App: React.FC = () => {
           cardColor: card.color || 'bg-slate-400',
           cardObj: card,
           bill,
+          savings,
+          piutangs,
           paid,
+          kurang,
+          unpaid,
           gap,
           saved,
           personal,
           business,
           unclassified,
-          isFullyPaid: bill > 0 && gap === 0
+          isFullyPaid: bill > 0 && kurang === 0
         };
       });
 
       const totalMonthBill = cardsInMonth.reduce((s, c) => s + c.bill, 0);
       const totalMonthPaid = cardsInMonth.reduce((s, c) => s + c.paid, 0);
-      const totalMonthGap = Math.max(0, totalMonthBill - totalMonthPaid);
-      const totalMonthSaved = cardsInMonth.reduce((s, c) => s + c.saved, 0);
+      const totalMonthSavings = cardsInMonth.reduce((s, c) => s + c.savings, 0);
+      const totalMonthPiutangs = cardsInMonth.reduce((s, c) => s + c.piutangs, 0);
+      const totalMonthKurang = Math.max(0, totalMonthBill - totalMonthPaid - totalMonthSavings - totalMonthPiutangs);
+      const totalMonthUnpaid = Math.max(0, totalMonthBill - totalMonthPaid);
+      const totalMonthGap = totalMonthUnpaid;
+      const totalMonthSaved = totalMonthSavings + totalMonthPiutangs;
       const totalMonthPersonal = cardsInMonth.reduce((s, c) => s + c.personal, 0);
       const totalMonthBusiness = cardsInMonth.reduce((s, c) => s + c.business, 0);
 
-      const monthlySavingsAmount = data.savings
-        .filter(s => !s.isTransferred && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === yearlySelectedYear)
-        .reduce((sum, s) => sum + s.amount, 0);
-
-      const monthlyPiutangsAmount = (data.piutangs || [])
-        .filter(p => !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === yearlySelectedYear)
-        .reduce((sum, p) => sum + p.amount, 0);
-
       let status: 'LUNAS' | 'SEBAGIAN' | 'KURANG' | '-' = '-';
       if (totalMonthBill > 0) {
-        if (totalMonthGap === 0) status = 'LUNAS';
-        else if (totalMonthPaid > 0) status = 'SEBAGIAN';
+        if (totalMonthKurang === 0) status = 'LUNAS';
+        else if (totalMonthPaid > 0 || totalMonthSavings > 0 || totalMonthPiutangs > 0) status = 'SEBAGIAN';
         else status = 'KURANG';
       } else if (totalMonthPaid > 0) {
         status = 'LUNAS';
@@ -977,36 +1009,35 @@ const App: React.FC = () => {
         monthIdx,
         cardsInMonth,
         totalMonthBill,
+        totalMonthSavings,
+        totalMonthPiutangs,
         totalMonthPaid,
+        totalMonthKurang,
+        totalMonthUnpaid,
         totalMonthGap,
         totalMonthSaved,
         totalMonthPersonal,
         totalMonthBusiness,
-        monthlySavingsAmount,
-        monthlyPiutangsAmount,
+        monthlySavingsAmount: totalMonthSavings,
+        monthlyPiutangsAmount: totalMonthPiutangs,
         status
       };
     });
 
     const totalYearBill = monthlyBreakdown.reduce((s, m) => s + m.totalMonthBill, 0);
     const totalYearPaid = monthlyBreakdown.reduce((s, m) => s + m.totalMonthPaid, 0);
+    const totalYearSavings = monthlyBreakdown.reduce((s, m) => s + m.totalMonthSavings, 0);
+    const totalYearPiutangs = monthlyBreakdown.reduce((s, m) => s + m.totalMonthPiutangs, 0);
+    const totalYearKurang = Math.max(0, totalYearBill - totalYearPaid - totalYearSavings - totalYearPiutangs);
     const totalYearGap = Math.max(0, totalYearBill - totalYearPaid);
 
-    const totalYearSavings = data.savings
-      .filter(s => !s.isTransferred && s.targetPeriod?.year === yearlySelectedYear)
-      .reduce((sum, s) => sum + s.amount, 0);
-
-    const totalYearPiutangs = (data.piutangs || [])
-      .filter(p => !p.isCollected && p.targetPeriod?.year === yearlySelectedYear)
-      .reduce((sum, p) => sum + p.amount, 0);
-
     const cardsSummaryList = Object.values(cardAggregatesMap).sort((a, b) => {
-      const aHasGap = a.totalGap > 0;
-      const bHasGap = b.totalGap > 0;
+      const aHasKurang = a.totalKurang > 0;
+      const bHasKurang = b.totalKurang > 0;
 
-      if (aHasGap && bHasGap) return b.totalGap - a.totalGap;
-      if (aHasGap && !bHasGap) return -1;
-      if (!aHasGap && bHasGap) return 1;
+      if (aHasKurang && bHasKurang) return b.totalKurang - a.totalKurang;
+      if (aHasKurang && !bHasKurang) return -1;
+      if (!aHasKurang && bHasKurang) return 1;
 
       const aHasBill = a.totalBill > 0;
       const bHasBill = b.totalBill > 0;
@@ -1021,12 +1052,68 @@ const App: React.FC = () => {
       cardsSummaryList,
       totalYearBill,
       totalYearPaid,
-      totalYearGap,
       totalYearSavings,
       totalYearPiutangs,
+      totalYearKurang,
+      totalYearGap,
       hasData: true
     };
   }, [data, yearlySelectedYear]);
+
+  const dashboardMonthlyData = useMemo(() => {
+    const cardsInMonth = data.cards.map(card => {
+      const stmt = getStatementData(card.id, dashMonth, dashYear);
+      const bill = stmt.totalBill;
+      const paid = stmt.totalPaid;
+      const savings = stmt.totalSavingsAmount;
+      const piutangs = stmt.totalPiutangsAmount;
+      const kurang = stmt.totalKurang;
+      const unpaid = stmt.totalUnpaid;
+      return {
+        cardId: card.id,
+        cardName: card.name,
+        cardColor: card.color || 'bg-slate-400',
+        cardObj: card,
+        bill,
+        savings,
+        piutangs,
+        paid,
+        kurang,
+        unpaid,
+        isFullyPaid: bill > 0 && kurang === 0
+      };
+    });
+
+    const totalMonthBill = cardsInMonth.reduce((s, c) => s + c.bill, 0);
+    const totalMonthPaid = cardsInMonth.reduce((s, c) => s + c.paid, 0);
+    const totalMonthSavings = cardsInMonth.reduce((s, c) => s + c.savings, 0);
+    const totalMonthPiutangs = cardsInMonth.reduce((s, c) => s + c.piutangs, 0);
+    const totalMonthKurang = Math.max(0, totalMonthBill - totalMonthPaid - totalMonthSavings - totalMonthPiutangs);
+    const totalMonthUnpaid = Math.max(0, totalMonthBill - totalMonthPaid);
+
+    let status: 'LUNAS' | 'SEBAGIAN' | 'KURANG' | '-' = '-';
+    if (totalMonthBill > 0) {
+      if (totalMonthKurang === 0) status = 'LUNAS';
+      else if (totalMonthPaid > 0 || totalMonthSavings > 0 || totalMonthPiutangs > 0) status = 'SEBAGIAN';
+      else status = 'KURANG';
+    } else if (totalMonthPaid > 0) {
+      status = 'LUNAS';
+    }
+
+    return {
+      monthName: monthNames[dashMonth],
+      dashMonth,
+      dashYear,
+      cardsInMonth,
+      totalMonthBill,
+      totalMonthSavings,
+      totalMonthPiutangs,
+      totalMonthPaid,
+      totalMonthKurang,
+      totalMonthUnpaid,
+      status
+    };
+  }, [data, dashMonth, dashYear]);
 
   const savingsYearlyData = useMemo(() => {
     return monthNames.map((monthName, monthIdx) => {
@@ -1345,6 +1432,283 @@ const App: React.FC = () => {
               <button onClick={() => { setEditingPiutang(null); setPiutangAmount(''); setPiutangDebtor(''); setPiutangNote(''); pushView('FORM_PIUTANG'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"><HandCoins size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Piutang</span></button>
               <button onClick={() => { setEditingCard(null); setCardName(''); setCardLimit(''); setCardLogoUrl(''); pushView('FORM_CARD'); }} className="flex flex-col items-center gap-2 group"><div className="w-full aspect-square md:w-20 md:h-20 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-3xl flex items-center justify-center shadow-sm active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><Briefcase size={28}/></div><span className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hutang</span></button>
             </div>
+
+            {/* MONTHLY & PER-CARD OVERVIEW SECTION (Setiap Bulan & Perkartu: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang) */}
+            <div className="space-y-5 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2.5">
+                    <Calendar size={22} className="text-primary"/>
+                    RINCIAN TAGIHAN BULANAN
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Total Tagihan, Tabungan, Piutang, Sudah Dibayar, dan Kurang setiap bulan & perkartu
+                  </p>
+                </div>
+
+                {/* Month Navigator */}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (dashMonth === 0) {
+                        setDashMonth(11);
+                        setDashYear(y => y - 1);
+                      } else {
+                        setDashMonth(m => m - 1);
+                      }
+                    }}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-500 dark:text-slate-400"
+                    title="Bulan Sebelumnya"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <Calendar size={14} className="text-primary"/>
+                    <span>{dashboardMonthlyData.monthName} {dashYear}</span>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (dashMonth === 11) {
+                        setDashMonth(0);
+                        setDashYear(y => y + 1);
+                      } else {
+                        setDashMonth(m => m + 1);
+                      }
+                    }}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-500 dark:text-slate-400"
+                    title="Bulan Berikutnya"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+
+                  {(dashMonth !== new Date().getMonth() || dashYear !== new Date().getFullYear()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDashMonth(new Date().getMonth());
+                        setDashYear(new Date().getFullYear());
+                      }}
+                      className="text-[10px] font-black uppercase text-primary dark:text-blue-400 hover:underline px-2"
+                    >
+                      Bulan Ini
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* OVERALL MONTH SUMMARY CARD (5 Metrics) */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-5 md:p-6 shadow-md border border-slate-700/80 space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+                      TOTAL SEMUA KARTU ({dashboardMonthlyData.monthName} {dashYear})
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase ${dashboardMonthlyData.status === 'LUNAS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : dashboardMonthlyData.status === 'SEBAGIAN' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : dashboardMonthlyData.status === 'KURANG' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                    {dashboardMonthlyData.status === '-' ? 'LUNAS' : dashboardMonthlyData.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+                  {/* 1. Total Tagihan */}
+                  <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/50 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard size={13} className="text-blue-400"/> Total Tagihan
+                    </span>
+                    <p className="text-sm md:text-base font-black text-white">
+                      {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthBill) : '••••••••'}
+                    </p>
+                  </div>
+
+                  {/* 2. Tabungan */}
+                  <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/50 space-y-1">
+                    <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Vault size={13} className="text-purple-400"/> Tabungan
+                    </span>
+                    <p className="text-sm md:text-base font-black text-purple-300">
+                      {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthSavings) : '••••••••'}
+                    </p>
+                  </div>
+
+                  {/* 3. Piutang */}
+                  <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/50 space-y-1">
+                    <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Receipt size={13} className="text-cyan-400"/> Piutang
+                    </span>
+                    <p className="text-sm md:text-base font-black text-cyan-300">
+                      {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthPiutangs) : '••••••••'}
+                    </p>
+                  </div>
+
+                  {/* 4. Sudah Dibayar */}
+                  <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/50 space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-emerald-400"/> Sudah Dibayar
+                    </span>
+                    <p className="text-sm md:text-base font-black text-emerald-400">
+                      {showAmounts ? formatIDR(dashboardMonthlyData.totalMonthPaid) : '••••••••'}
+                    </p>
+                  </div>
+
+                  {/* 5. Kurang */}
+                  <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-rose-800/50 bg-rose-950/20 space-y-1 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertCircle size={13} className="text-rose-400"/> Kurang
+                    </span>
+                    <p className={`text-sm md:text-base font-black ${dashboardMonthlyData.totalMonthKurang > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {showAmounts ? (dashboardMonthlyData.totalMonthKurang > 0 ? formatIDR(dashboardMonthlyData.totalMonthKurang) : 'Rp 0') : '••••••••'}
+                    </p>
+                    {dashboardMonthlyData.totalMonthSavings + dashboardMonthlyData.totalMonthPiutangs > 0 && dashboardMonthlyData.totalMonthUnpaid > dashboardMonthlyData.totalMonthKurang && showAmounts && (
+                      <span className="text-[8px] text-slate-400 font-bold block">
+                        Belum setor: {formatIDR(dashboardMonthlyData.totalMonthUnpaid)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* PER KARTU BREAKDOWN (e.g. Traveloka Card) */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    RINCIAN PER KARTU ({dashboardMonthlyData.monthName})
+                  </h4>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {dashboardMonthlyData.cardsInMonth.length} Kartu / Sumber Hutang
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dashboardMonthlyData.cardsInMonth.map(cardItem => {
+                    const cardHasKurang = cardItem.kurang > 0;
+                    return (
+                      <div 
+                        key={cardItem.cardId}
+                        className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700/60 shadow-xs hover:border-primary/50 transition space-y-3"
+                      >
+                        {/* Header: Dot + Card Name + Status */}
+                        <div className="flex justify-between items-center gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${cardItem.cardColor}`} />
+                            <h5 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 truncate">
+                              {cardItem.cardName}
+                            </h5>
+                          </div>
+                          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase shrink-0 ${cardHasKurang ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
+                            {cardHasKurang ? 'Ada Kurang' : (cardItem.bill > 0 || cardItem.paid > 0 ? 'Lunas' : 'Nihil')}
+                          </span>
+                        </div>
+
+                        {/* 5 Rows: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang */}
+                        <div className="space-y-1.5 text-xs pt-2 border-t border-slate-200/60 dark:border-slate-700/50">
+                          {/* 1. Total Tagihan */}
+                          <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>Total Tagihan</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {showAmounts ? formatIDR(cardItem.bill) : '••••••••'}
+                            </span>
+                          </div>
+
+                          {/* 2. Tabungan */}
+                          <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                            <span className="flex items-center gap-1.5"><Vault size={12}/> Tabungan</span>
+                            <span className="font-bold">
+                              {showAmounts ? formatIDR(cardItem.savings) : '••••••••'}
+                            </span>
+                          </div>
+
+                          {/* 3. Piutang */}
+                          <div className="flex justify-between items-center text-cyan-600 dark:text-cyan-400">
+                            <span className="flex items-center gap-1.5"><Receipt size={12}/> Piutang</span>
+                            <span className="font-bold">
+                              {showAmounts ? formatIDR(cardItem.piutangs) : '••••••••'}
+                            </span>
+                          </div>
+
+                          {/* 4. Sudah Dibayar */}
+                          <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                            <span className="flex items-center gap-1.5"><CheckCircle2 size={12}/> Sudah Dibayar</span>
+                            <span className="font-bold">
+                              {showAmounts ? formatIDR(cardItem.paid) : '••••••••'}
+                            </span>
+                          </div>
+
+                          {/* 5. Kurang */}
+                          <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-slate-200 dark:border-slate-700">
+                            <div>
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase">
+                                Kurang
+                              </span>
+                              {cardItem.savings + cardItem.piutangs > 0 && cardItem.unpaid > cardItem.kurang && showAmounts && (
+                                <span className="text-[9px] text-slate-400 font-bold block">
+                                  Sisa tagihan: {formatIDR(cardItem.unpaid)}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`font-black text-sm ${cardHasKurang ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {showAmounts ? (cardHasKurang ? formatIDR(cardItem.kurang) : 'Rp 0') : '••••••••'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quick actions for this card */}
+                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-700/40">
+                          <button 
+                            type="button"
+                            onClick={() => openStatement(cardItem.cardObj, dashMonth, dashYear)}
+                            className="py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                          >
+                            <Receipt size={12}/> Detail
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setEditingTransaction(null);
+                              setTxAmount('');
+                              setTxDesc(`Bayar ${cardItem.cardName}`);
+                              setTxType(TransactionType.PAYMENT);
+                              setTxCardId(cardItem.cardId);
+                              setTxTargetMonth(dashMonth);
+                              setTxTargetYear(dashYear);
+                              pushView('FORM_TRANSACTION');
+                            }}
+                            className="py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                          >
+                            <Check size={12}/> Bayar
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setEditingSaving(null);
+                              setSavingAmount('');
+                              setSavingNote(`Tabungan ${cardItem.cardName}`);
+                              setSavingCardId(cardItem.cardId);
+                              setSavingTargetMonth(dashMonth);
+                              setSavingTargetYear(dashYear);
+                              pushView('FORM_SAVING');
+                            }}
+                            className="py-1.5 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40 rounded-xl text-[10px] font-black transition flex items-center justify-center gap-1"
+                          >
+                            <Vault size={12}/> Nabung
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {dashboardMonthlyData.cardsInMonth.length === 0 && (
+                  <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                    <p className="text-xs font-bold">Belum ada kartu atau hutang terdaftar.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
 
             {upcomingBills.length > 0 && (
               <div className="space-y-4">
@@ -1733,7 +2097,7 @@ const App: React.FC = () => {
 
               {/* 5 Compact Stat Cards (Nominal Tampil Penuh) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                {/* Total Tagihan */}
+                {/* 1. Total Tagihan */}
                 <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 bg-blue-500/15 rounded-lg flex items-center justify-center text-blue-400 shrink-0">
@@ -1746,33 +2110,7 @@ const App: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Sudah Dibayar */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center text-emerald-400 shrink-0">
-                      <CheckCircle2 size={15} />
-                    </div>
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sudah Dibayar</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-black text-emerald-400 tracking-tight">
-                    {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearPaid) : '••••••••'}
-                  </p>
-                </div>
-
-                {/* Total Kekurangan */}
-                <div className="bg-slate-900/90 border border-rose-900/40 rounded-2xl p-3.5 sm:p-4 space-y-1.5 bg-rose-950/20">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-rose-500/15 rounded-lg flex items-center justify-center text-rose-400 shrink-0">
-                      <AlertCircle size={15} />
-                    </div>
-                    <span className="text-[10px] sm:text-[11px] font-bold text-rose-300 uppercase tracking-wider">Total Kekurangan</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-black text-rose-400 tracking-tight">
-                    {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearGap) : '••••••••'}
-                  </p>
-                </div>
-
-                {/* Tabungan */}
+                {/* 2. Tabungan */}
                 <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 bg-purple-500/15 rounded-lg flex items-center justify-center text-purple-400 shrink-0">
@@ -1785,8 +2123,8 @@ const App: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Piutang */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5 col-span-2 sm:col-span-1">
+                {/* 3. Piutang */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 bg-cyan-500/15 rounded-lg flex items-center justify-center text-cyan-400 shrink-0">
                       <Receipt size={15} />
@@ -1795,6 +2133,32 @@ const App: React.FC = () => {
                   </div>
                   <p className="text-sm sm:text-base font-black text-cyan-300 tracking-tight">
                     {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearPiutangs) : '••••••••'}
+                  </p>
+                </div>
+
+                {/* 4. Sudah Dibayar */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center text-emerald-400 shrink-0">
+                      <CheckCircle2 size={15} />
+                    </div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sudah Dibayar</span>
+                  </div>
+                  <p className="text-sm sm:text-base font-black text-emerald-400 tracking-tight">
+                    {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearPaid) : '••••••••'}
+                  </p>
+                </div>
+
+                {/* 5. Kurang */}
+                <div className="bg-slate-900/90 border border-rose-900/40 rounded-2xl p-3.5 sm:p-4 space-y-1.5 bg-rose-950/20 col-span-2 sm:col-span-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-rose-500/15 rounded-lg flex items-center justify-center text-rose-400 shrink-0">
+                      <AlertCircle size={15} />
+                    </div>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-rose-300 uppercase tracking-wider">Kurang</span>
+                  </div>
+                  <p className="text-sm sm:text-base font-black text-rose-400 tracking-tight">
+                    {showAmounts ? formatIDR(yearlyBudgetAnalysis.totalYearKurang) : '••••••••'}
                   </p>
                 </div>
               </div>
@@ -1809,7 +2173,7 @@ const App: React.FC = () => {
                     RINCIAN BULANAN
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
-                    Detail tagihan, pembayaran, kekurangan, tabungan, dan piutang per bulan.
+                    Detail Total Tagihan, Tabungan, Piutang, Sudah Dibayar, dan Kurang setiap bulan & per kartu.
                   </p>
                 </div>
 
@@ -1821,7 +2185,7 @@ const App: React.FC = () => {
                   >
                     <option value="ALL">Semua 12 Bulan</option>
                     <option value="HAS_BILL">Hanya Ada Tagihan</option>
-                    <option value="UNPAID">Hanya Belum Lunas</option>
+                    <option value="UNPAID">Hanya Belum Lunas / Ada Kurang</option>
                   </select>
                 </div>
               </div>
@@ -1831,7 +2195,7 @@ const App: React.FC = () => {
                 {yearlyBudgetAnalysis.monthlyBreakdown
                   .filter(m => {
                     if (yearlyMonthFilter === 'HAS_BILL') return m.totalMonthBill > 0 || m.totalMonthPaid > 0;
-                    if (yearlyMonthFilter === 'UNPAID') return m.totalMonthGap > 0;
+                    if (yearlyMonthFilter === 'UNPAID') return m.totalMonthKurang > 0 || m.totalMonthUnpaid > 0;
                     return true;
                   })
                   .map((m) => {
@@ -1886,8 +2250,9 @@ const App: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Ringkasan Bulan (Summary Box) */}
+                          {/* Ringkasan Bulan (Summary Box: 5 Metrics) */}
                           <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+                            {/* 1. Total Tagihan */}
                             <div className="flex justify-between items-center">
                               <span className="text-slate-500 dark:text-slate-400 font-medium">Total Tagihan</span>
                               <span className="font-extrabold text-slate-800 dark:text-slate-200">
@@ -1895,23 +2260,54 @@ const App: React.FC = () => {
                               </span>
                             </div>
 
+                            {/* 2. Tabungan */}
                             <div className="flex justify-between items-center">
-                              <span className="text-slate-500 dark:text-slate-400 font-medium">Sudah Dibayar</span>
+                              <span className="text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1.5">
+                                <Vault size={13} /> Tabungan
+                              </span>
+                              <span className="font-extrabold text-purple-600 dark:text-purple-400">
+                                {showAmounts ? formatIDR(m.totalMonthSavings) : '••••••••'}
+                              </span>
+                            </div>
+
+                            {/* 3. Piutang */}
+                            <div className="flex justify-between items-center">
+                              <span className="text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1.5">
+                                <Receipt size={13} /> Piutang
+                              </span>
+                              <span className="font-extrabold text-cyan-600 dark:text-cyan-400">
+                                {showAmounts ? formatIDR(m.totalMonthPiutangs) : '••••••••'}
+                              </span>
+                            </div>
+
+                            {/* 4. Sudah Dibayar */}
+                            <div className="flex justify-between items-center">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                                <CheckCircle2 size={13} /> Sudah Dibayar
+                              </span>
                               <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
                                 {showAmounts ? formatIDR(m.totalMonthPaid) : '••••••••'}
                               </span>
                             </div>
 
+                            {/* 5. Kurang */}
                             <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 flex justify-between items-center">
-                              <span className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                                KURANG
-                              </span>
+                              <div>
+                                <span className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                                  Kurang
+                                </span>
+                                {m.totalMonthSavings + m.totalMonthPiutangs > 0 && m.totalMonthUnpaid > m.totalMonthKurang && showAmounts && (
+                                  <span className="text-[9px] text-slate-400 font-bold block">
+                                    Belum dibayar: {formatIDR(m.totalMonthUnpaid)}
+                                  </span>
+                                )}
+                              </div>
                               <span className={`font-black text-base ${
-                                m.totalMonthGap > 0 
+                                m.totalMonthKurang > 0 
                                   ? 'text-rose-600 dark:text-rose-400' 
                                   : 'text-emerald-600 dark:text-emerald-400'
                               }`}>
-                                {showAmounts ? (m.totalMonthGap > 0 ? formatIDR(m.totalMonthGap) : 'Rp 0') : '••••••••'}
+                                {showAmounts ? (m.totalMonthKurang > 0 ? formatIDR(m.totalMonthKurang) : 'Rp 0') : '••••••••'}
                               </span>
                             </div>
                           </div>
@@ -1919,12 +2315,12 @@ const App: React.FC = () => {
                           {/* RINCIAN KARTU */}
                           <div className="space-y-3 pt-1">
                             <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
-                              RINCIAN KARTU
+                              RINCIAN KARTU ({m.monthName})
                             </p>
 
                             <div className="space-y-3">
                               {m.cardsInMonth.map((c) => {
-                                const cardHasGap = c.gap > 0;
+                                const cardHasKurang = c.kurang > 0;
 
                                 return (
                                   <div 
@@ -1941,40 +2337,66 @@ const App: React.FC = () => {
                                         </h5>
                                       </div>
                                       <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase shrink-0 ${
-                                        cardHasGap 
+                                        cardHasKurang 
                                           ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' 
                                           : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
                                       }`}>
-                                        {cardHasGap ? 'Ada Kurang' : 'Lunas'}
+                                        {cardHasKurang ? 'Ada Kurang' : (c.bill > 0 || c.paid > 0 ? 'Lunas' : 'Nihil')}
                                       </span>
                                     </div>
 
-                                    {/* Stacked Key-Value Rows: Tagihan, Dibayar, KURANG */}
+                                    {/* 5 Baris Terstruktur: Total Tagihan, Tabungan, Piutang, Sudah Dibayar, Kurang */}
                                     <div className="space-y-1.5 text-xs pt-1 border-t border-slate-200/60 dark:border-slate-700/50">
+                                      {/* 1. Total Tagihan */}
                                       <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                                        <span>Tagihan</span>
+                                        <span>Total Tagihan</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200">
                                           {showAmounts ? formatIDR(c.bill) : '••••••••'}
                                         </span>
                                       </div>
 
-                                      <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                                        <span>Dibayar</span>
-                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                      {/* 2. Tabungan */}
+                                      <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                                        <span className="flex items-center gap-1.5"><Vault size={12}/> Tabungan</span>
+                                        <span className="font-bold">
+                                          {showAmounts ? formatIDR(c.savings) : '••••••••'}
+                                        </span>
+                                      </div>
+
+                                      {/* 3. Piutang */}
+                                      <div className="flex justify-between items-center text-cyan-600 dark:text-cyan-400">
+                                        <span className="flex items-center gap-1.5"><Receipt size={12}/> Piutang</span>
+                                        <span className="font-bold">
+                                          {showAmounts ? formatIDR(c.piutangs) : '••••••••'}
+                                        </span>
+                                      </div>
+
+                                      {/* 4. Sudah Dibayar */}
+                                      <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={12}/> Sudah Dibayar</span>
+                                        <span className="font-bold">
                                           {showAmounts ? formatIDR(c.paid) : '••••••••'}
                                         </span>
                                       </div>
 
+                                      {/* 5. Kurang */}
                                       <div className="flex justify-between items-center pt-1 border-t border-dashed border-slate-200 dark:border-slate-700">
-                                        <span className="font-black text-slate-800 dark:text-slate-200">
-                                          KURANG
-                                        </span>
+                                        <div>
+                                          <span className="font-black text-slate-800 dark:text-slate-200 uppercase">
+                                            Kurang
+                                          </span>
+                                          {c.savings + c.piutangs > 0 && c.unpaid > c.kurang && showAmounts && (
+                                            <span className="text-[9px] text-slate-400 font-bold block">
+                                              Sisa tagihan: {formatIDR(c.unpaid)}
+                                            </span>
+                                          )}
+                                        </div>
                                         <span className={`font-black text-sm ${
-                                          cardHasGap 
+                                          cardHasKurang 
                                             ? 'text-rose-600 dark:text-rose-400' 
                                             : 'text-emerald-600 dark:text-emerald-400'
                                         }`}>
-                                          {showAmounts ? (cardHasGap ? formatIDR(c.gap) : 'Rp 0') : '••••••••'}
+                                          {showAmounts ? (cardHasKurang ? formatIDR(c.kurang) : 'Rp 0') : '••••••••'}
                                         </span>
                                       </div>
                                     </div>
@@ -2000,29 +2422,6 @@ const App: React.FC = () => {
                             </div>
                           </div>
                         </div>
-
-                        {/* TABUNGAN DAN PIUTANG (Murni Terpisah di Bagian Bawah Card Bulan) */}
-                        {(m.monthlySavingsAmount > 0 || m.monthlyPiutangsAmount > 0) && (
-                          <div className="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3 space-y-2">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                              INFORMASI KEUANGAN LAIN
-                            </p>
-                            <div className="space-y-1.5 text-xs font-bold">
-                              {m.monthlySavingsAmount > 0 && (
-                                <div className="flex justify-between items-center bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/40 px-3 py-2 rounded-xl text-purple-700 dark:text-purple-300">
-                                  <span className="text-[10px] uppercase font-extrabold text-purple-600 dark:text-purple-400">TABUNGAN</span>
-                                  <span>{showAmounts ? formatIDR(m.monthlySavingsAmount) : '••••••••'}</span>
-                                </div>
-                              )}
-                              {m.monthlyPiutangsAmount > 0 && (
-                                <div className="flex justify-between items-center bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-900/40 px-3 py-2 rounded-xl text-cyan-700 dark:text-cyan-300">
-                                  <span className="text-[10px] uppercase font-extrabold text-cyan-600 dark:text-cyan-400">PIUTANG</span>
-                                  <span>{showAmounts ? formatIDR(m.monthlyPiutangsAmount) : '••••••••'}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -2431,13 +2830,54 @@ const App: React.FC = () => {
             <div className="flex gap-4"><select value={statementMonth} onChange={(e)=>setStatementMonth(parseInt(e.target.value))} className="flex-1 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition">{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select><input type="number" value={statementYear} onChange={(e)=>setStatementYear(parseInt(e.target.value))} className="w-32 text-sm font-black bg-white dark:bg-slate-900 dark:text-slate-100 p-5 rounded-2xl shadow-sm outline-none hover:border-primary border border-transparent transition" /></div>
             
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-6">
-                <div className="flex justify-between items-center pb-4 border-b dark:border-slate-800"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tagihan App</span><span className="text-2xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span></div>
+              <div className="bg-slate-50 dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">RINGKASAN STATUS TAGIHAN</span>
+                  <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase ${s.totalKurang === 0 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'}`}>
+                    {s.totalKurang === 0 ? 'Lunas / Tercukupi' : 'Ada Kurang'}
+                  </span>
+                </div>
+
+                {/* 1. Total Tagihan */}
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Total Tagihan</span>
+                  <span className="text-xl font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(s.totalBill) : '••••'}</span>
+                </div>
+
+                {/* 2. Tabungan */}
+                <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                  <span className="text-xs font-bold flex items-center gap-1.5"><Vault size={14}/> Tabungan</span>
+                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalSavingsAmount) : '••'}</span>
+                </div>
+
+                {/* 3. Piutang */}
+                <div className="flex justify-between items-center text-cyan-600 dark:text-cyan-400">
+                  <span className="text-xs font-bold flex items-center gap-1.5"><Receipt size={14}/> Piutang</span>
+                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalPiutangsAmount) : '••'}</span>
+                </div>
+
+                {/* 4. Sudah Dibayar */}
+                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                  <span className="text-xs font-bold flex items-center gap-1.5"><CheckCircle2 size={14}/> Sudah Dibayar</span>
+                  <span className="text-base font-black">{showAmounts ? formatIDR(s.totalPaid) : '••'}</span>
+                </div>
+
+                {/* 5. Kurang */}
+                <div className="flex justify-between items-center pt-3 border-t-2 dark:border-slate-800">
+                  <div>
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block">Kurang</span>
+                    {s.totalSavingsAmount + s.totalPiutangsAmount > 0 && s.totalUnpaid > s.totalKurang && showAmounts && (
+                      <span className="text-[10px] text-slate-400 font-bold block">Sisa belum setor: {formatIDR(s.totalUnpaid)}</span>
+                    )}
+                  </div>
+                  <span className={`text-2xl font-black ${s.totalKurang > 0 ? 'text-danger' : 'text-success'}`}>{showAmounts ? (s.totalKurang > 0 ? formatIDR(s.totalKurang) : 'Rp 0') : '••••'}</span>
+                </div>
                 
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 space-y-3">
+                {/* Checklist Rekonsiliasi Card */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 space-y-2.5 mt-2">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-primary"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rekonsiliasi (Ceklist)</span></div>
-                    <span className={`text-base font-black ${isReconciled ? 'text-success' : 'text-primary'}`}>{showAmounts ? formatIDR(s.totalValidated) : '••••'}</span>
+                    <span className={`text-sm font-black ${isReconciled ? 'text-success' : 'text-primary'}`}>{showAmounts ? formatIDR(s.totalValidated) : '••••'}</span>
                   </div>
                   <div className="h-2 bg-slate-50 dark:bg-slate-950 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-1000 ${isReconciled ? 'bg-success' : 'bg-primary'}`} style={{ width: `${Math.min(100, (s.totalValidated / (s.totalBill || 1)) * 100)}%` }}></div>
@@ -2446,10 +2886,6 @@ const App: React.FC = () => {
                     {isReconciled ? '✅ Angka Cocok dengan Record Bank' : `⚠️ Selisih ${formatIDR(Math.abs(s.totalBill - s.totalValidated))} dari App Record`}
                   </p>
                 </div>
-
-                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-success uppercase tracking-widest">Dana Terbayar</span><span className="text-base font-black text-success">-{showAmounts ? formatIDR(s.totalPaid) : '••'}</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-primary uppercase tracking-widest">Dana Cadangan</span><span className="text-base font-black text-primary">-{showAmounts ? formatIDR(s.totalSaved) : '••'}</span></div>
-                <div className="flex justify-between items-center pt-4 border-t-2 dark:border-slate-800"><span className="text-[10px] font-black text-danger uppercase tracking-widest">Sisa Kewajiban</span><span className="text-3xl font-black text-danger">{showAmounts ? formatIDR(Math.max(0, s.totalBill - s.totalPaid - s.totalSaved)) : '••••'}</span></div>
               </div>
               
               <div className="space-y-6">
