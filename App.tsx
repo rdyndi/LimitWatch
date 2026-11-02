@@ -135,25 +135,47 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
   <>
     <div
       aria-hidden="true"
-      className="flex-none w-full bg-white dark:bg-slate-950 pointer-events-none select-none"
+      className={`flex-none w-full pointer-events-none select-none ${
+        isIOSDevice ? 'bg-transparent' : 'bg-white dark:bg-slate-950'
+      }`}
       style={{
         height: isIOSDevice
-          ? 'calc(var(--sat, 0px) + 14px)'
+          ? 'calc(var(--sat, 0px) + 6px)'
           : 'var(--sat, 0px)'
       }}
     />
     <header
-      className={`flex-none bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80 z-[60] relative ${className}`}
+      className={`flex-none z-[60] relative ${
+        isIOSDevice
+          ? 'bg-transparent border-none pt-1 pb-0.5'
+          : 'bg-white dark:bg-slate-950 border-b border-slate-200/80 dark:border-slate-800/80'
+      } ${className}`}
     >
       <div className="px-4 md:px-8 h-12 md:h-16 flex justify-between items-center max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-2.5">
-          {onBack && (
-            <button onClick={onBack} className="p-1.5 -ml-1.5 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-              <ChevronLeft size={22} />
-            </button>
-          )}
-          <h2 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
-        </div>
+        {isIOSDevice ? (
+          <div className="inline-flex items-center gap-1.5 px-4 h-9.5 rounded-full bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)]">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="-ml-1.5 p-1 text-slate-700 dark:text-white active:scale-90 transition rounded-full"
+              >
+                <ChevronLeft size={19} strokeWidth={2.5} />
+              </button>
+            )}
+            <h2 className="text-sm font-black text-slate-900 dark:text-white leading-none truncate max-w-[200px] tracking-tight">
+              {title}
+            </h2>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            {onBack && (
+              <button onClick={onBack} className="p-1.5 -ml-1.5 text-slate-500 dark:text-slate-400 active:scale-90 transition hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                <ChevronLeft size={22} />
+              </button>
+            )}
+            <h2 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-none truncate max-w-[220px] md:max-w-md">{title}</h2>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {rightElement}
         </div>
@@ -5097,14 +5119,25 @@ const App: React.FC = () => {
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                    className={
+                      isIOSDevice
+                        ? 'w-9.5 h-9.5 rounded-full bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)] text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-90 cursor-pointer'
+                        : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
+                    }
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
                     {data.theme === 'dark' ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
                   </button>
                   {isMobileDevice && currentView === 'DASHBOARD' && (
-                    <button onClick={() => pushView('VIEW_PROFILE')} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700">
-                      {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={18} className="text-slate-500 dark:text-slate-400"/>}
+                    <button
+                      onClick={() => pushView('VIEW_PROFILE')}
+                      className={
+                        isIOSDevice
+                          ? 'w-9.5 h-9.5 rounded-full p-0.5 bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/[0.16] shadow-[0_6px_20px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.22)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
+                      }
+                    >
+                      {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-500 dark:text-slate-300"/>}
                     </button>
                   )}
                 </div>
