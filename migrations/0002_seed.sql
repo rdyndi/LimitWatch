@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS settings (
 -- 2. Cards
 INSERT OR REPLACE INTO cards (id, name, limit_amount, color, due_day, type, e_statement_fee, logo_url) VALUES
 ("card_traveloka", "Traveloka", 30000000, "bg-gradient-to-br from-blue-500 to-indigo-700", 3, "CREDIT_CARD", 5000, ""),
-("card_tokopedia", "Tokopedia", 30000000, "bg-gradient-to-br from-emerald-500 to-teal-700", 17, "CREDIT_CARD", 10000, ""),
+("card_tokopedia", "Tokopedia", 30000000, "bg-gradient-to-br from-emerald-500 to-teal-700", 16, "CREDIT_CARD", 10000, ""),
 ("card_mega", "Bank Mega", 25000000, "bg-gradient-to-br from-amber-500 to-orange-600", 19, "CREDIT_CARD", 5000, "");
 
 -- 3. Installments
@@ -220,8 +220,32 @@ INSERT OR REPLACE INTO transactions (id, card_id, amount, date, description, typ
 ("pay_settle_card_tokopedia_2026_6", "card_tokopedia", 1210439, "2026-07-17T12:00:00.000Z", "Pelunasan Tagihan Bulan 7 2026 (Tokopedia)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 6, 2026),
 ("pay_settle_card_tokopedia_2026_7", "card_tokopedia", 2210522, "2026-08-17T12:00:00.000Z", "Pelunasan Tagihan Bulan 8 2026 (Tokopedia)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 7, 2026),
 ("pay_settle_card_tokopedia_2026_8", "card_tokopedia", 2474924, "2026-09-17T12:00:00.000Z", "Pelunasan Tagihan Bulan 9 2026 (Tokopedia)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 8, 2026),
-("pay_settle_card_tokopedia_2026_9", "card_tokopedia", 2700007, "2026-10-17T12:00:00.000Z", "Pelunasan Tagihan Bulan 10 2026 (Tokopedia)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 9, 2026),
-("pay_settle_card_mega_2026_9", "card_mega", 257000, "2026-10-19T12:00:00.000Z", "Pelunasan Tagihan Bulan 10 2026 (Bank Mega)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 9, 2026);
+("pay_settle_card_tokopedia_2026_9", "card_tokopedia", 291891, "2026-10-17T12:00:00.000Z", "Penyesuaian Pelunasan Tagihan Bulan 10 2026 (Tokopedia)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 9, 2026),
+("pay_settle_card_mega_2026_9", "card_mega", 257000, "2026-10-19T12:00:00.000Z", "Pelunasan Tagihan Bulan 10 2026 (Bank Mega)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 9, 2026),
+("tx_tokped_20261016_idm", "card_tokopedia", 169800, "2026-10-16T12:00:00.000Z", "IDM TBTCCIKUTRA BAR...", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261017_shopee", "card_tokopedia", 135254, "2026-10-17T12:00:00.000Z", "SHOPEE", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261017_idm", "card_tokopedia", 240600, "2026-10-17T12:00:00.000Z", "IDM F5RT PANTAI BARAT", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261018_shopee", "card_tokopedia", 111500, "2026-10-18T12:00:00.000Z", "SHOPEE", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261018_pay_ajin", "card_tokopedia", 2408116, "2026-10-18T12:00:00.000Z", "PAYMENT_AJIN_***1234 (Bayar Tagihan)", "PAYMENT", "Pelunasan", 0, "PERSONAL", 1, 9, 2026),
+("tx_tokped_20261019_shopee", "card_tokopedia", 239150, "2026-10-19T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261020_shopee", "card_tokopedia", 98790, "2026-10-20T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261020_grab", "card_tokopedia", 7000, "2026-10-20T12:00:00.000Z", "Grab* b***1234d3e34bc...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261021_shopee1", "card_tokopedia", 99000, "2026-10-21T12:00:00.000Z", "SHOPEE", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261021_shopee2", "card_tokopedia", 331205, "2026-10-21T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261024_shopee1", "card_tokopedia", 79800, "2026-10-24T12:00:00.000Z", "SHOPEE", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261024_shopee2", "card_tokopedia", 167600, "2026-10-24T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261024_gojek", "card_tokopedia", 34900, "2026-10-24T12:00:00.000Z", "GOJEK RECURRING NON3DS", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261024_shopee3", "card_tokopedia", 45200, "2026-10-24T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261025_grab1", "card_tokopedia", 5500, "2026-10-25T12:00:00.000Z", "Grab* A-AWGWNBDGW...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261025_grab2", "card_tokopedia", 24500, "2026-10-25T12:00:00.000Z", "Grab* A-AWG7MEVWW...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261026_grab", "card_tokopedia", 5500, "2026-10-26T12:00:00.000Z", "Grab* A-AWK3KKRWW...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261027_grab1", "card_tokopedia", 9000, "2026-10-27T12:00:00.000Z", "Grab* ***1234c***1234", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261027_grab2", "card_tokopedia", 12000, "2026-10-27T12:00:00.000Z", "Grab* A-AWOBAXNWX...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261030_shopee", "card_tokopedia", 214467, "2026-10-30T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261101_grab1", "card_tokopedia", 15000, "2026-11-01T12:00:00.000Z", "Grab* A-AXC9PSRGWQ...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261101_shopee", "card_tokopedia", 500525, "2026-11-01T12:00:00.000Z", "SHOPEE AIRPAY", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261101_grab2", "card_tokopedia", 88000, "2026-11-01T12:00:00.000Z", "Grab* A-AXC9PSRGWQ...", "EXPENSE", "Transportasi", 0, "PERSONAL", 1, NULL, NULL),
+("tx_tokped_20261103_retail", "card_tokopedia", 5500, "2026-11-03T12:00:00.000Z", "Retail IDN JAKARTA PUSAT (Dalam Proses)", "EXPENSE", "Belanja", 0, "PERSONAL", 1, NULL, NULL);
 
 -- 5. Settings
 INSERT OR REPLACE INTO settings (key, value) VALUES
