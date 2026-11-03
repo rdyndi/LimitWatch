@@ -2540,75 +2540,450 @@ const App: React.FC = () => {
              </div>
           </div>
         );
-      case 'SAVINGS':
-        return (
-          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-5 py-4 md:px-8 md:py-8">
-            <div className="bg-gradient-to-br from-success to-emerald-700 rounded-[32px] p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between">
-               <div className="space-y-2">
-                 <p className="text-emerald-100 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Dana Tahun {savingsSelectedYear}</p>
-                 <h3 className="text-3xl md:text-5xl font-black">{showAmounts ? formatIDR(totalYearSavings) : '••••••••'}</h3>
-               </div>
-               <div className="flex flex-col md:flex-row items-center gap-4 mt-6 md:mt-0">
-                 <button onClick={() => {
-                   if (data.cards.length > 0) {
-                     setTransferSourceCardId(data.cards[0].id);
-                     setTransferTargetCardId(data.cards[0].id);
-                   }
-                   setTransferSourceMonth(new Date().getMonth());
-                   setTransferSourceYear(new Date().getFullYear());
-                   setTransferTargetMonth(new Date().getMonth());
-                   setTransferTargetYear(new Date().getFullYear());
-                   pushView('FORM_TRANSFER_SAVING');
-                 }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-3 rounded-2xl transition font-bold text-sm w-full md:w-auto justify-center">
-                   <ArrowRightLeft size={18} /> Transfer Dana
-                 </button>
-                 <div className="flex items-center justify-between w-full md:w-auto gap-6 bg-white/10 p-4 rounded-2xl">
-                   <div className="flex items-center gap-3"><Calendar size={20} className="text-emerald-200"/><span className="text-xl font-black">{savingsSelectedYear}</span></div>
-                   <div className="flex gap-2">
-                     <button onClick={() => setSavingsSelectedYear(y => y - 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronLeft size={20}/></button>
-                     <button onClick={() => setSavingsSelectedYear(y => y + 1)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition"><ChevronRight size={20}/></button>
-                   </div>
-                 </div>
-               </div>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savingsYearlyData.filter(m => m.totalMonth > 0).map((m, idx) => (
-                <div key={idx} className="bg-white dark:bg-slate-900 rounded-[32px] shadow-sm border border-slate-50 dark:border-slate-800 p-6 space-y-4">
-                   <div className="flex justify-between items-center border-b border-slate-50 dark:border-slate-800 pb-3"><h4 className="font-black text-base text-slate-800 dark:text-slate-100">{m.monthName}</h4><span className="text-sm font-black text-success">{showAmounts ? formatIDR(m.totalMonth) : '••••'}</span></div>
-                   <div className="space-y-2.5">
-                     {m.cardGroups.map((group, i) => (
-                       <button key={i} onClick={() => setSavingHistoryModal({ title: `${group.cardName} - ${m.monthName} ${savingsSelectedYear}`, items: group.items, cardId: group.cardId, month: m.monthIdx, year: savingsSelectedYear })} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition group">
-                         <div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${group.cardColor}`}></div><span className="text-sm font-bold text-slate-600 dark:text-slate-300">{group.cardName}</span></div>
-                         <div className="flex items-center gap-2"><span className="text-sm font-black text-slate-800 dark:text-slate-100">{showAmounts ? formatIDR(group.amount) : '••'}</span><ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform"/></div>
-                       </button>
-                     ))}
-                   </div>
-                </div>
-              ))}
-            </div>
-            {data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear).length === 0 && (
-              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
-                <Vault size={48} className="mx-auto text-slate-200 mb-4" />
-                <p className="text-slate-400 font-bold">Belum ada tabungan untuk tahun ini.</p>
-              </div>
-            )}
+      case 'SAVINGS': {
+        const allYearSavings = data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear);
+        const personalSavings = allYearSavings.filter(s => s.owner !== OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
+        const businessSavings = allYearSavings.filter(s => s.owner === OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
+        const allTimeSavings = data.savings.filter(s => !s.isTransferred).reduce((sum, s) => sum + s.amount, 0);
 
-            {savingHistoryModal && (
-              <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4 animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
-                  <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-                    <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-tight">{savingHistoryModal.title}</h3>
-                    <button onClick={() => setSavingHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"><X size={20} /></button>
+        // Card allocation breakdown (Banking Vault distribution)
+        const cardAllocationMap = new Map<string, { card: CreditCardType; totalAmount: number; count: number }>();
+        data.cards.forEach(card => {
+          cardAllocationMap.set(card.id, { card, totalAmount: 0, count: 0 });
+        });
+        allYearSavings.forEach(s => {
+          const entry = cardAllocationMap.get(s.cardId);
+          if (entry) {
+            entry.totalAmount += s.amount;
+            entry.count += 1;
+          }
+        });
+        const cardAllocations = Array.from(cardAllocationMap.values())
+          .filter(c => c.totalAmount > 0)
+          .sort((a, b) => b.totalAmount - a.totalAmount);
+
+        // Liquidity coverage ratio against total debt
+        const coverageRatio = totalDebt > 0
+          ? Math.min(100, Math.round((totalYearSavings / totalDebt) * 100))
+          : 100;
+
+        const activeMonths = savingsYearlyData.filter(m => m.totalMonth > 0);
+
+        return (
+          <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4 md:py-7">
+            {/* 1. EXECUTIVE FINTECH BENTO HERO — PORTFOLIO TABUNGAN */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Main Liquid Reserve Master Card */}
+              <div className="lg:col-span-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 dark:from-slate-900 dark:via-indigo-950/90 dark:to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-white/10 relative overflow-hidden flex flex-col justify-between gap-5">
+                {/* Background ambient glow orbs */}
+                <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-12 -bottom-12 w-56 h-56 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Top Status, Year Switcher & Privacy Bar */}
+                <div className="relative z-10 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 backdrop-blur-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Dana Likuid & Tabungan Pelunasan
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-300/80 hidden sm:inline">
+                      • {allYearSavings.length} Alokasi Aktif
+                    </span>
                   </div>
-                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
+
+                  <div className="flex items-center gap-2">
+                    {/* Year Switcher */}
+                    <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setSavingsSelectedYear(y => y - 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/15 transition text-blue-100 cursor-pointer"
+                        title="Tahun Sebelumnya"
+                      >
+                        <ChevronLeft size={15} />
+                      </button>
+                      <span className="px-2.5 text-xs font-black tabular-nums text-white flex items-center gap-1">
+                        <Calendar size={12} className="text-emerald-300" />
+                        {savingsSelectedYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSavingsSelectedYear(y => y + 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/15 transition text-blue-100 cursor-pointer"
+                        title="Tahun Berikutnya"
+                      >
+                        <ChevronRight size={15} />
+                      </button>
+                    </div>
+
+                    {/* Privacy Amount Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowAmounts(!showAmounts)}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-blue-100 transition cursor-pointer border border-white/10"
+                      title={showAmounts ? 'Sembunyikan Nominal' : 'Tampilkan Nominal'}
+                    >
+                      {showAmounts ? <Eye size={17} /> : <EyeOff size={17} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Primary Financial Figures */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-end">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-200/80">
+                      Total Dana Terkumpul Tahun Ini
+                    </p>
+                    <h3 className="text-2xl sm:text-4xl font-black tracking-tight tabular-nums mt-1 text-white">
+                      {showAmounts ? formatIDR(totalYearSavings) : '••••••••'}
+                    </h3>
+                    <p className="text-[11px] text-slate-300/80 font-medium mt-1">
+                      Akumulasi Keseluruhan: <span className="font-bold text-white">{showAmounts ? formatIDR(allTimeSavings) : '••••••••'}</span>
+                    </p>
+                  </div>
+
+                  {/* Breakdown Personal vs Bisnis Pill */}
+                  <div className="bg-white/5 p-3 sm:p-3.5 rounded-2xl border border-white/10 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-blue-200 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-400" />
+                        Tabungan Personal
+                      </span>
+                      <span className="font-black tabular-nums text-white">
+                        {showAmounts ? formatIDR(personalSavings) : '••••'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-purple-200 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-purple-400" />
+                        Tabungan Bisnis
+                      </span>
+                      <span className="font-black tabular-nums text-purple-200">
+                        {showAmounts ? formatIDR(businessSavings) : '••••'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coverage Progress Bar (Fintech Health Bar) */}
+                <div className="relative z-10 space-y-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-300">
+                      Rasio Kesiapan Pelunasan Liabilitas
+                    </span>
+                    <span className="font-black text-emerald-300 tabular-nums">
+                      {coverageRatio}% Terkover
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 transition-all duration-700"
+                      style={{ width: `${coverageRatio}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bank Quick Actions (Modern Pills) */}
+                <div className="relative z-10 flex items-center gap-2 sm:gap-3 flex-wrap pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSaving(null);
+                      setSavingAmount('');
+                      setSavingNote('');
+                      setSavingOwner(OwnerType.PERSONAL);
+                      if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                      setSavingTargetMonth(new Date().getMonth());
+                      setSavingTargetYear(savingsSelectedYear);
+                      pushView('FORM_SAVING');
+                    }}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition cursor-pointer"
+                  >
+                    <Plus size={16} strokeWidth={3} />
+                    + Simpan Dana Baru
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (data.cards.length > 0) {
+                        setTransferSourceCardId(data.cards[0].id);
+                        setTransferTargetCardId(data.cards[0].id);
+                      }
+                      setTransferSourceMonth(new Date().getMonth());
+                      setTransferSourceYear(savingsSelectedYear);
+                      setTransferTargetMonth((new Date().getMonth() + 1) % 12);
+                      setTransferTargetYear(savingsSelectedYear);
+                      pushView('FORM_TRANSFER_SAVING');
+                    }}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 active:scale-95 transition cursor-pointer"
+                  >
+                    <ArrowRightLeft size={15} />
+                    Transfer Antar Pos
+                  </button>
+                </div>
+              </div>
+
+              {/* Side Bento Card: Top Card Allocations (Mobile Banking Vaults) */}
+              <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Alokasi Per Kartu Kredit
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      {cardAllocations.length} Kartu Aktif
+                    </span>
+                  </div>
+                  <h4 className="text-base font-black text-slate-800 dark:text-slate-100 mt-1">
+                    Distribusi Dana Cadangan
+                  </h4>
+
+                  {cardAllocations.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-2">
+                      <Vault size={32} className="mx-auto text-slate-300 dark:text-slate-700" />
+                      <p className="text-xs font-medium">Belum ada alokasi tabungan untuk kartu di tahun ini.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {cardAllocations.slice(0, 4).map((item, idx) => {
+                        const cardPct = totalYearSavings > 0
+                          ? Math.round((item.totalAmount / totalYearSavings) * 100)
+                          : 0;
+                        return (
+                          <div key={idx} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 min-w-0 pr-2">
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${item.card.color}`} />
+                                <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                  {item.card.name}
+                                </span>
+                              </div>
+                              <span className="font-black tabular-nums text-slate-900 dark:text-slate-100 shrink-0">
+                                {showAmounts ? formatIDR(item.totalAmount) : '••••'}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${item.card.color}`}
+                                style={{ width: `${cardPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Total Akun Kartu</span>
+                  <span className="font-black text-slate-800 dark:text-slate-100 tabular-nums">
+                    {data.cards.length} Instrumen
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. DAFTAR PERIODE BULANAN (MUTASI TABUNGAN DIGITAL) */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+                    <CalendarClock size={20} className="text-emerald-500" />
+                    Rekening Tabungan Per Periode
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Rincian dana yang disiapkan untuk pembayaran tagihan tiap bulan di tahun {savingsSelectedYear}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400">
+                    {activeMonths.length} Bulan Terisi
+                  </span>
+                </div>
+              </div>
+
+              {activeMonths.length === 0 ? (
+                <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-8 space-y-4 shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+                    <Vault size={32} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
+                      Belum Ada Alokasi Tabungan di Tahun {savingsSelectedYear}
+                    </h4>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Mulai siapkan dana pelunasan tagihan kartu kredit Anda agar tidak terjadi gagal bayar saat tanggal jatuh tempo tiba.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSaving(null);
+                      setSavingAmount('');
+                      setSavingNote('');
+                      setSavingOwner(OwnerType.PERSONAL);
+                      if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                      setSavingTargetMonth(new Date().getMonth());
+                      setSavingTargetYear(savingsSelectedYear);
+                      pushView('FORM_SAVING');
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
+                  >
+                    <Plus size={16} strokeWidth={2.5} />
+                    Mulai Menabung Sekarang
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {savingsYearlyData.map((m, idx) => {
+                    if (m.totalMonth === 0) return null;
+                    const totalItems = m.cardGroups.reduce((acc, g) => acc + g.items.length, 0);
+
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 group"
+                      >
+                        {/* Card Header */}
+                        <div>
+                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xs">
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <h4 className="font-black text-base text-slate-800 dark:text-slate-100 leading-none">
+                                  {m.monthName}
+                                </h4>
+                                <span className="text-[10px] text-slate-400 font-semibold">
+                                  {totalItems} mutasi alokasi
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                                Total Dana
+                              </span>
+                              <span className="text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {showAmounts ? formatIDR(m.totalMonth) : '••••••••'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Card Groups / Ledger Items */}
+                          <div className="mt-4 space-y-2.5">
+                            {m.cardGroups.map((group, gIdx) => (
+                              <button
+                                key={gIdx}
+                                type="button"
+                                onClick={() => setSavingHistoryModal({
+                                  title: `${group.cardName} • ${m.monthName} ${savingsSelectedYear}`,
+                                  items: group.items,
+                                  cardId: group.cardId,
+                                  month: m.monthIdx,
+                                  year: savingsSelectedYear
+                                })}
+                                className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-100/80 dark:border-slate-800/50 transition cursor-pointer text-left group/item"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                  <span className={`w-3 h-3 rounded-full shrink-0 ${group.cardColor}`} />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                      {group.cardName}
+                                    </p>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {group.items.length} kali simpan
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-xs font-black tabular-nums text-slate-800 dark:text-slate-100">
+                                    {showAmounts ? formatIDR(group.amount) : '••••'}
+                                  </span>
+                                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover/item:translate-x-0.5 transition-transform" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Bottom Quick Action: Add to this exact month */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSaving(null);
+                            setSavingAmount('');
+                            setSavingNote('');
+                            setSavingOwner(OwnerType.PERSONAL);
+                            if (data.cards.length > 0) setSavingCardId(data.cards[0].id);
+                            setSavingTargetMonth(m.monthIdx);
+                            setSavingTargetYear(savingsSelectedYear);
+                            pushView('FORM_SAVING');
+                          }}
+                          className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 dark:bg-slate-800/40 dark:hover:bg-emerald-950/30 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 border border-dashed border-slate-200 hover:border-emerald-500/40 dark:border-slate-700 dark:hover:border-emerald-500/40 transition active:scale-95 cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          Setor ke {m.monthName}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. INTERACTIVE TRANSACTION RECEIPT STATEMENT MODAL */}
+            {savingHistoryModal && (
+              <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[32px] md:rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 animate-in slide-in-from-bottom duration-300">
+                  {/* Modal Header */}
+                  <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/70 dark:bg-slate-800/40">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                        <Vault size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm tracking-tight">
+                          {savingHistoryModal.title}
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          Riwayat mutasi setoran & alokasi dana
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSavingHistoryModal(null)}
+                      className="w-8 h-8 rounded-full bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition text-slate-500 cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {/* Transaction List */}
+                  <div className="p-5 sm:p-6 max-h-[60vh] overflow-y-auto space-y-2.5 no-scrollbar">
                     {savingHistoryModal.items.map(item => {
                       const isBiz = item.owner === OwnerType.BUSINESS;
                       return (
-                        <div key={item.id} onClick={() => { setSavingHistoryModal(null); openEditSaving(item); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group border border-transparent hover:border-success/30">
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            setSavingHistoryModal(null);
+                            openEditSaving(item);
+                          }}
+                          className="p-3.5 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer transition border border-slate-100/80 dark:border-slate-800/60 group"
+                        >
                           <div className="space-y-1 min-w-0 pr-2">
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{item.note}</p>
+                            <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                              {item.note || 'Setoran Tabungan'}
+                            </p>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -2626,15 +3001,19 @@ const App: React.FC = () => {
                               </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className={`text-sm font-black ${item.amount < 0 ? 'text-danger' : 'text-success'}`}>{formatIDR(item.amount)}</span>
-                            <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className={`text-sm font-black tabular-nums ${item.amount < 0 ? 'text-danger' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {formatIDR(item.amount)}
+                            </span>
+                            <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5 transition-transform" />
                           </div>
                         </div>
                       );
                     })}
-                    
-                    <button 
+
+                    {/* Add Entry to this Modal */}
+                    <button
+                      type="button"
                       onClick={() => {
                         setEditingSaving(null);
                         setSavingAmount('');
@@ -2646,19 +3025,24 @@ const App: React.FC = () => {
                         setSavingHistoryModal(null);
                         pushView('FORM_SAVING');
                       }}
-                      className="w-full mt-4 p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-success hover:border-success transition-all font-bold text-sm uppercase"
+                      className="w-full mt-3 p-3.5 border-2 border-dashed border-emerald-500/30 hover:border-emerald-500 rounded-2xl flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-black text-xs uppercase tracking-wider hover:bg-emerald-500/5 transition cursor-pointer"
                     >
-                      <Plus size={18} /> Tambah Data Tabungan
+                      <Plus size={16} strokeWidth={2.5} />
+                      + Tambah Alokasi Tabungan Baru
                     </button>
                   </div>
-                  <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Klik item untuk mengubah data</p>
+
+                  <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 text-center border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-slate-400">
+                      Ketuk transaksi untuk mengedit nominal atau catatan
+                    </p>
                   </div>
                 </div>
               </div>
             )}
           </div>
         );
+      }
       case 'PIUTANGS': {
         const allYearPiutangs = (data.piutangs || []).filter(p => p.targetPeriod?.year === piutangsSelectedYear);
         const activeYearPiutangs = allYearPiutangs.filter(p => !p.isCollected);
