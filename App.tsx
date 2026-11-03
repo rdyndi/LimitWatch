@@ -145,21 +145,26 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
       >
         <div className="px-4 h-13 flex justify-between items-center max-w-7xl mx-auto w-full">
           <div
-            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-5.5 h-11 rounded-full bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/80 dark:border-white/20 shadow-[0_6px_20px_rgba(0,0,0,0.06),inset_0_1px_1.5px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_1.5px_rgba(255,255,255,0.25),inset_0_-1px_1.5px_rgba(0,0,0,0.35)]"
+            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-5 h-11 rounded-full bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_6px_22px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1.5px_3px_rgba(168,85,247,0.22),inset_2px_0_4px_rgba(56,189,248,0.25),inset_-2px_0_4px_rgba(236,72,153,0.2)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.55),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1.5px_3px_rgba(168,85,247,0.35),inset_2px_0_4px_rgba(56,189,248,0.35),inset_-2px_0_4px_rgba(236,72,153,0.3)]"
             style={{
-              WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-              backdropFilter: 'blur(24px) saturate(190%)'
+              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
+              backdropFilter: 'blur(28px) saturate(200%)'
             }}
           >
-            {/* Native Liquid Glass Specular Top Highlight */}
+            {/* Top specular liquid meniscus reflection */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/35 dark:from-white/15 to-transparent"
+              className="pointer-events-none absolute inset-x-2.5 top-0.5 h-2 rounded-full bg-gradient-to-b from-white/80 dark:from-white/45 to-transparent"
+            />
+            {/* Bottom chromatic water dispersion glow */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-3 bottom-0.5 h-1.5 rounded-full bg-gradient-to-t from-sky-400/25 dark:from-cyan-400/35 via-purple-400/15 to-transparent blur-[1px]"
             />
             {onBack && (
               <button
                 onClick={onBack}
-                className="relative z-10 -ml-1.5 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full cursor-pointer"
+                className="relative z-10 -ml-1 p-1 text-slate-800 dark:text-white active:scale-90 transition rounded-full cursor-pointer"
               >
                 <ChevronLeft size={19} strokeWidth={2.5} />
               </button>
@@ -5143,10 +5148,10 @@ const App: React.FC = () => {
                     onClick={toggleTheme}
                     className={
                       isIOSDevice
-                        ? 'w-10 h-10 rounded-full flex items-center justify-center bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/80 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1px_1.5px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.04)] dark:shadow-[0_6px_20px_rgba(0,0,0,0.5),inset_0_1px_1.5px_rgba(255,255,255,0.25),inset_0_-1px_1.5px_rgba(0,0,0,0.35)] text-slate-700 dark:text-slate-200 transition active:scale-90 cursor-pointer'
+                        ? 'w-10 h-10 rounded-full flex items-center justify-center bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(168,85,247,0.2)] dark:shadow-[0_6px_22px_rgba(0,0,0,0.5),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(168,85,247,0.3)] text-slate-700 dark:text-slate-200 transition active:scale-90 cursor-pointer'
                         : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
                     }
-                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(190%)', backdropFilter: 'blur(24px) saturate(190%)' } : undefined}
+                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(200%)', backdropFilter: 'blur(28px) saturate(200%)' } : undefined}
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
                     {data.theme === 'dark' ? <Sun size={isIOSDevice ? 20 : 17} className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]" /> : <Moon size={isIOSDevice ? 19 : 17} />}
@@ -5156,10 +5161,10 @@ const App: React.FC = () => {
                       onClick={() => pushView('VIEW_PROFILE')}
                       className={
                         isIOSDevice
-                          ? 'relative w-10.5 h-10.5 rounded-full p-[2.5px] bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/80 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1px_1.5px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.04)] dark:shadow-[0_6px_20px_rgba(0,0,0,0.5),inset_0_1px_1.5px_rgba(255,255,255,0.25),inset_0_-1px_1.5px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          ? 'relative w-10.5 h-10.5 rounded-full p-[2.5px] bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(168,85,247,0.2)] dark:shadow-[0_6px_22px_rgba(0,0,0,0.5),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(168,85,247,0.3)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
                           : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
                       }
-                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(190%)', backdropFilter: 'blur(24px) saturate(190%)' } : undefined}
+                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(200%)', backdropFilter: 'blur(28px) saturate(200%)' } : undefined}
                     >
                       {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-600 dark:text-slate-300"/>}
                     </button>
@@ -5187,112 +5192,128 @@ const App: React.FC = () => {
 
           {/* MOBILE BOTTOM NAV */}
           {!isFormOrDetailView && isMobileDevice && (
-            isIOSDevice ? (
-              <nav
-                className="fixed z-[70] rounded-full bg-white/75 dark:bg-slate-900/65 backdrop-blur-2xl border border-white/80 dark:border-white/[0.18] shadow-[0_12px_36px_rgba(15,23,42,0.10),0_2px_8px_rgba(15,23,42,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.65),0_4px_12px_rgba(0,0,0,0.4),inset_0_1px_1.5px_rgba(255,255,255,0.28),inset_0_-1px_1.5px_rgba(0,0,0,0.4)] overflow-hidden"
-                style={{
-                  left: 'calc(env(safe-area-inset-left, 0px) + 14px)',
-                  right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
-                  bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
-                  height: '66px',
-                  WebkitBackdropFilter: 'blur(26px) saturate(190%)',
-                  backdropFilter: 'blur(26px) saturate(190%)',
-                }}
-              >
-                {/* Native Specular Top Glass Reflection */}
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/30 dark:from-white/14 to-transparent"
-                />
-                <div className="relative z-10 h-full px-2.5 grid grid-cols-5 items-center max-w-lg mx-auto">
-                  {/* Tab 1: Beranda */}
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
-                    className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
-                      currentView === 'DASHBOARD' && !quickAddOpen
-                        ? 'text-blue-600 dark:text-sky-400 font-bold'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
-                    }`}
-                  >
-                    {currentView === 'DASHBOARD' && !quickAddOpen && (
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-blue-500/10 dark:bg-sky-400/18 blur-sm" />
-                    )}
-                    <Home size={20} strokeWidth={currentView === 'DASHBOARD' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
-                    <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Beranda</span>
-                  </button>
+            isIOSDevice ? (() => {
+              const activeNavIndex = currentView === 'DASHBOARD' ? 0
+                : currentView === 'SAVINGS' ? 1
+                : currentView === 'YEARLY' ? 3
+                : currentView === 'OWNER_BILLS' ? 4
+                : -1;
 
-                  {/* Tab 2: Tabung */}
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
-                    className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
-                      currentView === 'SAVINGS' && !quickAddOpen
-                        ? 'text-blue-600 dark:text-sky-400 font-bold'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
-                    }`}
-                  >
-                    {currentView === 'SAVINGS' && !quickAddOpen && (
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-blue-500/10 dark:bg-sky-400/18 blur-sm" />
-                    )}
-                    <Vault size={20} strokeWidth={currentView === 'SAVINGS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
-                    <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tabung</span>
-                  </button>
+              return (
+                <nav
+                  className="fixed z-[70] rounded-full bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_12px_40px_rgba(15,23,42,0.12),0_2px_8px_rgba(15,23,42,0.04),inset_0_1.5px_2px_rgba(255,255,255,0.95)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7),0_4px_12px_rgba(0,0,0,0.4),inset_0_1.5px_2px_rgba(255,255,255,0.35)] overflow-hidden"
+                  style={{
+                    left: 'calc(env(safe-area-inset-left, 0px) + 14px)',
+                    right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
+                    bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
+                    height: '66px',
+                    WebkitBackdropFilter: 'blur(28px) saturate(200%)',
+                    backdropFilter: 'blur(28px) saturate(200%)',
+                  }}
+                >
+                  {/* Top specular liquid reflection */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/35 dark:from-white/14 to-transparent"
+                  />
 
-                  {/* CENTER UNIVERSAL + BUTTON (Native Glass Halo Ring + Glossy Apple Action Button) */}
-                  <div className="flex items-center justify-center">
-                    <div className="p-1 rounded-full bg-white/50 dark:bg-white/10 border border-white/70 dark:border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_1.5px_rgba(255,255,255,0.7)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4),inset_0_1px_1.5px_rgba(255,255,255,0.22)] backdrop-blur-md">
-                      <button
-                        type="button"
-                        onClick={() => setQuickAddOpen(prev => !prev)}
-                        aria-label="Menu Input Cepat"
-                        className={`w-11.5 h-11.5 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 cursor-pointer border border-white/40 ${
-                          quickAddOpen
-                            ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-lg'
-                            : 'bg-gradient-to-b from-blue-500 via-blue-600 to-indigo-600 shadow-[0_4px_16px_rgba(37,99,235,0.5),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)]'
-                        }`}
-                      >
-                        <Plus size={25} strokeWidth={2.75} />
-                      </button>
+                  {/* Fluid Sliding Liquid Water Droplet ("Slide Air") */}
+                  {activeNavIndex !== -1 && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-1.5 z-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      style={{
+                        width: '20%',
+                        left: `${activeNavIndex * 20}%`,
+                      }}
+                    >
+                      <div className="relative w-[84%] max-w-[62px] h-[52px] rounded-[22px] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.85)_0%,rgba(255,255,255,0.30)_55%,rgba(147,197,253,0.38)_100%)] dark:bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.35)_0%,rgba(30,58,138,0.35)_55%,rgba(14,165,233,0.42)_100%)] border border-white/90 dark:border-white/35 shadow-[0_4px_16px_rgba(56,189,248,0.35),0_2px_6px_rgba(0,0,0,0.08),inset_0_2px_4px_rgba(255,255,255,0.98),inset_0_-2px_4px_rgba(168,85,247,0.35),inset_2px_0_4px_rgba(56,189,248,0.45),inset_-2px_0_4px_rgba(236,72,153,0.35)] dark:shadow-[0_6px_22px_rgba(56,189,248,0.45),0_0_14px_rgba(168,85,247,0.3),inset_0_2px_4px_rgba(255,255,255,0.85),inset_0_-2px_5px_rgba(168,85,247,0.45),inset_2px_0_5px_rgba(56,189,248,0.5),inset_-2px_0_5px_rgba(244,63,94,0.4)] backdrop-blur-md">
+                        {/* Top meniscus specular highlight */}
+                        <span className="pointer-events-none absolute inset-x-2 top-1 h-2 rounded-full bg-gradient-to-b from-white/95 dark:from-white/75 to-transparent" />
+                        {/* Prismatic chromatic water dispersion rim */}
+                        <span className="pointer-events-none absolute inset-x-2 bottom-1 h-2 rounded-full bg-gradient-to-t from-sky-400/35 dark:from-cyan-400/45 via-purple-400/25 to-transparent blur-[1px]" />
+                      </div>
                     </div>
+                  )}
+
+                  <div className="relative z-10 h-full px-2.5 grid grid-cols-5 items-center max-w-lg mx-auto">
+                    {/* Tab 1: Beranda */}
+                    <button
+                      type="button"
+                      onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
+                      className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
+                        currentView === 'DASHBOARD' && !quickAddOpen
+                          ? 'text-blue-600 dark:text-sky-300 font-bold drop-shadow-[0_1px_3px_rgba(37,99,235,0.25)] dark:drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
+                      }`}
+                    >
+                      <Home size={20} strokeWidth={currentView === 'DASHBOARD' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Beranda</span>
+                    </button>
+
+                    {/* Tab 2: Tabung */}
+                    <button
+                      type="button"
+                      onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
+                      className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
+                        currentView === 'SAVINGS' && !quickAddOpen
+                          ? 'text-blue-600 dark:text-sky-300 font-bold drop-shadow-[0_1px_3px_rgba(37,99,235,0.25)] dark:drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
+                      }`}
+                    >
+                      <Vault size={20} strokeWidth={currentView === 'SAVINGS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tabung</span>
+                    </button>
+
+                    {/* CENTER UNIVERSAL + BUTTON (Native Glass Halo Ring + Glossy Apple Action Button) */}
+                    <div className="flex items-center justify-center">
+                      <div className="p-1 rounded-full bg-white/45 dark:bg-white/10 border border-white/75 dark:border-white/25 shadow-[0_2px_10px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.85)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4),inset_0_1.5px_2px_rgba(255,255,255,0.3)] backdrop-blur-md">
+                        <button
+                          type="button"
+                          onClick={() => setQuickAddOpen(prev => !prev)}
+                          aria-label="Menu Input Cepat"
+                          className={`w-11.5 h-11.5 rounded-full flex items-center justify-center text-white transition-all duration-200 active:scale-90 cursor-pointer border border-white/40 ${
+                            quickAddOpen
+                              ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-lg'
+                              : 'bg-gradient-to-b from-blue-500 via-blue-600 to-indigo-600 shadow-[0_4px_16px_rgba(37,99,235,0.5),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)]'
+                          }`}
+                        >
+                          <Plus size={25} strokeWidth={2.75} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tab 4: Tahun */}
+                    <button
+                      type="button"
+                      onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
+                      className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
+                        currentView === 'YEARLY' && !quickAddOpen
+                          ? 'text-blue-600 dark:text-sky-300 font-bold drop-shadow-[0_1px_3px_rgba(37,99,235,0.25)] dark:drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
+                      }`}
+                    >
+                      <CalendarRange size={20} strokeWidth={currentView === 'YEARLY' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tahun</span>
+                    </button>
+
+                    {/* Tab 5: Bisnis */}
+                    <button
+                      type="button"
+                      onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
+                      className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
+                        currentView === 'OWNER_BILLS' && !quickAddOpen
+                          ? 'text-blue-600 dark:text-sky-300 font-bold drop-shadow-[0_1px_3px_rgba(37,99,235,0.25)] dark:drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
+                      }`}
+                    >
+                      <PieChart size={20} strokeWidth={currentView === 'OWNER_BILLS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Bisnis</span>
+                    </button>
                   </div>
-
-                  {/* Tab 4: Tahun */}
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
-                    className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
-                      currentView === 'YEARLY' && !quickAddOpen
-                        ? 'text-blue-600 dark:text-sky-400 font-bold'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
-                    }`}
-                  >
-                    {currentView === 'YEARLY' && !quickAddOpen && (
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-blue-500/10 dark:bg-sky-400/18 blur-sm" />
-                    )}
-                    <CalendarRange size={20} strokeWidth={currentView === 'YEARLY' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
-                    <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tahun</span>
-                  </button>
-
-                  {/* Tab 5: Bisnis */}
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
-                    className={`relative flex flex-col items-center justify-center gap-1 transition-colors py-1.5 cursor-pointer ${
-                      currentView === 'OWNER_BILLS' && !quickAddOpen
-                        ? 'text-blue-600 dark:text-sky-400 font-bold'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
-                    }`}
-                  >
-                    {currentView === 'OWNER_BILLS' && !quickAddOpen && (
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 -inset-y-1 rounded-full bg-blue-500/10 dark:bg-sky-400/18 blur-sm" />
-                    )}
-                    <PieChart size={20} strokeWidth={currentView === 'OWNER_BILLS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
-                    <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Bisnis</span>
-                  </button>
-                </div>
-              </nav>
-            ) : (
+                </nav>
+              );
+            })() : (
               <nav 
                 className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" 
                 style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
