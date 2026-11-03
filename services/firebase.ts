@@ -133,13 +133,7 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
       }
     }, (error) => {
       console.error("Firestore subscription error:", error);
-      onUpdate({
-        cards: [],
-        transactions: [],
-        installments: [],
-        savings: [],
-        piutangs: []
-      });
+      // DO NOT clear user state on transient error, preserve existing cached data
     });
     return unsubscribe;
   } catch (err) {

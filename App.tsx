@@ -256,6 +256,17 @@ const App: React.FC = () => {
     const savedTheme = typeof window !== 'undefined'
       ? (localStorage.getItem('limitwatch_theme') === 'light' ? 'light' : 'dark')
       : 'dark';
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('limitwatch_app_state');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.cards)) {
+            return { ...parsed, theme: savedTheme };
+          }
+        }
+      } catch (e) {}
+    }
     return {
       cards: [],
       transactions: [],
@@ -433,11 +444,40 @@ const App: React.FC = () => {
         const resolvedTheme = cleanState.theme === 'light'
           ? 'light'
           : (localStorage.getItem('limitwatch_theme') === 'light' ? 'light' : 'dark');
-        setData({ ...cleanState, theme: resolvedTheme });
+        const finalState = { ...cleanState, theme: resolvedTheme };
+        setData(finalState);
+        try {
+          localStorage.setItem('limitwatch_app_state', JSON.stringify(finalState));
+        } catch (e) {}
       });
       return () => unsubscribe();
     }
   }, [user]);
+
+  // Auto-align selected savings and piutangs year to user's actual data if current year is empty
+  useEffect(() => {
+    if (data.savings && data.savings.length > 0) {
+      const activeSavings = data.savings.filter(s => !s.isTransferred);
+      if (activeSavings.length > 0) {
+        const years = activeSavings.map(s => typeof s.targetPeriod?.year === 'number' ? s.targetPeriod.year : (s.date ? new Date(s.date).getFullYear() : null)).filter(Boolean) as number[];
+        if (years.length > 0 && !years.includes(savingsSelectedYear)) {
+          setSavingsSelectedYear(Math.max(...years));
+        }
+      }
+    }
+  }, [data.savings, savingsSelectedYear]);
+
+  useEffect(() => {
+    if (data.piutangs && data.piutangs.length > 0) {
+      const activePiutangs = data.piutangs.filter(p => !p.isCollected);
+      if (activePiutangs.length > 0) {
+        const years = activePiutangs.map(p => typeof p.targetPeriod?.year === 'number' ? p.targetPeriod.year : (p.date ? new Date(p.date).getFullYear() : null)).filter(Boolean) as number[];
+        if (years.length > 0 && !years.includes(piutangsSelectedYear)) {
+          setPiutangsSelectedYear(Math.max(...years));
+        }
+      }
+    }
+  }, [data.piutangs, piutangsSelectedYear]);
 
   const toggleTheme = () => {
     const newTheme = data.theme === 'dark' ? 'light' : 'dark';
@@ -1453,7 +1493,12 @@ const App: React.FC = () => {
 
   const savingsYearlyData = useMemo(() => {
     return monthNames.map((monthName, monthIdx) => {
-       const monthlySavings = data.savings.filter(s => !s.isTransferred && s.targetPeriod?.month === monthIdx && s.targetPeriod?.year === savingsSelectedYear);
+       const monthlySavings = data.savings.filter(s => {
+         if (s.isTransferred) return false;
+         const sYear = typeof s.targetPeriod?.year === 'number' ? s.targetPeriod.year : (s.date ? new Date(s.date).getFullYear() : savingsSelectedYear);
+         const sMonth = typeof s.targetPeriod?.month === 'number' ? s.targetPeriod.month : (s.date ? new Date(s.date).getMonth() : 0);
+         return sMonth === monthIdx && sYear === savingsSelectedYear;
+       });
        const cardGroups: Record<string, { cardId: string, cardName: string, cardColor: string, amount: number, items: Saving[] }> = {};
        monthlySavings.forEach(s => {
          const card = data.cards.find(c => c.id === s.cardId);
@@ -1469,7 +1514,12 @@ const App: React.FC = () => {
 
   const piutangsYearlyData = useMemo(() => {
     return monthNames.map((monthName, monthIdx) => {
-       const monthlyPiutangs = (data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.month === monthIdx && p.targetPeriod?.year === piutangsSelectedYear);
+       const monthlyPiutangs = (data.piutangs || []).filter(p => {
+         if (p.isCollected) return false;
+         const pYear = typeof p.targetPeriod?.year === 'number' ? p.targetPeriod.year : (p.date ? new Date(p.date).getFullYear() : piutangsSelectedYear);
+         const pMonth = typeof p.targetPeriod?.month === 'number' ? p.targetPeriod.month : (p.date ? new Date(p.date).getMonth() : 0);
+         return pMonth === monthIdx && pYear === piutangsSelectedYear;
+       });
        const cardGroups: Record<string, { cardId: string, cardName: string, cardColor: string, amount: number, items: PiutangType[] }> = {};
        monthlyPiutangs.forEach(p => {
          const card = data.cards.find(c => c.id === p.cardId);
@@ -1484,11 +1534,19 @@ const App: React.FC = () => {
   }, [data, piutangsSelectedYear]);
 
   const totalYearSavings = useMemo(() => {
-    return data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear).reduce((sum, s) => sum + s.amount, 0);
+    return data.savings.filter(s => {
+      if (s.isTransferred) return false;
+      const sYear = typeof s.targetPeriod?.year === 'number' ? s.targetPeriod.year : (s.date ? new Date(s.date).getFullYear() : savingsSelectedYear);
+      return sYear === savingsSelectedYear;
+    }).reduce((sum, s) => sum + s.amount, 0);
   }, [data.savings, savingsSelectedYear]);
 
   const totalYearPiutangs = useMemo(() => {
-    return (data.piutangs || []).filter(p => !p.isCollected && p.targetPeriod?.year === piutangsSelectedYear).reduce((sum, p) => sum + p.amount, 0);
+    return (data.piutangs || []).filter(p => {
+      if (p.isCollected) return false;
+      const pYear = typeof p.targetPeriod?.year === 'number' ? p.targetPeriod.year : (p.date ? new Date(p.date).getFullYear() : piutangsSelectedYear);
+      return pYear === piutangsSelectedYear;
+    }).reduce((sum, p) => sum + p.amount, 0);
   }, [data.piutangs, piutangsSelectedYear]);
 
   const totalDebt = useMemo(() => {
@@ -2541,17 +2599,27 @@ const App: React.FC = () => {
           </div>
         );
       case 'SAVINGS': {
-        const allYearSavings = data.savings.filter(s => !s.isTransferred && s.targetPeriod?.year === savingsSelectedYear);
-        const personalSavings = allYearSavings.filter(s => s.owner !== OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
-        const businessSavings = allYearSavings.filter(s => s.owner === OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
-        const allTimeSavings = data.savings.filter(s => !s.isTransferred).reduce((sum, s) => sum + s.amount, 0);
+        const getSavingYear = (s: Saving) => typeof s.targetPeriod?.year === 'number' ? s.targetPeriod.year : (s.date ? new Date(s.date).getFullYear() : savingsSelectedYear);
+        const getSavingMonth = (s: Saving) => typeof s.targetPeriod?.month === 'number' ? s.targetPeriod.month : (s.date ? new Date(s.date).getMonth() : 0);
+
+        const activeSavingsAll = data.savings.filter(s => !s.isTransferred);
+        const allYearSavings = activeSavingsAll.filter(s => getSavingYear(s) === savingsSelectedYear);
+        const targetSavingsBreakdown = allYearSavings.length > 0 ? allYearSavings : activeSavingsAll;
+        const personalSavings = targetSavingsBreakdown.filter(s => s.owner !== OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
+        const businessSavings = targetSavingsBreakdown.filter(s => s.owner === OwnerType.BUSINESS).reduce((sum, s) => sum + s.amount, 0);
+        const allTimeSavings = totalSavingsAcrossYears;
+
+        // Collect all years that actually have savings data
+        const availableYears = Array.from(new Set(activeSavingsAll.map(getSavingYear))).sort((a, b) => b - a);
 
         // Card allocation breakdown (Banking Vault distribution)
         const cardAllocationMap = new Map<string, { card: CreditCardType; totalAmount: number; count: number }>();
         data.cards.forEach(card => {
           cardAllocationMap.set(card.id, { card, totalAmount: 0, count: 0 });
         });
-        allYearSavings.forEach(s => {
+        const savingsForCards = allYearSavings.length > 0 ? allYearSavings : activeSavingsAll;
+        const totalSavingsForCards = savingsForCards.reduce((sum, s) => sum + s.amount, 0);
+        savingsForCards.forEach(s => {
           const entry = cardAllocationMap.get(s.cardId);
           if (entry) {
             entry.totalAmount += s.amount;
@@ -2564,7 +2632,7 @@ const App: React.FC = () => {
 
         // Liquidity coverage ratio against total debt
         const coverageRatio = totalDebt > 0
-          ? Math.min(100, Math.round((totalYearSavings / totalDebt) * 100))
+          ? Math.min(100, Math.round((totalSavingsAcrossYears / totalDebt) * 100))
           : 100;
 
         const activeMonths = savingsYearlyData.filter(m => m.totalMonth > 0);
@@ -2581,13 +2649,13 @@ const App: React.FC = () => {
 
                 {/* Top Status, Year Switcher & Privacy Bar */}
                 <div className="relative z-10 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 backdrop-blur-md">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       Dana Likuid & Tabungan Pelunasan
                     </span>
                     <span className="text-[11px] font-bold text-slate-300/80 hidden sm:inline">
-                      • {allYearSavings.length} Alokasi Aktif
+                      • {activeSavingsAll.length} Mutasi Aktif
                     </span>
                   </div>
 
@@ -2632,14 +2700,34 @@ const App: React.FC = () => {
                 <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-end">
                   <div>
                     <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-200/80">
-                      Total Dana Terkumpul Tahun Ini
+                      Total Saldo Tabungan Aktif
                     </p>
                     <h3 className="text-2xl sm:text-4xl font-black tracking-tight tabular-nums mt-1 text-white">
-                      {showAmounts ? formatIDR(totalYearSavings) : '••••••••'}
+                      {showAmounts ? formatIDR(totalSavingsAcrossYears) : '••••••••'}
                     </h3>
-                    <p className="text-[11px] text-slate-300/80 font-medium mt-1">
-                      Akumulasi Keseluruhan: <span className="font-bold text-white">{showAmounts ? formatIDR(allTimeSavings) : '••••••••'}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className="text-[11px] text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                        Tahun {savingsSelectedYear}: {showAmounts ? formatIDR(totalYearSavings) : '••••••••'}
+                      </span>
+                      {availableYears.length > 1 && (
+                        <div className="flex items-center gap-1">
+                          {availableYears.map(yr => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => setSavingsSelectedYear(yr)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                                savingsSelectedYear === yr
+                                  ? 'bg-emerald-400 text-slate-950 font-black'
+                                  : 'bg-white/10 hover:bg-white/20 text-white'
+                              }`}
+                            >
+                              {yr}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Breakdown Personal vs Bisnis Pill */}
@@ -2747,8 +2835,8 @@ const App: React.FC = () => {
                   ) : (
                     <div className="mt-4 space-y-3">
                       {cardAllocations.slice(0, 4).map((item, idx) => {
-                        const cardPct = totalYearSavings > 0
-                          ? Math.round((item.totalAmount / totalYearSavings) * 100)
+                        const cardPct = totalSavingsForCards > 0
+                          ? Math.round((item.totalAmount / totalSavingsForCards) * 100)
                           : 0;
                         return (
                           <div key={idx} className="space-y-1.5">
@@ -3044,7 +3132,8 @@ const App: React.FC = () => {
         );
       }
       case 'PIUTANGS': {
-        const allYearPiutangs = (data.piutangs || []).filter(p => p.targetPeriod?.year === piutangsSelectedYear);
+        const getPiutangYear = (p: PiutangType) => typeof p.targetPeriod?.year === 'number' ? p.targetPeriod.year : (p.date ? new Date(p.date).getFullYear() : piutangsSelectedYear);
+        const allYearPiutangs = (data.piutangs || []).filter(p => getPiutangYear(p) === piutangsSelectedYear);
         const activeYearPiutangs = allYearPiutangs.filter(p => !p.isCollected);
         const collectedYearPiutangs = allYearPiutangs.filter(p => p.isCollected);
         const totalYearCollectedPiutangs = collectedYearPiutangs.reduce((sum, p) => sum + p.amount, 0);
