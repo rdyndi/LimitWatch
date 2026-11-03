@@ -57,6 +57,8 @@ import {
   Delete,
   Moon,
   Sun,
+  Download,
+  Upload,
   ArrowDownCircle,
   ArrowDown,
   ArrowUpCircle,
@@ -585,6 +587,50 @@ const App: React.FC = () => {
     if (digitsOnly === '') { setter(isNegative ? '-' : ''); return; }
     const numericVal = parseInt(digitsOnly, 10) * (isNegative ? -1 : 1);
     setter(formatIDR(numericVal));
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const exportData = {
+        ...data,
+        exportedAt: new Date().toISOString(),
+        version: "1.0"
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `limitwatch_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Gagal mengunduh cadangan data.");
+    }
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (parsed && Array.isArray(parsed.cards)) {
+          if (window.confirm("Pulihkan data dari file cadangan ini? Data saat ini akan diperbarui.")) {
+            saveData(parsed);
+            alert("Data berhasil dipulihkan!");
+          }
+        } else {
+          alert("Format file cadangan tidak valid.");
+        }
+      } catch (err) {
+        alert("Gagal membaca file cadangan.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleLogout = async () => {
@@ -5000,9 +5046,24 @@ const App: React.FC = () => {
                 <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">{user.displayName || 'Pengguna'}</h3>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1.5">{user.email}</p>
               </div>
-              <div className="p-4">
+              <div className="p-4 space-y-1">
                  <MobileMenuButton icon={data.theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>} label={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'} onClick={toggleTheme} />
                  <MobileMenuButton icon={<ShieldCheck size={20}/>} label="Setel Pengamanan PIN" rightElement={<span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase ${data.security?.isPinEnabled ? 'bg-success/10 text-success' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{data.security?.isPinEnabled ? 'AKTIF' : 'TIDAK AKTIF'}</span>} onClick={() => { setSetupPinStep('ENTER_NEW'); setPinInput(""); }} />
+                 <MobileMenuButton icon={<Download size={20}/>} label="Cadangkan Data (Download Backup JSON)" onClick={handleExportBackup} />
+                 <div className="relative">
+                   <input
+                     type="file"
+                     accept=".json"
+                     id="import-backup-file"
+                     className="hidden"
+                     onChange={handleImportBackup}
+                   />
+                   <MobileMenuButton
+                     icon={<Upload size={20}/>}
+                     label="Pulihkan Data dari File (Restore JSON)"
+                     onClick={() => document.getElementById('import-backup-file')?.click()}
+                   />
+                 </div>
                  <MobileMenuButton icon={<LogOut size={20}/>} label="Keluar dari Aplikasi" onClick={handleLogout} danger />
               </div>
               <div className="p-10 text-center opacity-30"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">LimitWatch Digital Assets © 2025</p></div>
