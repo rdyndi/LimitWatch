@@ -579,7 +579,42 @@ const App: React.FC = () => {
       localStorage.setItem('limitwatch_app_state', JSON.stringify(cleanData));
     } catch (e) {}
     if (user) saveAppState(user.uid, cleanData);
+
+    // Sync to Cloudflare D1
+    if (cleanData.cards && cleanData.cards.length > 0) {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanData)
+      }).catch((err) => {
+        console.debug("D1 sync note:", err);
+      });
+    }
   };
+
+  useEffect(() => {
+    // Attempt initial sync from Cloudflare D1 (/api/data)
+    fetch('/api/data')
+      .then(res => res.ok ? res.json() : null)
+      .then((d1Data: AppState | null) => {
+        if (d1Data && Array.isArray(d1Data.cards) && d1Data.cards.length > 0) {
+          setData(prev => {
+            if ((prev.cards || []).length <= d1Data.cards.length) {
+              const clean = sanitizeData({
+                ...d1Data,
+                theme: prev.theme || d1Data.theme || 'dark'
+              });
+              try {
+                localStorage.setItem('limitwatch_app_state', JSON.stringify(clean));
+              } catch (e) {}
+              return clean;
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
     const isNegative = val.includes('-');
