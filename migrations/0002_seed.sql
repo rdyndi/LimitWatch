@@ -11,7 +11,16 @@ INSERT OR REPLACE INTO installments (id, card_id, name, total_amount, total_mont
 ("inst_mesin_cuci", "card_traveloka", "MESIN CUCI", 3155724, 12, 262977, 2, "2026-09-03T00:00:00.000Z", "BUSINESS"),
 ("inst_tv_24", "card_traveloka", "TV 24", 3352968, 24, 139707, 11, "2025-12-03T00:00:00.000Z", "PERSONAL"),
 ("inst_pengeluaran", "card_traveloka", "PENGELUARAN", 14249202, 19, 749958, 12, "2025-11-03T00:00:00.000Z", "PERSONAL"),
-("inst_bisnis_2026", "card_mandiri", "Investasi Modal Bisnis", 26943427, 12, 2245285, 0, "2026-01-20T00:00:00.000Z", "BUSINESS");
+("inst_bisnis_2026", "card_mandiri", "Investasi Modal Bisnis", 26943427, 12, 2245285, 0, "2026-01-20T00:00:00.000Z", "BUSINESS"),
+("inst_tokped_ccl12_1", "card_tokopedia", "Tokopedia CYBS (1)", 12000996, 12, 1000083, 3, "2026-08-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_eragone_dago", "card_tokopedia", "Erafone & More Dago Bandung", 9298008, 24, 387417, 17, "2025-06-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_ccl12_2", "card_tokopedia", "Tokopedia CYBS (2)", 3642264, 12, 303522, 4, "2026-07-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_ccl12_3", "card_tokopedia", "Tokopedia CYBS (3 - Rp 2.7M)", 2701000, 12, 225083, 1, "2026-10-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_ccl12_4", "card_tokopedia", "Tokopedia CYBS (4)", 1311636, 12, 109303, 11, "2025-12-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_blibli", "card_tokopedia", "Blibli Elektronik Lembang", 5188008, 24, 216167, 2, "2026-09-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_ccl12_5", "card_tokopedia", "Tokopedia CYBS (5)", 578820, 12, 48235, 2, "2026-09-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_erafone_bdg", "card_tokopedia", "Erafone 1 Bandung Electronic", 5699000, 24, 237458, 9, "2026-02-05T00:00:00.000Z", "PERSONAL"),
+("inst_tokped_ccl12_6", "card_tokopedia", "Tokopedia CYBS (6)", 1952868, 12, 162739, 4, "2026-07-05T00:00:00.000Z", "PERSONAL");
 
 -- 4. Insert Transactions
 INSERT OR REPLACE INTO transactions (id, card_id, amount, date, description, type, category, is_installment, owner, is_validated) VALUES
