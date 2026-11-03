@@ -15,7 +15,7 @@ import {
 } from "firebase/auth";
 import { AppState } from "../types";
 
-const { getFirestore, doc, onSnapshot, setDoc } = firestore;
+const { getFirestore, doc, onSnapshot, setDoc, getDoc } = firestore;
 
 const firebaseConfig = {
   apiKey: "AIzaSyALzhraAqiH0_50nOOIQUY1WZd9tStajB8",
@@ -142,13 +142,42 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   }
 };
 
+export const saveUserTheme = async (userId: string, theme: 'light' | 'dark') => {
+  if (!userId) return;
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await setDoc(userDocRef, { theme }, { merge: true });
+  } catch (error) {
+    console.error("Error saving theme to Firebase:", error);
+  }
+};
+
 export const saveAppState = async (userId: string, data: AppState) => {
   if (!userId) return;
   
   try {
     const sanitizedData = JSON.parse(JSON.stringify(data));
     const userDocRef = doc(db, "users", userId);
-    await setDoc(userDocRef, sanitizedData);
+
+    // CRITICAL SAFETY GUARD:
+    // If cards and transactions are completely empty, check if doc already exists with data
+    // to prevent accidental wipe from uninitialized state or offline listeners
+    if (
+      (!sanitizedData.cards || sanitizedData.cards.length === 0) &&
+      (!sanitizedData.transactions || sanitizedData.transactions.length === 0) &&
+      (!sanitizedData.savings || sanitizedData.savings.length === 0)
+    ) {
+      const existingSnap = await getDoc(userDocRef);
+      if (existingSnap.exists()) {
+        const existingData = existingSnap.data() as AppState;
+        if (existingData.cards && existingData.cards.length > 0) {
+          console.warn("BLOCKED accidental wipe: Attempted to save empty state over populated Firestore data.");
+          return;
+        }
+      }
+    }
+
+    await setDoc(userDocRef, sanitizedData, { merge: true });
   } catch (error) {
     console.error("Error saving to Firebase:", error);
   }

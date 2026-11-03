@@ -20,7 +20,8 @@ import {
   logout, 
   subscribeToAuth, 
   subscribeToAppState, 
-  saveAppState 
+  saveAppState,
+  saveUserTheme
 } from "./services/firebase";
 import { User } from "firebase/auth";
 import { 
@@ -481,9 +482,13 @@ const App: React.FC = () => {
 
   const toggleTheme = () => {
     const newTheme = data.theme === 'dark' ? 'light' : 'dark';
-    const newData = { ...data, theme: newTheme };
-    setData(newData);
-    saveData(newData);
+    setData(prev => ({ ...prev, theme: newTheme }));
+    try {
+      localStorage.setItem('limitwatch_theme', newTheme);
+    } catch (e) {}
+    if (user) {
+      saveUserTheme(user.uid, newTheme);
+    }
   };
 
   useEffect(() => {
@@ -568,6 +573,9 @@ const App: React.FC = () => {
   const saveData = (newData: AppState) => {
     const cleanData = sanitizeData(newData);
     setData(cleanData);
+    try {
+      localStorage.setItem('limitwatch_app_state', JSON.stringify(cleanData));
+    } catch (e) {}
     if (user) saveAppState(user.uid, cleanData);
   };
 
