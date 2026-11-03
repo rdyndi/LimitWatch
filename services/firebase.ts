@@ -116,13 +116,24 @@ export const subscribeToAppState = (userId: string, onUpdate: (data: AppState) =
   try {
     const userDocRef = doc(db, "users", userId);
 
-    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+    const unsubscribe = onSnapshot(userDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         const state = docSnap.data() as AppState;
         if (!state.piutangs) state.piutangs = [];
         onUpdate(state);
       } else {
-        console.log("No user data found, creating new empty state.");
+        console.log("No user data found, checking fallback app_data/main.");
+        try {
+          const mainSnap = await getDoc(doc(db, "app_data", "main"));
+          if (mainSnap.exists()) {
+            const mainData = mainSnap.data() as AppState;
+            if (!mainData.piutangs) mainData.piutangs = [];
+            onUpdate(mainData);
+            return;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch fallback app_data/main:", e);
+        }
         onUpdate({
           cards: [],
           transactions: [],
