@@ -5191,52 +5191,61 @@ const App: React.FC = () => {
           </main>
 
           {/* MOBILE BOTTOM NAV */}
-          {!isFormOrDetailView && isMobileDevice && (
-            isIOSDevice ? (() => {
-              const activeNavIndex = currentView === 'DASHBOARD' ? 0
-                : currentView === 'SAVINGS' ? 1
-                : currentView === 'YEARLY' ? 3
-                : currentView === 'OWNER_BILLS' ? 4
-                : -1;
+          {!isFormOrDetailView && isMobileDevice && (() => {
+            const activeNavIndex = currentView === 'DASHBOARD' ? 0
+              : currentView === 'SAVINGS' ? 1
+              : currentView === 'YEARLY' ? 3
+              : currentView === 'OWNER_BILLS' ? 4
+              : -1;
+            const targetNavIndex = activeNavIndex >= 0 ? activeNavIndex : 0;
 
-              return (
-                <nav
-                  className="fixed z-[70] rounded-full bg-white/[0.04] dark:bg-slate-900/[0.12] border border-white/30 dark:border-white/12 shadow-[0_8px_32px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.02),inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)] overflow-hidden"
-                  style={{
-                    left: 'calc(env(safe-area-inset-left, 0px) + 14px)',
-                    right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
-                    bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
-                    height: '66px',
-                    WebkitBackdropFilter: 'blur(12px) saturate(180%)',
-                    backdropFilter: 'blur(12px) saturate(180%)',
-                  }}
-                >
-                  {/* Top specular liquid 1px line */}
-                  <span
+            return (
+              <nav
+                className="fixed z-[70] rounded-full bg-white/[0.04] dark:bg-slate-900/[0.12] border border-white/30 dark:border-white/12 shadow-[0_8px_32px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.02),inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)] overflow-hidden"
+                style={{
+                  left: 'calc(env(safe-area-inset-left, 0px) + 14px)',
+                  right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
+                  bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
+                  height: '66px',
+                  WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+                  backdropFilter: 'blur(12px) saturate(180%)',
+                }}
+              >
+                {/* Top specular liquid 1px line */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 dark:via-white/30 to-transparent"
+                />
+
+                <div className="relative h-full px-2.5 max-w-lg mx-auto">
+                  {/* Fluid Sliding Liquid Water Droplet Track ("Slide Air") */}
+                  <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 dark:via-white/30 to-transparent"
-                  />
-
-                  {/* Fluid Sliding Liquid Water Droplet ("Slide Air") */}
-                  {activeNavIndex !== -1 && (
+                    className="pointer-events-none absolute inset-y-1.5 left-2.5 right-2.5 z-0"
+                  >
                     <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-1.5 z-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      className="h-full flex items-center justify-center"
                       style={{
                         width: '20%',
-                        left: `${activeNavIndex * 20}%`,
+                        transform: `translate3d(${targetNavIndex * 100}%, 0, 0)`,
+                        WebkitTransform: `translate3d(${targetNavIndex * 100}%, 0, 0)`,
+                        transition: 'transform 480ms cubic-bezier(0.34, 1.25, 0.64, 1), -webkit-transform 480ms cubic-bezier(0.34, 1.25, 0.64, 1), opacity 250ms ease',
+                        WebkitTransition: '-webkit-transform 480ms cubic-bezier(0.34, 1.25, 0.64, 1), opacity 250ms ease',
+                        willChange: 'transform',
+                        opacity: activeNavIndex >= 0 ? 1 : 0,
                       }}
                     >
-                      <div className="relative w-[84%] max-w-[62px] h-[52px] rounded-[22px] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.02)_50%,rgba(56,189,248,0.06)_100%)] dark:bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.08)_0%,rgba(30,58,138,0.08)_50%,rgba(14,165,233,0.10)_100%)] border border-white/30 dark:border-white/15 shadow-[0_2px_12px_rgba(56,189,248,0.18),inset_0_1px_1.5px_rgba(255,255,255,0.5),inset_0_-1px_2px_rgba(168,85,247,0.18),inset_1px_0_2px_rgba(56,189,248,0.25),inset_-1px_0_2px_rgba(236,72,153,0.18)] dark:shadow-[0_2px_14px_rgba(56,189,248,0.25),inset_0_1px_1.5px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(168,85,247,0.25),inset_1px_0_2px_rgba(56,189,248,0.3),inset_-1px_0_2px_rgba(244,63,94,0.2)] backdrop-blur-md">
+                      <div className="relative w-[84%] max-w-[62px] h-[52px] rounded-[22px] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.02)_50%,rgba(56,189,248,0.08)_100%)] dark:bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.08)_0%,rgba(30,58,138,0.08)_50%,rgba(14,165,233,0.10)_100%)] border border-white/35 dark:border-white/18 shadow-[0_2px_12px_rgba(56,189,248,0.2),inset_0_1px_1.5px_rgba(255,255,255,0.6),inset_0_-1px_2px_rgba(168,85,247,0.2),inset_1px_0_2px_rgba(56,189,248,0.25),inset_-1px_0_2px_rgba(236,72,153,0.2)] dark:shadow-[0_2px_14px_rgba(56,189,248,0.25),inset_0_1px_1.5px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(168,85,247,0.25),inset_1px_0_2px_rgba(56,189,248,0.3),inset_-1px_0_2px_rgba(244,63,94,0.2)] backdrop-blur-md">
                         {/* Top meniscus specular highlight */}
                         <span className="pointer-events-none absolute inset-x-2.5 top-0.5 h-[1.5px] rounded-full bg-gradient-to-r from-transparent via-white/80 dark:via-white/50 to-transparent" />
                         {/* Prismatic chromatic water dispersion rim */}
                         <span className="pointer-events-none absolute inset-x-2.5 bottom-0.5 h-1.5 rounded-full bg-gradient-to-r from-sky-400/25 via-purple-400/20 to-pink-400/15 blur-[1px]" />
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  <div className="relative z-10 h-full px-2.5 grid grid-cols-5 items-center max-w-lg mx-auto">
+                  {/* 5 Tab Navigation Buttons Grid */}
+                  <div className="relative z-10 h-full grid grid-cols-5 items-center">
                     {/* Tab 1: Beranda */}
                     <button
                       type="button"
@@ -5247,7 +5256,7 @@ const App: React.FC = () => {
                           : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
                       }`}
                     >
-                      <Home size={20} strokeWidth={currentView === 'DASHBOARD' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <Home size={20} strokeWidth={currentView === 'DASHBOARD' && !quickAddOpen ? 2.5 : 2} className="relative z-10 transition-transform active:scale-90" />
                       <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Beranda</span>
                     </button>
 
@@ -5261,7 +5270,7 @@ const App: React.FC = () => {
                           : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
                       }`}
                     >
-                      <Vault size={20} strokeWidth={currentView === 'SAVINGS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <Vault size={20} strokeWidth={currentView === 'SAVINGS' && !quickAddOpen ? 2.5 : 2} className="relative z-10 transition-transform active:scale-90" />
                       <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tabung</span>
                     </button>
 
@@ -5293,7 +5302,7 @@ const App: React.FC = () => {
                           : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
                       }`}
                     >
-                      <CalendarRange size={20} strokeWidth={currentView === 'YEARLY' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <CalendarRange size={20} strokeWidth={currentView === 'YEARLY' && !quickAddOpen ? 2.5 : 2} className="relative z-10 transition-transform active:scale-90" />
                       <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Tahun</span>
                     </button>
 
@@ -5307,81 +5316,14 @@ const App: React.FC = () => {
                           : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
                       }`}
                     >
-                      <PieChart size={20} strokeWidth={currentView === 'OWNER_BILLS' && !quickAddOpen ? 2.5 : 2} className="relative z-10" />
+                      <PieChart size={20} strokeWidth={currentView === 'OWNER_BILLS' && !quickAddOpen ? 2.5 : 2} className="relative z-10 transition-transform active:scale-90" />
                       <span className="relative z-10 text-[9.5px] tracking-tight leading-none">Bisnis</span>
                     </button>
                   </div>
-                </nav>
-              );
-            })() : (
-              <nav 
-                className="fixed left-0 right-0 bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" 
-                style={{ height: 'calc(60px + var(--sab, 0px))', paddingBottom: 'var(--sab, 0px)' }}
-              >
-                <div className="h-[60px] px-3 grid grid-cols-5 items-center max-w-lg mx-auto">
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('DASHBOARD'); }}
-                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                      currentView === 'DASHBOARD' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    <Home size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Beranda</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('SAVINGS'); }}
-                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                      currentView === 'SAVINGS' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    <Vault size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tabung</span>
-                  </button>
-
-                  {/* CENTER UNIVERSAL + BUTTON */}
-                  <div className="flex flex-col items-center justify-center -mt-5">
-                    <button
-                      type="button"
-                      onClick={() => setQuickAddOpen(prev => !prev)}
-                      aria-label="Menu Input Cepat"
-                      className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 active:scale-90 cursor-pointer border-4 border-white dark:border-slate-900 ${
-                        quickAddOpen
-                          ? 'bg-slate-800 dark:bg-slate-700 rotate-45 shadow-slate-900/30'
-                          : 'bg-gradient-to-tr from-primary to-blue-500 shadow-primary/40'
-                      }`}
-                    >
-                      <Plus size={26} strokeWidth={2.75} />
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('YEARLY'); }}
-                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                      currentView === 'YEARLY' && !quickAddOpen ? 'text-primary dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    <CalendarRange size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Tahun</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setQuickAddOpen(false); navigateToRoot('OWNER_BILLS'); }}
-                    className={`flex flex-col items-center justify-center gap-1 transition-all py-1 cursor-pointer ${
-                      currentView === 'OWNER_BILLS' && !quickAddOpen ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    <PieChart size={20} />
-                    <span className="text-[9px] font-black uppercase tracking-tighter leading-none">Bisnis</span>
-                  </button>
                 </div>
               </nav>
-            )
-          )}
+            );
+          })()}
         </div>
       </div>
 
