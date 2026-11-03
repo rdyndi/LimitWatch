@@ -418,13 +418,14 @@ const App: React.FC = () => {
   }, []);
 
   const sanitizeData = (state: AppState): AppState => {
-    const validInstallments = (state.installments || []).filter(inst => {
-      if (inst.transactionId) {
-         return (state.transactions || []).some(t => t.id === inst.transactionId);
-      }
-      return (state.transactions || []).some(t => t.cardId === inst.cardId && t.description === inst.name && t.amount === inst.totalAmount && t.isInstallment);
-    });
-    return { ...state, installments: validInstallments };
+    return {
+      ...state,
+      cards: state.cards || [],
+      transactions: state.transactions || [],
+      installments: state.installments || [],
+      savings: state.savings || [],
+      piutangs: state.piutangs || []
+    };
   };
 
   useEffect(() => {
