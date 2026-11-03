@@ -145,21 +145,21 @@ const PageHeader = ({ title, onBack, rightElement, className = "" }: { title: st
       >
         <div className="px-4 h-13 flex justify-between items-center max-w-7xl mx-auto w-full">
           <div
-            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-5 h-11 rounded-full bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_6px_22px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1.5px_3px_rgba(168,85,247,0.22),inset_2px_0_4px_rgba(56,189,248,0.25),inset_-2px_0_4px_rgba(236,72,153,0.2)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.55),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1.5px_3px_rgba(168,85,247,0.35),inset_2px_0_4px_rgba(56,189,248,0.35),inset_-2px_0_4px_rgba(236,72,153,0.3)]"
+            className="pointer-events-auto relative overflow-hidden inline-flex items-center justify-center gap-1.5 px-5 h-11 rounded-full bg-white/18 dark:bg-slate-900/22 backdrop-blur-2xl border border-white/60 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.85),inset_0_-1px_2px_rgba(168,85,247,0.18)] dark:shadow-[0_6px_22px_rgba(0,0,0,0.45),inset_0_1px_1.5px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(168,85,247,0.25)]"
             style={{
-              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              backdropFilter: 'blur(28px) saturate(200%)'
+              WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+              backdropFilter: 'blur(24px) saturate(190%)'
             }}
           >
-            {/* Top specular liquid meniscus reflection */}
+            {/* Top specular liquid reflection */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-2.5 top-0.5 h-2 rounded-full bg-gradient-to-b from-white/80 dark:from-white/45 to-transparent"
+              className="pointer-events-none absolute inset-x-3 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/80 dark:via-white/40 to-transparent"
             />
             {/* Bottom chromatic water dispersion glow */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-3 bottom-0.5 h-1.5 rounded-full bg-gradient-to-t from-sky-400/25 dark:from-cyan-400/35 via-purple-400/15 to-transparent blur-[1px]"
+              className="pointer-events-none absolute inset-x-3 bottom-0.5 h-1 rounded-full bg-gradient-to-r from-sky-400/20 via-purple-400/15 to-transparent blur-[1px]"
             />
             {onBack && (
               <button
@@ -5148,10 +5148,10 @@ const App: React.FC = () => {
                     onClick={toggleTheme}
                     className={
                       isIOSDevice
-                        ? 'w-10 h-10 rounded-full flex items-center justify-center bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(168,85,247,0.2)] dark:shadow-[0_6px_22px_rgba(0,0,0,0.5),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(168,85,247,0.3)] text-slate-700 dark:text-slate-200 transition active:scale-90 cursor-pointer'
+                        ? 'w-10 h-10 rounded-full flex items-center justify-center bg-white/18 dark:bg-slate-900/22 backdrop-blur-2xl border border-white/60 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.85)] dark:shadow-[0_6px_20px_rgba(0,0,0,0.45),inset_0_1px_1.5px_rgba(255,255,255,0.3)] text-slate-700 dark:text-slate-200 transition active:scale-90 cursor-pointer'
                         : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer'
                     }
-                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(200%)', backdropFilter: 'blur(28px) saturate(200%)' } : undefined}
+                    style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(190%)', backdropFilter: 'blur(24px) saturate(190%)' } : undefined}
                     title={data.theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
                   >
                     {data.theme === 'dark' ? <Sun size={isIOSDevice ? 20 : 17} className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]" /> : <Moon size={isIOSDevice ? 19 : 17} />}
@@ -5161,10 +5161,10 @@ const App: React.FC = () => {
                       onClick={() => pushView('VIEW_PROFILE')}
                       className={
                         isIOSDevice
-                          ? 'relative w-10.5 h-10.5 rounded-full p-[2.5px] bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.95),inset_0_-1px_2px_rgba(168,85,247,0.2)] dark:shadow-[0_6px_22px_rgba(0,0,0,0.5),inset_0_1.5px_2px_rgba(255,255,255,0.35),inset_0_-1px_2px_rgba(168,85,247,0.3)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
+                          ? 'relative w-10.5 h-10.5 rounded-full p-[2.5px] bg-white/18 dark:bg-slate-900/22 backdrop-blur-2xl border border-white/60 dark:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.85)] dark:shadow-[0_6px_20px_rgba(0,0,0,0.45),inset_0_1px_1.5px_rgba(255,255,255,0.3)] overflow-hidden flex items-center justify-center transition active:scale-90 cursor-pointer'
                           : 'w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-200/70 dark:border-slate-700'
                       }
-                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(28px) saturate(200%)', backdropFilter: 'blur(28px) saturate(200%)' } : undefined}
+                      style={isIOSDevice ? { WebkitBackdropFilter: 'blur(24px) saturate(190%)', backdropFilter: 'blur(24px) saturate(190%)' } : undefined}
                     >
                       {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover"/> : <UserIcon size={18} className="text-slate-600 dark:text-slate-300"/>}
                     </button>
@@ -5201,20 +5201,20 @@ const App: React.FC = () => {
 
               return (
                 <nav
-                  className="fixed z-[70] rounded-full bg-white/45 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/75 dark:border-white/20 shadow-[0_12px_40px_rgba(15,23,42,0.12),0_2px_8px_rgba(15,23,42,0.04),inset_0_1.5px_2px_rgba(255,255,255,0.95)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7),0_4px_12px_rgba(0,0,0,0.4),inset_0_1.5px_2px_rgba(255,255,255,0.35)] overflow-hidden"
+                  className="fixed z-[70] rounded-full bg-white/18 dark:bg-slate-900/22 backdrop-blur-2xl border border-white/60 dark:border-white/20 shadow-[0_12px_40px_rgba(15,23,42,0.10),0_2px_8px_rgba(15,23,42,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.85)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.65),0_4px_12px_rgba(0,0,0,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.3)] overflow-hidden"
                   style={{
                     left: 'calc(env(safe-area-inset-left, 0px) + 14px)',
                     right: 'calc(env(safe-area-inset-right, 0px) + 14px)',
                     bottom: 'max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.65))',
                     height: '66px',
-                    WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-                    backdropFilter: 'blur(28px) saturate(200%)',
+                    WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+                    backdropFilter: 'blur(24px) saturate(190%)',
                   }}
                 >
-                  {/* Top specular liquid reflection */}
+                  {/* Top specular liquid 1px line */}
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/35 dark:from-white/14 to-transparent"
+                    className="pointer-events-none absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/80 dark:via-white/35 to-transparent"
                   />
 
                   {/* Fluid Sliding Liquid Water Droplet ("Slide Air") */}
@@ -5227,11 +5227,11 @@ const App: React.FC = () => {
                         left: `${activeNavIndex * 20}%`,
                       }}
                     >
-                      <div className="relative w-[84%] max-w-[62px] h-[52px] rounded-[22px] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.85)_0%,rgba(255,255,255,0.30)_55%,rgba(147,197,253,0.38)_100%)] dark:bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.35)_0%,rgba(30,58,138,0.35)_55%,rgba(14,165,233,0.42)_100%)] border border-white/90 dark:border-white/35 shadow-[0_4px_16px_rgba(56,189,248,0.35),0_2px_6px_rgba(0,0,0,0.08),inset_0_2px_4px_rgba(255,255,255,0.98),inset_0_-2px_4px_rgba(168,85,247,0.35),inset_2px_0_4px_rgba(56,189,248,0.45),inset_-2px_0_4px_rgba(236,72,153,0.35)] dark:shadow-[0_6px_22px_rgba(56,189,248,0.45),0_0_14px_rgba(168,85,247,0.3),inset_0_2px_4px_rgba(255,255,255,0.85),inset_0_-2px_5px_rgba(168,85,247,0.45),inset_2px_0_5px_rgba(56,189,248,0.5),inset_-2px_0_5px_rgba(244,63,94,0.4)] backdrop-blur-md">
+                      <div className="relative w-[84%] max-w-[62px] h-[52px] rounded-[22px] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.25)_0%,rgba(255,255,255,0.06)_50%,rgba(56,189,248,0.14)_100%)] dark:bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.16)_0%,rgba(30,58,138,0.18)_50%,rgba(14,165,233,0.22)_100%)] border border-white/55 dark:border-white/20 shadow-[0_4px_16px_rgba(56,189,248,0.25),inset_0_1.5px_2px_rgba(255,255,255,0.8),inset_0_-1.5px_3px_rgba(168,85,247,0.25),inset_1.5px_0_3px_rgba(56,189,248,0.35),inset_-1.5px_0_3px_rgba(236,72,153,0.25)] dark:shadow-[0_4px_20px_rgba(56,189,248,0.35),inset_0_1.5px_2px_rgba(255,255,255,0.45),inset_0_-1.5px_3px_rgba(168,85,247,0.35),inset_1.5px_0_3px_rgba(56,189,248,0.4),inset_-1.5px_0_3px_rgba(244,63,94,0.3)] backdrop-blur-md">
                         {/* Top meniscus specular highlight */}
-                        <span className="pointer-events-none absolute inset-x-2 top-1 h-2 rounded-full bg-gradient-to-b from-white/95 dark:from-white/75 to-transparent" />
+                        <span className="pointer-events-none absolute inset-x-2.5 top-0.5 h-[1.5px] rounded-full bg-gradient-to-r from-transparent via-white/90 dark:via-white/60 to-transparent" />
                         {/* Prismatic chromatic water dispersion rim */}
-                        <span className="pointer-events-none absolute inset-x-2 bottom-1 h-2 rounded-full bg-gradient-to-t from-sky-400/35 dark:from-cyan-400/45 via-purple-400/25 to-transparent blur-[1px]" />
+                        <span className="pointer-events-none absolute inset-x-2.5 bottom-0.5 h-1.5 rounded-full bg-gradient-to-r from-sky-400/30 via-purple-400/25 to-pink-400/20 blur-[1px]" />
                       </div>
                     </div>
                   )}
@@ -5267,7 +5267,7 @@ const App: React.FC = () => {
 
                     {/* CENTER UNIVERSAL + BUTTON (Native Glass Halo Ring + Glossy Apple Action Button) */}
                     <div className="flex items-center justify-center">
-                      <div className="p-1 rounded-full bg-white/45 dark:bg-white/10 border border-white/75 dark:border-white/25 shadow-[0_2px_10px_rgba(0,0,0,0.06),inset_0_1.5px_2px_rgba(255,255,255,0.85)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4),inset_0_1.5px_2px_rgba(255,255,255,0.3)] backdrop-blur-md">
+                      <div className="p-1 rounded-full bg-white/20 dark:bg-white/10 border border-white/60 dark:border-white/20 shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_1.5px_rgba(255,255,255,0.8)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.25)] backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => setQuickAddOpen(prev => !prev)}
