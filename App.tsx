@@ -24,6 +24,7 @@ import {
   saveUserTheme
 } from "./services/firebase";
 import { User } from "firebase/auth";
+import { exportStatementToPdf } from "./utils/exportStatementPdf";
 import { 
   Home, 
   CreditCard, 
@@ -324,6 +325,7 @@ const App: React.FC = () => {
   const [activeStatementCard, setActiveStatementCard] = useState<CreditCardType | null>(null);
   const [statementMonth, setStatementMonth] = useState(new Date().getMonth());
   const [statementYear, setStatementYear] = useState(new Date().getFullYear());
+  const [pdfExportSuccess, setPdfExportSuccess] = useState(false);
 
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
   const [txAmount, setTxAmount] = useState('');
@@ -1093,7 +1095,7 @@ const App: React.FC = () => {
 
   const getStatementData = (cardId: string, month: number, year: number) => {
       const card = data.cards.find(c => c.id === cardId);
-      if (!card) return { transactions: [], installments: [], payments: [], savings: [], piutangs: [], totalBill: 0, totalPaid: 0, totalSaved: 0, totalValidated: 0, adminFee: 0, materai: 0 };
+      if (!card) return { transactions: [], installments: [], payments: [], savings: [], piutangs: [], totalBill: 0, totalPaid: 0, totalSavingsAmount: 0, totalPiutangsAmount: 0, totalSaved: 0, totalKurang: 0, totalUnpaid: 0, totalValidated: 0, adminFee: 0, materai: 0 };
       
       const cardTransactions = data.transactions.filter(t => {
           if (t.cardId !== cardId || t.isInstallment || t.type !== TransactionType.EXPENSE) return false;
@@ -5210,42 +5212,69 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Sleek Period Navigator */}
-              <div className="flex items-center justify-between sm:justify-end gap-1 bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs shrink-0">
-                <button
-                  type="button"
-                  onClick={handlePrevStatementMonth}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
-                  title="Bulan Sebelumnya"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <div className="flex items-center gap-1 px-1">
-                  <select
-                    value={statementMonth}
-                    onChange={(e) => setStatementMonth(parseInt(e.target.value))}
-                    className="text-xs font-extrabold bg-transparent text-slate-800 dark:text-slate-100 py-1 px-1.5 rounded-lg outline-none cursor-pointer"
+              {/* Sleek Period Navigator + Unduh PDF */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                <div className="flex items-center justify-between gap-1 bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex-1 sm:flex-initial">
+                  <button
+                    type="button"
+                    onClick={handlePrevStatementMonth}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
+                    title="Bulan Sebelumnya"
                   >
-                    {monthNames.map((m, i) => (
-                      <option key={i} value={i} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={statementYear}
-                    onChange={(e) => setStatementYear(parseInt(e.target.value))}
-                    className="w-16 text-xs font-extrabold bg-slate-100/80 dark:bg-slate-800 text-slate-800 dark:text-slate-100 py-1 px-2 rounded-lg text-center outline-none"
-                  />
+                    <ChevronLeft size={16} />
+                  </button>
+                  <div className="flex items-center gap-1 px-1">
+                    <select
+                      value={statementMonth}
+                      onChange={(e) => setStatementMonth(parseInt(e.target.value))}
+                      className="text-xs font-extrabold bg-transparent text-slate-800 dark:text-slate-100 py-1 px-1.5 rounded-lg outline-none cursor-pointer"
+                    >
+                      {monthNames.map((m, i) => (
+                        <option key={i} value={i} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={statementYear}
+                      onChange={(e) => setStatementYear(parseInt(e.target.value))}
+                      className="w-16 text-xs font-extrabold bg-slate-100/80 dark:bg-slate-800 text-slate-800 dark:text-slate-100 py-1 px-2 rounded-lg text-center outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNextStatementMonth}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
+                    title="Bulan Berikutnya"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
+
                 <button
                   type="button"
-                  onClick={handleNextStatementMonth}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition"
-                  title="Bulan Berikutnya"
+                  onClick={() => {
+                    exportStatementToPdf({
+                      card: activeStatementCard,
+                      monthIndex: statementMonth,
+                      monthName: monthNames[statementMonth],
+                      year: statementYear,
+                      statement: s,
+                      holderName: user?.displayName || user?.email || undefined
+                    });
+                    setPdfExportSuccess(true);
+                    setTimeout(() => setPdfExportSuccess(false), 2200);
+                  }}
+                  className={`h-10 px-3.5 rounded-2xl border font-extrabold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition shrink-0 cursor-pointer ${
+                    pdfExportSuccess
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white hover:opacity-90'
+                  }`}
+                  title="Unduh Rincian e-Statement PDF"
                 >
-                  <ChevronRight size={16} />
+                  {pdfExportSuccess ? <Check size={14} strokeWidth={3} /> : <Download size={14} strokeWidth={2.5} />}
+                  <span>{pdfExportSuccess ? 'Tersimpan' : 'Unduh PDF'}</span>
                 </button>
               </div>
             </div>
