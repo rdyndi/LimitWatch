@@ -331,6 +331,13 @@ const App: React.FC = () => {
   const [txCardId, setTxCardId] = useState('');
   const [txCategory, setTxCategory] = useState(TRANSACTION_CATEGORIES[0]);
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [lastInputTxDate, setLastInputTxDate] = useState<string>(() => {
+    try {
+      return localStorage.getItem('cc_last_input_tx_date') || '';
+    } catch {
+      return '';
+    }
+  });
   const [txIsInstallment, setTxIsInstallment] = useState(false);
   const [txInstallmentMonths, setTxInstallmentMonths] = useState(12);
   const [txUseSavings, setTxUseSavings] = useState(true);
@@ -845,6 +852,14 @@ const App: React.FC = () => {
       popView();
       setEditingPiutang(null);
     }
+  };
+
+  const getLastInputDate = () => {
+    if (lastInputTxDate) return lastInputTxDate;
+    if (data.transactions.length > 0 && data.transactions[0]?.date) {
+      return data.transactions[0].date.split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
   };
 
   const availableSavingsForPeriod = useMemo(() => {
@@ -1780,6 +1795,10 @@ const App: React.FC = () => {
     } else {
       const newTransaction: Transaction = { id: txIdToSave, cardId: txCardId, amount: finalAmount, date: new Date(txDate).toISOString(), description: finalDesc, type: txType, category: txType === TransactionType.EXPENSE ? txCategory : 'Pelunasan', isInstallment: txIsInstallment, targetPeriod: txType === TransactionType.PAYMENT ? { month: txTargetMonth, year: txTargetYear } : undefined, owner: finalOwner, splitAmounts: finalSplitAmounts };
       saveData({ ...data, transactions: [newTransaction, ...data.transactions], installments: updatedInstallments, savings: updatedSavings });
+      setLastInputTxDate(txDate);
+      try {
+        localStorage.setItem('cc_last_input_tx_date', txDate);
+      } catch {}
     }
     popView();
   };
@@ -5368,7 +5387,7 @@ const App: React.FC = () => {
                     setTxDesc('');
                     setTxType(TransactionType.EXPENSE);
                     setTxCardId(activeStatementCard.id);
-                    setTxDate(new Date(statementYear, statementMonth, 1).toISOString().split('T')[0]);
+                    setTxDate(getLastInputDate());
                     setTxIsInstallment(false);
                     pushView('FORM_TRANSACTION');
                   }}
@@ -5388,6 +5407,7 @@ const App: React.FC = () => {
                     setTxDesc(`Bayar Tagihan ${activeStatementCard.name}`);
                     setTxType(TransactionType.PAYMENT);
                     setTxCardId(activeStatementCard.id);
+                    setTxDate(getLastInputDate());
                     setTxTargetMonth(statementMonth);
                     setTxTargetYear(statementYear);
                     pushView('FORM_TRANSACTION');
