@@ -305,7 +305,7 @@ const App: React.FC = () => {
   const [historyMonthFilter, setHistoryMonthFilter] = useState<number>(new Date().getMonth());
   const [historyYearFilter, setHistoryYearFilter] = useState<number>(new Date().getFullYear());
   const [yearlySelectedYear, setYearlySelectedYear] = useState<number>(new Date().getFullYear());
-  const [yearlyMonthFilter, setYearlyMonthFilter] = useState<'ALL' | 'HAS_BILL' | 'UNPAID'>('ALL');
+  const [yearlyMonthFilter, setYearlyMonthFilter] = useState<'ALL' | 'HAS_BILL' | 'UNPAID'>('UNPAID');
   const [ownerBillsYear, setOwnerBillsYear] = useState<number>(new Date().getFullYear());
   const [ownerBillsFilter, setOwnerBillsFilter] = useState<'ALL' | 'HAS_BILL'>('ALL');
   const [savingsSelectedYear, setSavingsSelectedYear] = useState<number>(new Date().getFullYear());
@@ -2878,7 +2878,7 @@ const App: React.FC = () => {
                     className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition cursor-pointer"
                   >
                     <Plus size={16} strokeWidth={3} />
-                    + Simpan Dana Baru
+                    Nabung
                   </button>
 
                   <button
@@ -2897,7 +2897,7 @@ const App: React.FC = () => {
                     className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 active:scale-95 transition cursor-pointer"
                   >
                     <ArrowRightLeft size={15} />
-                    Transfer Antar Pos
+                    Transfer
                   </button>
                 </div>
               </div>
@@ -3911,17 +3911,46 @@ const App: React.FC = () => {
               </div>
 
               {/* Grid 3 Kolom Desktop / 2 Kolom Tablet / 1 Kolom Mobile */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {yearlyBudgetAnalysis.monthlyBreakdown
-                  .filter(m => {
-                    if (yearlyMonthFilter === 'HAS_BILL') return m.totalMonthBill > 0 || m.totalMonthPaid > 0;
-                    if (yearlyMonthFilter === 'UNPAID') return m.totalMonthKurang > 0 || m.totalMonthUnpaid > 0;
-                    return true;
-                  })
-                  .map((m) => {
-                    const isLunas = m.status === 'LUNAS';
-                    const isSebagian = m.status === 'SEBAGIAN';
-                    const isKurang = m.status === 'KURANG';
+              {(() => {
+                const filteredMonthlyBreakdown = yearlyBudgetAnalysis.monthlyBreakdown.filter(m => {
+                  if (yearlyMonthFilter === 'HAS_BILL') return m.totalMonthBill > 0 || m.totalMonthPaid > 0;
+                  if (yearlyMonthFilter === 'UNPAID') return m.totalMonthKurang > 0 || m.totalMonthUnpaid > 0;
+                  return true;
+                });
+
+                if (filteredMonthlyBreakdown.length === 0) {
+                  return (
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-3 shadow-sm">
+                      <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200/60 dark:border-emerald-800/50">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div>
+                        <p className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                          {yearlyMonthFilter === 'UNPAID'
+                            ? `Semua tagihan tahun ${yearlySelectedYear} sudah lunas!`
+                            : `Belum ada tagihan di tahun ${yearlySelectedYear}.`}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Tidak ada bulan yang cocok dengan filter saat ini.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setYearlyMonthFilter('ALL')}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition"
+                      >
+                        Tampilkan Semua 12 Bulan
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredMonthlyBreakdown.map((m) => {
+                      const isLunas = m.status === 'LUNAS';
+                      const isSebagian = m.status === 'SEBAGIAN';
+                      const isKurang = m.status === 'KURANG';
 
                     return (
                       <div 
@@ -4143,9 +4172,11 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-              </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
